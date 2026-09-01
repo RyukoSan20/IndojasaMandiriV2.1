@@ -1,561 +1,757 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fintrack/core/theme/app_theme.dart';
+import 'package:flutter/services.dart';
 import 'package:fintrack/core/constants/app_constants.dart';
-import 'package:fintrack/services/auth_service.dart';
-import 'package:fintrack/services/storage_service.dart';
+import 'package:fintrack/core/constants/storage_keys.dart';
+import 'package:fintrack/core/services/storage_service.dart';
+import 'package:fintrack/core/services/api_service.dart';
+import 'package:fintrack/core/utils/app_utils.dart';
+import 'package:fintrack/core/utils/validators.dart';
+import 'package:fintrack/models/user_model.dart';
+import 'package:fintrack/models/app_settings_model.dart';
+import 'package:fintrack/models/notification_model.dart';
 
-/// App-wide state class containing global application state
-class AppState {
-  final bool isInitialized;
-  final bool isAuthenticated;
-  final ThemeMode themeMode;
-  final String? userId;
-  final String? userEmail;
-  final bool isLoading;
-  final String? errorMessage;
-  final bool isOffline;
-  final String locale;
-
-  const AppState({
-    this.isInitialized = false,
-    this.isAuthenticated = false,
-    this.themeMode = ThemeMode.system,
-    this.userId,
-    this.userEmail,
-    this.isLoading = false,
-    this.errorMessage,
-    this.isOffline = false,
-    this.locale = 'en',
-  });
-
-  AppState copyWith({
-    bool? isInitialized,
-    bool? isAuthenticated,
-    ThemeMode? themeMode,
-    String? userId,
-    String? userEmail,
-    bool? isLoading,
-    String? errorMessage,
-    bool? isOffline,
-    String? locale,
-    bool clearError = false,
-    bool clearUser = false,
-  }) {
-    return AppState(
-      isInitialized: isInitialized ?? this.isInitialized,
-      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
-      themeMode: themeMode ?? this.themeMode,
-      userId: clearUser ? null : (userId ?? this.userId),
-      userEmail: clearUser ? null : (userEmail ?? this.userEmail),
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      isOffline: isOffline ?? this.isOffline,
-      locale: locale ?? this.locale,
-    );
-  }
-
-  bool get hasError => errorMessage != null;
-  bool get hasUser => userId != null && userEmail != null;
-
-  Map<String, dynamic> toJson() {
-    return {
-      'isInitialized': isInitialized,
-      'isAuthenticated': isAuthenticated,
-      'themeMode': themeMode.index,
-      'userId': userId,
-      'userEmail': userEmail,
-      'locale': locale,
-    };
-  }
-
-  factory AppState.fromJson(Map<String, dynamic> json) {
-    return AppState(
-      isInitialized: json['isInitialized'] as bool? ?? false,
-      isAuthenticated: json['isAuthenticated'] as bool? ?? false,
-      themeMode: ThemeMode.values[json['themeMode'] as int? ?? 0],
-      userId: json['userId'] as String?,
-      userEmail: json['userEmail'] as String?,
-      locale: json['locale'] as String? ?? 'en',
-    );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is AppState &&
-        other.isInitialized == isInitialized &&
-        other.isAuthenticated == isAuthenticated &&
-        other.themeMode == themeMode &&
-        other.userId == userId &&
-        other.userEmail == userEmail &&
-        other.isLoading == isLoading &&
-        other.errorMessage == errorMessage &&
-        other.isOffline == isOffline &&
-        other.locale == locale;
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      isInitialized,
-      isAuthenticated,
-      themeMode,
-      userId,
-      userEmail,
-      isLoading,
-      errorMessage,
-      isOffline,
-      locale,
-    );
-  }
+enum AppStatus {
+  initial,
+  loading,
+  ready,
+  error,
+  maintenance,
+  offline,
 }
 
-/// Notifier class for managing app-wide state
-class AppStateNotifier extends StateNotifier<AppState> {
-  final AuthService _authService;
+enum ThemePreference {
+  system,
+  light,
+  dark,
+}
+
+class AppProvider extends ChangeNotifier {
   final StorageService _storageService;
+  final ApiService _apiService;
 
-  AppStateNotifier({
-    required AuthService authService,
+  AppProvider({
     required StorageService storageService,
-  })  : _authService = authService,
-        _storageService = storageService,
-        super(const AppState());
+    required ApiService apiService,
+  })  : _storageService = storageService,
+        _apiService = apiService;
 
-  /// Initialize the application on startup
-  Future<void> initializeApp() async {
-    if (state.isInitialized) return;
+  AppStatus _status = AppStatus.initial;
+  UserModel? _currentUser;
+  ThemePreference _themePreference = ThemePreference.system;
+  ThemeMode _themeMode = ThemeMode.system;
+  Locale _locale = const Locale('en');
+  bool _isInitialized = false;
+  String? _errorMessage;
+  List<NotificationModel> _notifications = [];
+  int _unreadNotificationCount = 0;
+  bool _isOnline = true;
+  bool _biometricEnabled = false;
+  String? _sessionToken;
+  DateTime? _lastSyncTime;
+  AppSettingsModel? _appSettings;
 
-    state = state.copyWith(isLoading: true, clearError: true);
+  // Getters
+  AppStatus get status => _status;
+  UserModel? get currentUser => _currentUser;
+  ThemePreference get themePreference => _themePreference;
+  ThemeMode get themeMode => _themeMode;
+  Locale get locale => _locale;
+  bool get isInitialized => _isInitialized;
+  String? get errorMessage => _errorMessage;
+  List<NotificationModel> get notifications => _notifications;
+  int get unreadNotificationCount => _unreadNotificationCount;
+  bool get isOnline => _isOnline;
+  bool get biometricEnabled => _biometricEnabled;
+  String? get sessionToken => _sessionToken;
+  DateTime? get lastSyncTime => _lastSyncTime;
+  AppSettingsModel? get appSettings => _appSettings;
+
+  bool get isLoggedIn => _currentUser != null && _sessionToken != null;
+  bool get hasError => _errorMessage != null;
+  bool get isLoading => _status == AppStatus.loading;
+
+  // Computed properties
+  String get displayName => _currentUser?.displayName ?? 'Guest';
+  String get email => _currentUser?.email ?? '';
+  String get userId => _currentUser?.id ?? '';
+  String get userInitials => _getUserInitials();
+
+  String _getUserInitials() {
+    if (_currentUser == null) return 'G';
+    final name = _currentUser?.displayName ?? '';
+    if (name.isEmpty) return 'G';
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
+
+  // Initialization
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    _setStatus(AppStatus.loading);
+    _clearError();
 
     try {
-      // Load persisted settings
-      await _loadPersistedSettings();
+      await _loadStoredData();
+      await _loadUserPreferences();
+      await _validateSession();
+      await _loadNotifications();
+      await _checkAppVersion();
+      await _loadAppSettings();
 
-      // Check if user is already authenticated
-      final isAuthenticated = await _authService.isAuthenticated();
+      _setStatus(AppStatus.ready);
+      _isInitialized = true;
+    } catch (e, stackTrace) {
+      debugPrint('App initialization error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      _handleError('Failed to initialize app: ${AppUtils.formatError(e)}');
+      _setStatus(AppStatus.error);
+    }
 
-      if (isAuthenticated) {
-        final user = await _authService.getCurrentUser();
-        state = state.copyWith(
-          isInitialized: true,
-          isAuthenticated: true,
-          isLoading: false,
-          userId: user?.id,
-          userEmail: user?.email,
+    notifyListeners();
+  }
+
+  Future<void> _loadStoredData() async {
+    try {
+      final themeStr = await _storageService.getString(StorageKeys.themePreference);
+      if (themeStr != null) {
+        _themePreference = ThemePreference.values.firstWhere(
+          (e) => e.name == themeStr,
+          orElse: () => ThemePreference.system,
         );
+        _themeMode = _mapThemePreference(_themePreference);
+      }
+
+      final localeStr = await _storageService.getString(StorageKeys.locale);
+      if (localeStr != null) {
+        _locale = Locale(localeStr);
+      }
+
+      _sessionToken = await _storageService.getString(StorageKeys.sessionToken);
+      _biometricEnabled = await _storageService.getBool(StorageKeys.biometricEnabled) ?? false;
+
+      final lastSyncStr = await _storageService.getString(StorageKeys.lastSyncTime);
+      if (lastSyncStr != null) {
+        _lastSyncTime = DateTime.tryParse(lastSyncStr);
+      }
+    } catch (e) {
+      debugPrint('Error loading stored data: $e');
+    }
+  }
+
+  Future<void> _loadUserPreferences() async {
+    try {
+      if (_sessionToken != null) {
+        final userData = await _storageService.getJson(StorageKeys.currentUser);
+        if (userData != null) {
+          _currentUser = UserModel.fromJson(userData);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading user preferences: $e');
+    }
+  }
+
+  Future<void> _validateSession() async {
+    if (_sessionToken == null || _currentUser == null) return;
+
+    try {
+      final isValid = await _apiService.validateSession(_sessionToken!);
+      if (!isValid) {
+        await logout(clearSession: true);
+      }
+    } catch (e) {
+      debugPrint('Session validation error: $e');
+    }
+  }
+
+  Future<void> _loadNotifications() async {
+    if (_currentUser == null) return;
+
+    try {
+      final notificationData = await _storageService.getJsonList(StorageKeys.notifications);
+      if (notificationData != null) {
+        _notifications = notificationData
+            .map((json) => NotificationModel.fromJson(json))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _unreadNotificationCount = _notifications.where((n) => !n.isRead).length;
+      }
+    } catch (e) {
+      debugPrint('Error loading notifications: $e');
+    }
+  }
+
+  Future<void> _checkAppVersion() async {
+    try {
+      final currentVersion = await _storageService.getString(StorageKeys.appVersion);
+      if (currentVersion == null) {
+        await _storageService.setString(StorageKeys.appVersion, AppConstants.appVersion);
+      }
+    } catch (e) {
+      debugPrint('Error checking app version: $e');
+    }
+  }
+
+  Future<void> _loadAppSettings() async {
+    try {
+      final settingsData = await _storageService.getJson(StorageKeys.appSettings);
+      if (settingsData != null) {
+        _appSettings = AppSettingsModel.fromJson(settingsData);
       } else {
-        state = state.copyWith(
-          isInitialized: true,
-          isAuthenticated: false,
-          isLoading: false,
-          clearUser: true,
-        );
+        _appSettings = AppSettingsModel.defaultSettings();
       }
     } catch (e) {
-      state = state.copyWith(
-        isInitialized: true,
-        isLoading: false,
-        errorMessage: 'Failed to initialize app: ${e.toString()}',
-      );
+      debugPrint('Error loading app settings: $e');
+      _appSettings = AppSettingsModel.defaultSettings();
     }
   }
 
-  /// Load persisted settings from secure storage
-  Future<void> _loadPersistedSettings() async {
-    try {
-      final settings = await _storageService.getAppSettings();
-      if (settings != null) {
-        state = state.copyWith(
-          themeMode: ThemeMode.values[settings['themeMode'] as int? ?? 0],
-          locale: settings['locale'] as String? ?? 'en',
-        );
-      }
-    } catch (e) {
-      // Use default settings on error
-      debugPrint('Failed to load persisted settings: $e');
-    }
-  }
-
-  /// Save current settings to secure storage
-  Future<void> _persistSettings() async {
-    try {
-      await _storageService.saveAppSettings({
-        'themeMode': state.themeMode.index,
-        'locale': state.locale,
-      });
-    } catch (e) {
-      debugPrint('Failed to persist settings: $e');
-    }
-  }
-
-  /// Sign in user with email and password
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+  // Theme Management
+  Future<void> setThemePreference(ThemePreference preference) async {
+    _themePreference = preference;
+    _themeMode = _mapThemePreference(preference);
 
     try {
-      final user = await _authService.signIn(
-        email: email,
-        password: password,
-      );
-
-      if (user != null) {
-        state = state.copyWith(
-          isAuthenticated: true,
-          isLoading: false,
-          userId: user.id,
-          userEmail: user.email,
-        );
-        return true;
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Invalid email or password',
-        );
-        return false;
-      }
+      await _storageService.setString(StorageKeys.themePreference, preference.name);
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
+      debugPrint('Error saving theme preference: $e');
+    }
+
+    notifyListeners();
+  }
+
+  ThemeMode _mapThemePreference(ThemePreference preference) {
+    switch (preference) {
+      case ThemePreference.light:
+        return ThemeMode.light;
+      case ThemePreference.dark:
+        return ThemeMode.dark;
+      case ThemePreference.system:
+        return ThemeMode.system;
     }
   }
 
-  /// Sign up new user
-  Future<bool> signUp({
-    required String email,
-    required String password,
-    required String name,
-  }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      final user = await _authService.signUp(
-        email: email,
-        password: password,
-        name: name,
-      );
-
-      if (user != null) {
-        state = state.copyWith(
-          isAuthenticated: true,
-          isLoading: false,
-          userId: user.id,
-          userEmail: user.email,
-        );
-        return true;
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Failed to create account',
-        );
-        return false;
-      }
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
-    }
-  }
-
-  /// Sign in with Google
-  Future<bool> signInWithGoogle() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      final user = await _authService.signInWithGoogle();
-
-      if (user != null) {
-        state = state.copyWith(
-          isAuthenticated: true,
-          isLoading: false,
-          userId: user.id,
-          userEmail: user.email,
-        );
-        return true;
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Google sign in failed',
-        );
-        return false;
-      }
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
-    }
-  }
-
-  /// Sign in with Apple
-  Future<bool> signInWithApple() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      final user = await _authService.signInWithApple();
-
-      if (user != null) {
-        state = state.copyWith(
-          isAuthenticated: true,
-          isLoading: false,
-          userId: user.id,
-          userEmail: user.email,
-        );
-        return true;
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Apple sign in failed',
-        );
-        return false;
-      }
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
-    }
-  }
-
-  /// Sign out current user
-  Future<void> signOut() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      await _authService.signOut();
-      state = state.copyWith(
-        isAuthenticated: false,
-        isLoading: false,
-        clearUser: true,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to sign out: ${e.toString()}',
-      );
-    }
-  }
-
-  /// Send password reset email
-  Future<bool> sendPasswordReset(String email) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      await _authService.sendPasswordReset(email);
-      state = state.copyWith(isLoading: false);
-      return true;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
-    }
-  }
-
-  /// Update user profile
-  Future<bool> updateProfile({
-    String? name,
-    String? email,
-  }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      final updatedUser = await _authService.updateProfile(
-        name: name,
-        email: email,
-      );
-
-      if (updatedUser != null) {
-        state = state.copyWith(
-          isLoading: false,
-          userEmail: updatedUser.email,
-        );
-        return true;
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Failed to update profile',
-        );
-        return false;
-      }
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
-    }
-  }
-
-  /// Change password
-  Future<bool> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-
-    try {
-      await _authService.changePassword(
-        currentPassword: currentPassword,
-        newPassword: newPassword,
-      );
-      state = state.copyWith(isLoading: false);
-      return true;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: _mapAuthError(e.toString()),
-      );
-      return false;
-    }
-  }
-
-  /// Set theme mode
-  Future<void> setThemeMode(ThemeMode mode) async {
-    state = state.copyWith(themeMode: mode);
-    await _persistSettings();
-  }
-
-  /// Toggle between light and dark theme
   Future<void> toggleTheme() async {
-    final newMode = state.themeMode == ThemeMode.light
-        ? ThemeMode.dark
-        : ThemeMode.light;
-    await setThemeMode(newMode);
+    final nextPreference = switch (_themePreference) {
+      ThemePreference.system => ThemePreference.light,
+      ThemePreference.light => ThemePreference.dark,
+      ThemePreference.dark => ThemePreference.system,
+    };
+    await setThemePreference(nextPreference);
   }
 
-  /// Set locale
-  Future<void> setLocale(String locale) async {
-    if (AppConstants.supportedLocales.contains(locale)) {
-      state = state.copyWith(locale: locale);
-      await _persistSettings();
+  // Locale Management
+  Future<void> setLocale(Locale locale) async {
+    if (!AppConstants.supportedLocales.contains(locale)) {
+      debugPrint('Unsupported locale: ${locale.languageCode}');
+      return;
+    }
+
+    _locale = locale;
+
+    try {
+      await _storageService.setString(StorageKeys.locale, locale.languageCode);
+    } catch (e) {
+      debugPrint('Error saving locale: $e');
+    }
+
+    notifyListeners();
+  }
+
+  // Authentication
+  Future<bool> login({
+    required String email,
+    required String password,
+    bool rememberMe = false,
+  }) async {
+    _setStatus(AppStatus.loading);
+    _clearError();
+
+    try {
+      // Validate input
+      if (!Validators.isValidEmail(email)) {
+        throw Exception('Invalid email address');
+      }
+
+      if (!Validators.isValidPassword(password)) {
+        throw Exception('Password must be at least 8 characters');
+      }
+
+      // Make API call
+      final response = await _apiService.login(
+        email: email,
+        password: password,
+      );
+
+      if (response.success && response.data != null) {
+        final token = response.data['token'] as String;
+        final userData = response.data['user'] as Map<String, dynamic>;
+
+        _sessionToken = token;
+        _currentUser = UserModel.fromJson(userData);
+
+        // Store credentials
+        await _storageService.setString(StorageKeys.sessionToken, token);
+        await _storageService.setJson(StorageKeys.currentUser, userData);
+
+        if (rememberMe) {
+          await _storageService.setString(StorageKeys.rememberedEmail, email);
+        }
+
+        _setStatus(AppStatus.ready);
+        await _loadNotifications();
+        notifyListeners();
+        return true;
+      } else {
+        throw Exception(response.message ?? 'Login failed');
+      }
+    } catch (e) {
+      _handleError(AppUtils.formatError(e));
+      _setStatus(AppStatus.ready);
+      notifyListeners();
+      return false;
     }
   }
 
-  /// Clear error message
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String confirmPassword,
+    required String displayName,
+    String? phoneNumber,
+  }) async {
+    _setStatus(AppStatus.loading);
+    _clearError();
+
+    try {
+      // Validate input
+      if (!Validators.isValidEmail(email)) {
+        throw Exception('Invalid email address');
+      }
+
+      if (!Validators.isValidPassword(password)) {
+        throw Exception('Password must be at least 8 characters with uppercase, lowercase, and number');
+      }
+
+      if (password != confirmPassword) {
+        throw Exception('Passwords do not match');
+      }
+
+      if (!Validators.isValidDisplayName(displayName)) {
+        throw Exception('Display name must be 2-50 characters');
+      }
+
+      // Make API call
+      final response = await _apiService.register(
+        email: email,
+        password: password,
+        displayName: displayName,
+        phoneNumber: phoneNumber,
+      );
+
+      if (response.success && response.data != null) {
+        final token = response.data['token'] as String;
+        final userData = response.data['user'] as Map<String, dynamic>;
+
+        _sessionToken = token;
+        _currentUser = UserModel.fromJson(userData);
+
+        // Store credentials
+        await _storageService.setString(StorageKeys.sessionToken, token);
+        await _storageService.setJson(StorageKeys.currentUser, userData);
+
+        _setStatus(AppStatus.ready);
+        notifyListeners();
+        return true;
+      } else {
+        throw Exception(response.message ?? 'Registration failed');
+      }
+    } catch (e) {
+      _handleError(AppUtils.formatError(e));
+      _setStatus(AppStatus.ready);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> logout({bool clearSession = false}) async {
+    _setStatus(AppStatus.loading);
+
+    try {
+      if (_sessionToken != null && !clearSession) {
+        await _apiService.logout(_sessionToken!);
+      }
+
+      _currentUser = null;
+      _sessionToken = null;
+      _notifications = [];
+      _unreadNotificationCount = 0;
+      _lastSyncTime = null;
+
+      await _storageService.remove(StorageKeys.sessionToken);
+      await _storageService.remove(StorageKeys.currentUser);
+      await _storageService.remove(StorageKeys.notifications);
+
+      _setStatus(AppStatus.ready);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Logout error: $e');
+      _setStatus(AppStatus.ready);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> refreshSession() async {
+    if (_sessionToken == null) return false;
+
+    try {
+      final response = await _apiService.refreshToken(_sessionToken!);
+
+      if (response.success && response.data != null) {
+        final newToken = response.data['token'] as String;
+        _sessionToken = newToken;
+        await _storageService.setString(StorageKeys.sessionToken, newToken);
+        notifyListeners();
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('Session refresh error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> updateProfile({
+    String? displayName,
+    String? phoneNumber,
+    String? avatarUrl,
+  }) async {
+    if (_currentUser == null) return false;
+
+    _setStatus(AppStatus.loading);
+    _clearError();
+
+    try {
+      final response = await _apiService.updateProfile(
+        userId: _currentUser!.id,
+        token: _sessionToken!,
+        displayName: displayName,
+        phoneNumber: phoneNumber,
+        avatarUrl: avatarUrl,
+      );
+
+      if (response.success && response.data != null) {
+        _currentUser = UserModel.fromJson(response.data);
+        await _storageService.setJson(StorageKeys.currentUser, response.data);
+        _setStatus(AppStatus.ready);
+        notifyListeners();
+        return true;
+      } else {
+        throw Exception(response.message ?? 'Profile update failed');
+      }
+    } catch (e) {
+      _handleError(AppUtils.formatError(e));
+      _setStatus(AppStatus.ready);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Notifications
+  Future<void> markNotificationAsRead(String notificationId) async {
+    final index = _notifications.indexWhere((n) => n.id == notificationId);
+    if (index == -1) return;
+
+    final notification = _notifications[index];
+    if (notification.isRead) return;
+
+    _notifications[index] = notification.copyWith(isRead: true);
+    _unreadNotificationCount = _notifications.where((n) => !n.isRead).length;
+
+    await _saveNotifications();
+    notifyListeners();
+  }
+
+  Future<void> markAllNotificationsAsRead() async {
+    _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+    _unreadNotificationCount = 0;
+
+    await _saveNotifications();
+    notifyListeners();
+  }
+
+  Future<void> deleteNotification(String notificationId) async {
+    _notifications.removeWhere((n) => n.id == notificationId);
+    _unreadNotificationCount = _notifications.where((n) => !n.isRead).length;
+
+    await _saveNotifications();
+    notifyListeners();
+  }
+
+  Future<void> clearAllNotifications() async {
+    _notifications = [];
+    _unreadNotificationCount = 0;
+
+    await _saveNotifications();
+    notifyListeners();
+  }
+
+  Future<void> _saveNotifications() async {
+    try {
+      final notificationJson = _notifications.map((n) => n.toJson()).toList();
+      await _storageService.setJson(StorageKeys.notifications, notificationJson);
+    } catch (e) {
+      debugPrint('Error saving notifications: $e');
+    }
+  }
+
+  Future<void> refreshNotifications() async {
+    if (_currentUser == null) return;
+
+    try {
+      final response = await _apiService.getNotifications(
+        userId: _currentUser!.id,
+        token: _sessionToken!,
+      );
+
+      if (response.success && response.data != null) {
+        final notificationList = response.data['notifications'] as List;
+        _notifications = notificationList
+            .map((json) => NotificationModel.fromJson(json))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _unreadNotificationCount = _notifications.where((n) => !n.isRead).length;
+        await _saveNotifications();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error refreshing notifications: $e');
+    }
+  }
+
+  // Biometric Authentication
+  Future<void> setBiometricEnabled(bool enabled) async {
+    _biometricEnabled = enabled;
+
+    try {
+      await _storageService.setBool(StorageKeys.biometricEnabled, enabled);
+    } catch (e) {
+      debugPrint('Error saving biometric setting: $e');
+    }
+
+    notifyListeners();
+  }
+
+  // Online/Offline Status
+  void setOnlineStatus(bool isOnline) {
+    if (_isOnline == isOnline) return;
+
+    _isOnline = isOnline;
+    _setStatus(isOnline ? AppStatus.ready : AppStatus.offline);
+    notifyListeners();
+  }
+
+  // Sync Management
+  Future<void> syncData() async {
+    if (_currentUser == null || !_isOnline) return;
+
+    try {
+      await refreshNotifications();
+      await _updateLastSyncTime();
+    } catch (e) {
+      debugPrint('Sync error: $e');
+    }
+  }
+
+  Future<void> _updateLastSyncTime() async {
+    _lastSyncTime = DateTime.now();
+    await _storageService.setString(
+      StorageKeys.lastSyncTime,
+      _lastSyncTime!.toIso8601String(),
+    );
+    notifyListeners();
+  }
+
+  // App Settings
+  Future<void> updateAppSettings(AppSettingsModel settings) async {
+    _appSettings = settings;
+
+    try {
+      await _storageService.setJson(StorageKeys.appSettings, settings.toJson());
+    } catch (e) {
+      debugPrint('Error saving app settings: $e');
+    }
+
+    notifyListeners();
+  }
+
+  Future<void> resetAppSettings() async {
+    _appSettings = AppSettingsModel.defaultSettings();
+
+    try {
+      await _storageService.setJson(StorageKeys.appSettings, _appSettings!.toJson());
+    } catch (e) {
+      debugPrint('Error resetting app settings: $e');
+    }
+
+    notifyListeners();
+  }
+
+  // Data Management
+  Future<void> clearAllData() async {
+    try {
+      await _storageService.clearAll();
+      _currentUser = null;
+      _sessionToken = null;
+      _notifications = [];
+      _unreadNotificationCount = 0;
+      _lastSyncTime = null;
+      _themePreference = ThemePreference.system;
+      _themeMode = ThemeMode.system;
+      _locale = const Locale('en');
+      _biometricEnabled = false;
+      _appSettings = AppSettingsModel.defaultSettings();
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error clearing all data: $e');
+    }
+  }
+
+  Future<void> exportData() async {
+    if (_currentUser == null) return;
+
+    try {
+      final exportData = {
+        'user': _currentUser!.toJson(),
+        'notifications': _notifications.map((n) => n.toJson()).toList(),
+        'settings': _appSettings?.toJson(),
+        'exportedAt': DateTime.now().toIso8601String(),
+        'appVersion': AppConstants.appVersion,
+      };
+
+      await _storageService.setJson(StorageKeys.exportedData, exportData);
+    } catch (e) {
+      debugPrint('Error exporting data: $e');
+    }
+  }
+
+  // Error Handling
+  void _setStatus(AppStatus status) {
+    _status = status;
+  }
+
+  void _handleError(String message) {
+    _errorMessage = message;
+    _status = AppStatus.error;
+    debugPrint('App Error: $message');
+  }
+
+  void _clearError() {
+    _errorMessage = null;
+  }
+
   void clearError() {
-    state = state.copyWith(clearError: true);
-  }
-
-  /// Set offline mode
-  void setOfflineMode(bool isOffline) {
-    state = state.copyWith(isOffline: isOffline);
-  }
-
-  /// Map authentication error codes to user-friendly messages
-  String _mapAuthError(String error) {
-    final lowerError = error.toLowerCase();
-
-    if (lowerError.contains('invalid-email') ||
-        lowerError.contains('invalid email')) {
-      return 'Please enter a valid email address';
-    } else if (lowerError.contains('weak-password') ||
-        lowerError.contains('weak password')) {
-      return 'Password should be at least 8 characters';
-    } else if (lowerError.contains('email-already-in-use') ||
-        lowerError.contains('already in use')) {
-      return 'An account with this email already exists';
-    } else if (lowerError.contains('user-not-found') ||
-        lowerError.contains('no user record')) {
-      return 'No account found with this email';
-    } else if (lowerError.contains('wrong-password') ||
-        lowerError.contains('wrong password') ||
-        lowerError.contains('invalid-credential')) {
-      return 'Incorrect password. Please try again';
-    } else if (lowerError.contains('user-disabled')) {
-      return 'This account has been disabled';
-    } else if (lowerError.contains('too-many-requests')) {
-      return 'Too many attempts. Please try again later';
-    } else if (lowerError.contains('network')) {
-      return 'Network error. Please check your connection';
-    } else if (lowerError.contains('operation-not-allowed')) {
-      return 'This sign in method is not enabled';
-    } else if (lowerError.contains('cancelled') ||
-        lowerError.contains('abort')) {
-      return 'Sign in was cancelled';
+    _clearError();
+    if (_status == AppStatus.error) {
+      _status = AppStatus.ready;
     }
+    notifyListeners();
+  }
 
-    return 'An error occurred. Please try again';
+  // Utility Methods
+  bool get shouldShowOnboarding {
+    final hasCompletedOnboarding = _storageService.getBool(StorageKeys.onboardingCompleted);
+    return hasCompletedOnboarding != true;
+  }
+
+  Future<void> completeOnboarding() async {
+    await _storageService.setBool(StorageKeys.onboardingCompleted, true);
+    notifyListeners();
+  }
+
+  String get formattedLastSync {
+    if (_lastSyncTime == null) return 'Never';
+    return AppUtils.formatDateTime(_lastSyncTime!);
+  }
+
+  Duration get timeSinceLastSync {
+    if (_lastSyncTime == null) return Duration.zero;
+    return DateTime.now().difference(_lastSyncTime!);
+  }
+
+  bool get needsSync {
+    if (_lastSyncTime == null) return true;
+    return timeSinceLastSync.inMinutes > AppConstants.syncIntervalMinutes;
+  }
+
+  // Currency and Locale Helpers
+  String formatCurrency(double amount, {String? currencyCode}) {
+    return AppUtils.formatCurrency(amount, currencyCode: currencyCode ?? _appSettings?.defaultCurrency ?? 'USD');
+  }
+
+  String formatPercentage(double value, {int decimals = 2}) {
+    return AppUtils.formatPercentage(value, decimals: decimals);
+  }
+
+  String formatNumber(double value, {int decimals = 2}) {
+    return AppUtils.formatNumber(value, decimals: decimals);
+  }
+
+  String formatDate(DateTime date) {
+    return AppUtils.formatDate(date);
+  }
+
+  String formatDateTime(DateTime dateTime) {
+    return AppUtils.formatDateTime(dateTime);
+  }
+
+  // Validation Helpers
+  bool isValidEmail(String email) => Validators.isValidEmail(email);
+  bool isValidPassword(String password) => Validators.isValidPassword(password);
+  bool isValidDisplayName(String name) => Validators.isValidDisplayName(name);
+  bool isValidAmount(String amount) => Validators.isValidAmount(amount);
+  bool isValidAccountNumber(String accountNumber) => Validators.isValidAccountNumber(accountNumber);
+
+  // Clipboard Helpers
+  Future<void> copyToClipboard(String text, {String? label}) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    // Could show a snackbar here via a notification system
+    debugPrint('Copied to clipboard: $label');
+  }
+
+  Future<String?> pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    return data?.text;
+  }
+
+  @override
+  void dispose() {
+    _storageService.dispose();
+    _apiService.dispose();
+    super.dispose();
   }
 }
 
-/// Provider for the app state notifier
-final appStateProvider =
-    StateNotifierProvider<AppStateNotifier, AppState>((ref) {
-  return AppStateNotifier(
-    authService: ref.watch(authServiceProvider),
-    storageService: ref.watch(storageServiceProvider),
-  );
-});
-
-/// Provider for authentication state only
-final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(appStateProvider).isAuthenticated;
-});
-
-/// Provider for app initialization state
-final isAppInitializedProvider = Provider<bool>((ref) {
-  return ref.watch(appStateProvider).isInitialized;
-});
-
-/// Provider for current theme mode
-final themeModeProvider = Provider<ThemeMode>((ref) {
-  return ref.watch(appStateProvider).themeMode;
-});
-
-/// Provider for current locale
-final localeProvider = Provider<String>((ref) {
-  return ref.watch(appStateProvider).locale;
-});
-
-/// Provider for global loading state
-final isGlobalLoadingProvider = Provider<bool>((ref) {
-  return ref.watch(appStateProvider).isLoading;
-});
-
-/// Provider for current user ID
-final currentUserIdProvider = Provider<String?>((ref) {
-  return ref.watch(appStateProvider).userId;
-});
-
-/// Provider for current user email
-final currentUserEmailProvider = Provider<String?>((ref) {
-  return ref.watch(appStateProvider).userEmail;
-});
-
-/// Provider for offline mode state
-final isOfflineProvider = Provider<bool>((ref) {
-  return ref.watch(appStateProvider).isOffline;
-});
-
-/// Provider for error message
-final errorMessageProvider = Provider<String?>((ref) {
-  return ref.watch(appStateProvider).errorMessage;
-});
-
-/// Dependency providers for services
-final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService();
-});
-
-final storageServiceProvider = Provider<StorageService>((ref) {
-  return StorageService();
-});
-
-/// A future provider that waits for app initialization
-final appInitializationProvider = FutureProvider<void>((ref) async {
-  final notifier = ref.read(appStateProvider.notifier);
-  await notifier.initializeApp();
-});
+// App Provider Factory
+class AppProviderFactory {
+  static ChangeNotifierProvider<AppProvider> create({
+    required StorageService storageService,
+    required ApiService apiService,
+  }) {
+    return ChangeNotifierProvider<AppProvider>(
+      create: (_) => AppProvider(
+        storageService: storageService,
+        apiService: apiService,
+      ),
+    );
+  }
+}
