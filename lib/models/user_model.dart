@@ -1,484 +1,704 @@
-/// User model representing a FinTrack user account
+/// User model representing a FinTrack user account.
 /// 
-/// This model contains all user-related data including authentication,
-/// profile information, preferences, and account status for the
-/// personal finance and stock portfolio tracking application.
-class UserModel {
-  /// Unique identifier for the user
+/// This model contains all user-related information including
+/// authentication data, profile details, and application preferences.
+library;
+
+import 'dart:convert';
+import 'package:equatable/equatable.dart';
+
+/// Represents a FinTrack user account.
+///
+/// Contains all user-related data including authentication,
+/// profile information, and application settings.
+class UserModel extends Equatable {
+  /// Unique identifier for the user.
   final String id;
 
-  /// User's email address (used for authentication and notifications)
+  /// User's email address (used for authentication).
   final String email;
 
-  /// User's display name shown throughout the application
-  final String displayName;
-
-  /// URL to user's profile picture (nullable if not set)
-  final String? profilePictureUrl;
-
-  /// User's first name
+  /// User's first name.
   final String firstName;
 
-  /// User's last name
+  /// User's last name.
   final String lastName;
 
-  /// User's phone number (nullable, used for 2FA and notifications)
-  final String? phoneNumber;
-
-  /// Date of birth for age verification and financial planning
+  /// User's date of birth for age verification.
   final DateTime? dateOfBirth;
 
-  /// Two-factor authentication enabled status
-  final bool isTwoFactorEnabled;
+  /// URL to user's profile picture.
+  final String? profilePictureUrl;
 
-  /// User's preferred currency code (e.g., 'USD', 'EUR', 'GBP')
-  final String preferredCurrency;
+  /// User's phone number for contact and 2FA.
+  final String? phoneNumber;
 
-  /// User's locale for internationalization (e.g., 'en_US', 'es_ES')
-  final String locale;
-
-  /// User's timezone identifier (e.g., 'America/New_York')
-  final String timezone;
-
-  /// Account verification status
+  /// Whether the user's email has been verified.
   final bool isEmailVerified;
 
-  /// Account status (active, suspended, pending_verification, etc.)
-  final AccountStatus accountStatus;
+  /// Whether the user's phone number has been verified.
+  final bool isPhoneVerified;
 
-  /// User's current subscription tier
-  final SubscriptionTier subscriptionTier;
+  /// User's preferred currency code (e.g., 'USD', 'EUR', 'GBP').
+  final String preferredCurrency;
 
-  /// Date when the subscription expires
-  final DateTime? subscriptionExpiresAt;
+  /// User's preferred language code (e.g., 'en', 'es', 'fr').
+  final String preferredLanguage;
 
-  /// User preferences stored as a map for flexibility
-  final Map<String, dynamic> preferences;
+  /// User's timezone identifier (e.g., 'America/New_York').
+  final String timezone;
 
-  /// List of connected accounts (bank accounts, investment accounts)
-  final List<String> connectedAccountIds;
+  /// User's country code for regional settings.
+  final String? countryCode;
 
-  /// List of enabled notification types
-  final List<NotificationType> enabledNotifications;
+  /// User's address information as JSON string.
+  final Map<String, dynamic>? address;
 
-  /// User's risk tolerance level for investment recommendations
-  final RiskTolerance riskTolerance;
+  /// List of user account IDs that this user has access to.
+  final List<String> linkedAccountIds;
 
-  /// Emergency contact information
-  final EmergencyContact? emergencyContact;
+  /// User's monthly income for budgeting calculations.
+  final double? monthlyIncome;
 
-  /// User's security questions for account recovery
-  final List<SecurityQuestion> securityQuestions;
+  /// User's risk tolerance for investment recommendations.
+  final RiskTolerance? riskTolerance;
 
-  /// Last login timestamp
-  final DateTime lastLoginAt;
+  /// Whether the user has enabled biometric authentication.
+  final bool biometricEnabled;
 
-  /// Account creation timestamp
+  /// Whether push notifications are enabled.
+  final bool pushNotificationsEnabled;
+
+  /// Whether email notifications are enabled.
+  final bool emailNotificationsEnabled;
+
+  /// Whether SMS notifications are enabled.
+  final bool smsNotificationsEnabled;
+
+  /// User's investment experience level.
+  final ExperienceLevel? investmentExperience;
+
+  /// User's employment status.
+  final EmploymentStatus? employmentStatus;
+
+  /// Date when the user account was created.
   final DateTime createdAt;
 
-  /// Last update timestamp
+  /// Date when the user account was last updated.
   final DateTime updatedAt;
 
-  /// Constructor for UserModel
-  UserModel({
+  /// Date of the user's last login.
+  final DateTime? lastLoginAt;
+
+  /// User's current subscription tier.
+  final SubscriptionTier subscriptionTier;
+
+  /// Whether the user account is active.
+  final bool isActive;
+
+  /// Whether the user account is blocked.
+  final bool isBlocked;
+
+  /// User's theme preference ('light', 'dark', 'system').
+  final String themePreference;
+
+  /// Date format preference (e.g., 'MM/DD/YYYY', 'DD/MM/YYYY').
+  final String dateFormat;
+
+  /// Number format preference (e.g., '1,234.56', '1.234,56').
+  final String numberFormat;
+
+  /// Two-factor authentication method.
+  final TwoFactorMethod? twoFactorMethod;
+
+  /// User's total net worth (calculated field).
+  final double? netWorth;
+
+  /// User's savings goal progress percentage.
+  final double? savingsProgress;
+
+  /// Whether dark mode is enabled.
+  final bool darkModeEnabled;
+
+  /// User's display name (can be username or full name).
+  final String? displayName;
+
+  /// User's bio or description.
+  final String? bio;
+
+  /// Social media links as JSON string.
+  final Map<String, String>? socialLinks;
+
+  /// User's PIN code for quick authentication (hashed).
+  final String? pinCode;
+
+  /// Whether the user has completed onboarding.
+  final bool onboardingCompleted;
+
+  /// User's kyc (Know Your Customer) verification status.
+  final KycStatus kycStatus;
+
+  /// User's tax identification number (encrypted).
+  final String? taxId;
+
+  /// User's referrer ID if they were referred by another user.
+  final String? referrerId;
+
+  /// User's referral code to share with others.
+  final String? referralCode;
+
+  /// Constructor for creating a UserModel instance.
+  const UserModel({
     required this.id,
     required this.email,
-    required this.displayName,
-    this.profilePictureUrl,
     required this.firstName,
     required this.lastName,
-    this.phoneNumber,
     this.dateOfBirth,
-    this.isTwoFactorEnabled = false,
-    this.preferredCurrency = 'USD',
-    this.locale = 'en_US',
-    this.timezone = 'UTC',
+    this.profilePictureUrl,
+    this.phoneNumber,
     this.isEmailVerified = false,
-    this.accountStatus = AccountStatus.pendingVerification,
-    this.subscriptionTier = SubscriptionTier.free,
-    this.subscriptionExpiresAt,
-    Map<String, dynamic>? preferences,
-    List<String>? connectedAccountIds,
-    List<NotificationType>? enabledNotifications,
-    this.riskTolerance = RiskTolerance.moderate,
-    this.emergencyContact,
-    List<SecurityQuestion>? securityQuestions,
-    required this.lastLoginAt,
+    this.isPhoneVerified = false,
+    this.preferredCurrency = 'USD',
+    this.preferredLanguage = 'en',
+    this.timezone = 'UTC',
+    this.countryCode,
+    this.address,
+    this.linkedAccountIds = const [],
+    this.monthlyIncome,
+    this.riskTolerance,
+    this.biometricEnabled = false,
+    this.pushNotificationsEnabled = true,
+    this.emailNotificationsEnabled = true,
+    this.smsNotificationsEnabled = false,
+    this.investmentExperience,
+    this.employmentStatus,
     required this.createdAt,
     required this.updatedAt,
-  })  : preferences = preferences ?? {},
-        connectedAccountIds = connectedAccountIds ?? [],
-        enabledNotifications = enabledNotifications ?? [],
-        securityQuestions = securityQuestions ?? [];
+    this.lastLoginAt,
+    this.subscriptionTier = SubscriptionTier.free,
+    this.isActive = true,
+    this.isBlocked = false,
+    this.themePreference = 'system',
+    this.dateFormat = 'MM/DD/YYYY',
+    this.numberFormat = '1,234.56',
+    this.twoFactorMethod,
+    this.netWorth,
+    this.savingsProgress,
+    this.darkModeEnabled = false,
+    this.displayName,
+    this.bio,
+    this.socialLinks,
+    this.pinCode,
+    this.onboardingCompleted = false,
+    this.kycStatus = KycStatus.none,
+    this.taxId,
+    this.referrerId,
+    this.referralCode,
+  });
 
-  /// Creates a UserModel from a JSON map
+  /// Returns the user's full name.
+  String get fullName => '$firstName $lastName';
+
+  /// Returns the user's initials for avatar display.
+  String get initials {
+    final firstInitial = firstName.isNotEmpty ? firstName[0].toUpperCase() : '';
+    final lastInitial = lastName.isNotEmpty ? lastName[0].toUpperCase() : '';
+    return '$firstInitial$lastInitial';
+  }
+
+  /// Checks if the user has enabled two-factor authentication.
+  bool get hasTwoFactorEnabled => twoFactorMethod != null;
+
+  /// Checks if the user is a premium subscriber.
+  bool get isPremium =>
+      subscriptionTier == SubscriptionTier.premium ||
+      subscriptionTier == SubscriptionTier.enterprise;
+
+  /// Creates a UserModel from a JSON map.
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
       email: json['email'] as String,
-      displayName: json['display_name'] as String,
-      profilePictureUrl: json['profile_picture_url'] as String?,
-      firstName: json['first_name'] as String,
-      lastName: json['last_name'] as String,
-      phoneNumber: json['phone_number'] as String?,
+      firstName: json['first_name'] as String? ?? json['firstName'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? json['lastName'] as String? ?? '',
       dateOfBirth: json['date_of_birth'] != null
-          ? DateTime.parse(json['date_of_birth'] as String)
-          : null,
-      isTwoFactorEnabled: json['is_two_factor_enabled'] as bool? ?? false,
-      preferredCurrency: json['preferred_currency'] as String? ?? 'USD',
-      locale: json['locale'] as String? ?? 'en_US',
+          ? DateTime.tryParse(json['date_of_birth'] as String)
+          : json['dateOfBirth'] != null
+              ? DateTime.tryParse(json['dateOfBirth'] as String)
+              : null,
+      profilePictureUrl: json['profile_picture_url'] as String? ??
+          json['profilePictureUrl'] as String?,
+      phoneNumber: json['phone_number'] as String? ?? json['phoneNumber'] as String?,
+      isEmailVerified: json['is_email_verified'] as bool? ??
+          json['isEmailVerified'] as bool? ??
+          false,
+      isPhoneVerified: json['is_phone_verified'] as bool? ??
+          json['isPhoneVerified'] as bool? ??
+          false,
+      preferredCurrency: json['preferred_currency'] as String? ??
+          json['preferredCurrency'] as String? ??
+          'USD',
+      preferredLanguage: json['preferred_language'] as String? ??
+          json['preferredLanguage'] as String? ??
+          'en',
       timezone: json['timezone'] as String? ?? 'UTC',
-      isEmailVerified: json['is_email_verified'] as bool? ?? false,
-      accountStatus: AccountStatus.values.firstWhere(
-        (e) => e.name == json['account_status'],
-        orElse: () => AccountStatus.pendingVerification,
-      ),
-      subscriptionTier: SubscriptionTier.values.firstWhere(
-        (e) => e.name == json['subscription_tier'],
-        orElse: () => SubscriptionTier.free,
-      ),
-      subscriptionExpiresAt: json['subscription_expires_at'] != null
-          ? DateTime.parse(json['subscription_expires_at'] as String)
-          : null,
-      preferences: json['preferences'] as Map<String, dynamic>? ?? {},
-      connectedAccountIds:
-          (json['connected_account_ids'] as List<dynamic>?)?.cast<String>() ??
-              [],
-      enabledNotifications:
-          (json['enabled_notifications'] as List<dynamic>?)
-                  ?.map((e) => NotificationType.values.firstWhere(
-                        (n) => n.name == e,
-                        orElse: () => NotificationType.transactionAlerts,
-                      ))
-                  .toList() ??
-              [],
-      riskTolerance: RiskTolerance.values.firstWhere(
-        (e) => e.name == json['risk_tolerance'],
-        orElse: () => RiskTolerance.moderate,
-      ),
-      emergencyContact: json['emergency_contact'] != null
-          ? EmergencyContact.fromJson(
-              json['emergency_contact'] as Map<String, dynamic>)
-          : null,
-      securityQuestions:
-          (json['security_questions'] as List<dynamic>?)
-              ?.map((e) => SecurityQuestion.fromJson(e as Map<String, dynamic>))
+      countryCode: json['country_code'] as String? ?? json['countryCode'] as String?,
+      address: json['address'] as Map<String, dynamic>?,
+      linkedAccountIds: (json['linked_account_ids'] as List<dynamic>?)
+              ?.map((e) => e as String)
               .toList() ??
+          json['linkedAccountIds'] as List<String>? ??
           [],
-      lastLoginAt: json['last_login_at'] != null
-          ? DateTime.parse(json['last_login_at'] as String)
-          : DateTime.now(),
+      monthlyIncome: (json['monthly_income'] as num?)?.toDouble() ??
+          (json['monthlyIncome'] as num?)?.toDouble(),
+      riskTolerance: json['risk_tolerance'] != null
+          ? RiskTolerance.values.firstWhere(
+              (e) => e.name == json['risk_tolerance'],
+              orElse: () => RiskTolerance.moderate,
+            )
+          : json['riskTolerance'] != null
+              ? RiskTolerance.values.firstWhere(
+                  (e) => e.name == json['riskTolerance'],
+                  orElse: () => RiskTolerance.moderate,
+                )
+              : null,
+      biometricEnabled: json['biometric_enabled'] as bool? ??
+          json['biometricEnabled'] as bool? ??
+          false,
+      pushNotificationsEnabled:
+          json['push_notifications_enabled'] as bool? ??
+              json['pushNotificationsEnabled'] as bool? ??
+              true,
+      emailNotificationsEnabled:
+          json['email_notifications_enabled'] as bool? ??
+              json['emailNotificationsEnabled'] as bool? ??
+              true,
+      smsNotificationsEnabled:
+          json['sms_notifications_enabled'] as bool? ??
+              json['smsNotificationsEnabled'] as bool? ??
+              false,
+      investmentExperience: json['investment_experience'] != null
+          ? ExperienceLevel.values.firstWhere(
+              (e) => e.name == json['investment_experience'],
+              orElse: () => ExperienceLevel.beginner,
+            )
+          : json['investmentExperience'] != null
+              ? ExperienceLevel.values.firstWhere(
+                  (e) => e.name == json['investmentExperience'],
+                  orElse: () => ExperienceLevel.beginner,
+                )
+              : null,
+      employmentStatus: json['employment_status'] != null
+          ? EmploymentStatus.values.firstWhere(
+              (e) => e.name == json['employment_status'],
+              orElse: () => EmploymentStatus.employed,
+            )
+          : json['employmentStatus'] != null
+              ? EmploymentStatus.values.firstWhere(
+                  (e) => e.name == json['employmentStatus'],
+                  orElse: () => EmploymentStatus.employed,
+                )
+              : null,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
-          : DateTime.now(),
+          : json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'] as String)
+              : DateTime.now(),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
-          : DateTime.now(),
+          : json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'] as String)
+              : DateTime.now(),
+      lastLoginAt: json['last_login_at'] != null
+          ? DateTime.tryParse(json['last_login_at'] as String)
+          : json['lastLoginAt'] != null
+              ? DateTime.tryParse(json['lastLoginAt'] as String)
+              : null,
+      subscriptionTier: json['subscription_tier'] != null
+          ? SubscriptionTier.values.firstWhere(
+              (e) => e.name == json['subscription_tier'],
+              orElse: () => SubscriptionTier.free,
+            )
+          : json['subscriptionTier'] != null
+              ? SubscriptionTier.values.firstWhere(
+                  (e) => e.name == json['subscriptionTier'],
+                  orElse: () => SubscriptionTier.free,
+                )
+              : SubscriptionTier.free,
+      isActive: json['is_active'] as bool? ?? json['isActive'] as bool? ?? true,
+      isBlocked: json['is_blocked'] as bool? ?? json['isBlocked'] as bool? ?? false,
+      themePreference: json['theme_preference'] as String? ??
+          json['themePreference'] as String? ??
+          'system',
+      dateFormat: json['date_format'] as String? ??
+          json['dateFormat'] as String? ??
+          'MM/DD/YYYY',
+      numberFormat: json['number_format'] as String? ??
+          json['numberFormat'] as String? ??
+          '1,234.56',
+      twoFactorMethod: json['two_factor_method'] != null
+          ? TwoFactorMethod.values.firstWhere(
+              (e) => e.name == json['two_factor_method'],
+              orElse: () => TwoFactorMethod.none,
+            )
+          : json['twoFactorMethod'] != null
+              ? TwoFactorMethod.values.firstWhere(
+                  (e) => e.name == json['twoFactorMethod'],
+                  orElse: () => TwoFactorMethod.none,
+                )
+              : null,
+      netWorth: (json['net_worth'] as num?)?.toDouble() ??
+          (json['netWorth'] as num?)?.toDouble(),
+      savingsProgress: (json['savings_progress'] as num?)?.toDouble() ??
+          (json['savingsProgress'] as num?)?.toDouble(),
+      darkModeEnabled:
+          json['dark_mode_enabled'] as bool? ?? json['darkModeEnabled'] as bool? ?? false,
+      displayName: json['display_name'] as String? ?? json['displayName'] as String?,
+      bio: json['bio'] as String?,
+      socialLinks: json['social_links'] != null
+          ? Map<String, String>.from(json['social_links'] as Map)
+          : json['socialLinks'] != null
+              ? Map<String, String>.from(json['socialLinks'] as Map)
+              : null,
+      pinCode: json['pin_code'] as String? ?? json['pinCode'] as String?,
+      onboardingCompleted:
+          json['onboarding_completed'] as bool? ?? json['onboardingCompleted'] as bool? ?? false,
+      kycStatus: json['kyc_status'] != null
+          ? KycStatus.values.firstWhere(
+              (e) => e.name == json['kyc_status'],
+              orElse: () => KycStatus.none,
+            )
+          : json['kycStatus'] != null
+              ? KycStatus.values.firstWhere(
+                  (e) => e.name == json['kycStatus'],
+                  orElse: () => KycStatus.none,
+                )
+              : KycStatus.none,
+      taxId: json['tax_id'] as String? ?? json['taxId'] as String?,
+      referrerId: json['referrer_id'] as String? ?? json['referrerId'] as String?,
+      referralCode: json['referral_code'] as String? ?? json['referralCode'] as String?,
     );
   }
 
-  /// Converts the UserModel to a JSON map
+  /// Converts this UserModel to a JSON map.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'email': email,
-      'display_name': displayName,
-      'profile_picture_url': profilePictureUrl,
       'first_name': firstName,
       'last_name': lastName,
-      'phone_number': phoneNumber,
       'date_of_birth': dateOfBirth?.toIso8601String(),
-      'is_two_factor_enabled': isTwoFactorEnabled,
-      'preferred_currency': preferredCurrency,
-      'locale': locale,
-      'timezone': timezone,
+      'profile_picture_url': profilePictureUrl,
+      'phone_number': phoneNumber,
       'is_email_verified': isEmailVerified,
-      'account_status': accountStatus.name,
-      'subscription_tier': subscriptionTier.name,
-      'subscription_expires_at': subscriptionExpiresAt?.toIso8601String(),
-      'preferences': preferences,
-      'connected_account_ids': connectedAccountIds,
-      'enabled_notifications': enabledNotifications.map((e) => e.name).toList(),
-      'risk_tolerance': riskTolerance.name,
-      'emergency_contact': emergencyContact?.toJson(),
-      'security_questions': securityQuestions.map((e) => e.toJson()).toList(),
-      'last_login_at': lastLoginAt.toIso8601String(),
+      'is_phone_verified': isPhoneVerified,
+      'preferred_currency': preferredCurrency,
+      'preferred_language': preferredLanguage,
+      'timezone': timezone,
+      'country_code': countryCode,
+      'address': address,
+      'linked_account_ids': linkedAccountIds,
+      'monthly_income': monthlyIncome,
+      'risk_tolerance': riskTolerance?.name,
+      'biometric_enabled': biometricEnabled,
+      'push_notifications_enabled': pushNotificationsEnabled,
+      'email_notifications_enabled': emailNotificationsEnabled,
+      'sms_notifications_enabled': smsNotificationsEnabled,
+      'investment_experience': investmentExperience?.name,
+      'employment_status': employmentStatus?.name,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'last_login_at': lastLoginAt?.toIso8601String(),
+      'subscription_tier': subscriptionTier.name,
+      'is_active': isActive,
+      'is_blocked': isBlocked,
+      'theme_preference': themePreference,
+      'date_format': dateFormat,
+      'number_format': numberFormat,
+      'two_factor_method': twoFactorMethod?.name,
+      'net_worth': netWorth,
+      'savings_progress': savingsProgress,
+      'dark_mode_enabled': darkModeEnabled,
+      'display_name': displayName,
+      'bio': bio,
+      'social_links': socialLinks,
+      'pin_code': pinCode,
+      'onboarding_completed': onboardingCompleted,
+      'kyc_status': kycStatus.name,
+      'tax_id': taxId,
+      'referrer_id': referrerId,
+      'referral_code': referralCode,
     };
   }
 
-  /// Creates a copy of UserModel with updated fields
+  /// Converts this UserModel to a JSON string.
+  String toJsonString() => jsonEncode(toJson());
+
+  /// Creates a UserModel from a JSON string.
+  factory UserModel.fromJsonString(String jsonString) {
+    return UserModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+  }
+
+  /// Creates a copy of this UserModel with the given fields replaced.
   UserModel copyWith({
     String? id,
     String? email,
-    String? displayName,
-    String? profilePictureUrl,
     String? firstName,
     String? lastName,
-    String? phoneNumber,
     DateTime? dateOfBirth,
-    bool? isTwoFactorEnabled,
-    String? preferredCurrency,
-    String? locale,
-    String? timezone,
+    String? profilePictureUrl,
+    String? phoneNumber,
     bool? isEmailVerified,
-    AccountStatus? accountStatus,
-    SubscriptionTier? subscriptionTier,
-    DateTime? subscriptionExpiresAt,
-    Map<String, dynamic>? preferences,
-    List<String>? connectedAccountIds,
-    List<NotificationType>? enabledNotifications,
+    bool? isPhoneVerified,
+    String? preferredCurrency,
+    String? preferredLanguage,
+    String? timezone,
+    String? countryCode,
+    Map<String, dynamic>? address,
+    List<String>? linkedAccountIds,
+    double? monthlyIncome,
     RiskTolerance? riskTolerance,
-    EmergencyContact? emergencyContact,
-    List<SecurityQuestion>? securityQuestions,
-    DateTime? lastLoginAt,
+    bool? biometricEnabled,
+    bool? pushNotificationsEnabled,
+    bool? emailNotificationsEnabled,
+    bool? smsNotificationsEnabled,
+    ExperienceLevel? investmentExperience,
+    EmploymentStatus? employmentStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? lastLoginAt,
+    SubscriptionTier? subscriptionTier,
+    bool? isActive,
+    bool? isBlocked,
+    String? themePreference,
+    String? dateFormat,
+    String? numberFormat,
+    TwoFactorMethod? twoFactorMethod,
+    double? netWorth,
+    double? savingsProgress,
+    bool? darkModeEnabled,
+    String? displayName,
+    String? bio,
+    Map<String, String>? socialLinks,
+    String? pinCode,
+    bool? onboardingCompleted,
+    KycStatus? kycStatus,
+    String? taxId,
+    String? referrerId,
+    String? referralCode,
   }) {
     return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
-      displayName: displayName ?? this.displayName,
-      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      isTwoFactorEnabled: isTwoFactorEnabled ?? this.isTwoFactorEnabled,
-      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
-      locale: locale ?? this.locale,
-      timezone: timezone ?? this.timezone,
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       isEmailVerified: isEmailVerified ?? this.isEmailVerified,
-      accountStatus: accountStatus ?? this.accountStatus,
-      subscriptionTier: subscriptionTier ?? this.subscriptionTier,
-      subscriptionExpiresAt: subscriptionExpiresAt ?? this.subscriptionExpiresAt,
-      preferences: preferences ?? this.preferences,
-      connectedAccountIds: connectedAccountIds ?? this.connectedAccountIds,
-      enabledNotifications: enabledNotifications ?? this.enabledNotifications,
+      isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      timezone: timezone ?? this.timezone,
+      countryCode: countryCode ?? this.countryCode,
+      address: address ?? this.address,
+      linkedAccountIds: linkedAccountIds ?? this.linkedAccountIds,
+      monthlyIncome: monthlyIncome ?? this.monthlyIncome,
       riskTolerance: riskTolerance ?? this.riskTolerance,
-      emergencyContact: emergencyContact ?? this.emergencyContact,
-      securityQuestions: securityQuestions ?? this.securityQuestions,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      pushNotificationsEnabled:
+          pushNotificationsEnabled ?? this.pushNotificationsEnabled,
+      emailNotificationsEnabled:
+          emailNotificationsEnabled ?? this.emailNotificationsEnabled,
+      smsNotificationsEnabled:
+          smsNotificationsEnabled ?? this.smsNotificationsEnabled,
+      investmentExperience: investmentExperience ?? this.investmentExperience,
+      employmentStatus: employmentStatus ?? this.employmentStatus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      subscriptionTier: subscriptionTier ?? this.subscriptionTier,
+      isActive: isActive ?? this.isActive,
+      isBlocked: isBlocked ?? this.isBlocked,
+      themePreference: themePreference ?? this.themePreference,
+      dateFormat: dateFormat ?? this.dateFormat,
+      numberFormat: numberFormat ?? this.numberFormat,
+      twoFactorMethod: twoFactorMethod ?? this.twoFactorMethod,
+      netWorth: netWorth ?? this.netWorth,
+      savingsProgress: savingsProgress ?? this.savingsProgress,
+      darkModeEnabled: darkModeEnabled ?? this.darkModeEnabled,
+      displayName: displayName ?? this.displayName,
+      bio: bio ?? this.bio,
+      socialLinks: socialLinks ?? this.socialLinks,
+      pinCode: pinCode ?? this.pinCode,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      kycStatus: kycStatus ?? this.kycStatus,
+      taxId: taxId ?? this.taxId,
+      referrerId: referrerId ?? this.referrerId,
+      referralCode: referralCode ?? this.referralCode,
     );
   }
 
-  /// Returns the user's full name
-  String get fullName => '$firstName $lastName';
-
-  /// Returns true if the user has an active subscription
-  bool get hasActiveSubscription {
-    if (subscriptionTier == SubscriptionTier.free) return false;
-    if (subscriptionExpiresAt == null) return false;
-    return subscriptionExpiresAt!.isAfter(DateTime.now());
-  }
-
-  /// Returns true if the user's account is active
-  bool get isAccountActive => accountStatus == AccountStatus.active;
-
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is UserModel && other.id == id;
-  }
-
-  @override
-  int get hashCode => id.hashCode;
+  List<Object?> get props => [
+        id,
+        email,
+        firstName,
+        lastName,
+        dateOfBirth,
+        profilePictureUrl,
+        phoneNumber,
+        isEmailVerified,
+        isPhoneVerified,
+        preferredCurrency,
+        preferredLanguage,
+        timezone,
+        countryCode,
+        address,
+        linkedAccountIds,
+        monthlyIncome,
+        riskTolerance,
+        biometricEnabled,
+        pushNotificationsEnabled,
+        emailNotificationsEnabled,
+        smsNotificationsEnabled,
+        investmentExperience,
+        employmentStatus,
+        createdAt,
+        updatedAt,
+        lastLoginAt,
+        subscriptionTier,
+        isActive,
+        isBlocked,
+        themePreference,
+        dateFormat,
+        numberFormat,
+        twoFactorMethod,
+        netWorth,
+        savingsProgress,
+        darkModeEnabled,
+        displayName,
+        bio,
+        socialLinks,
+        pinCode,
+        onboardingCompleted,
+        kycStatus,
+        taxId,
+        referrerId,
+        referralCode,
+      ];
 
   @override
   String toString() {
-    return 'UserModel(id: $id, email: $email, displayName: $displayName, '
-        'accountStatus: $accountStatus, subscriptionTier: $subscriptionTier)';
+    return 'UserModel(id: $id, email: $email, firstName: $firstName, lastName: $lastName, '
+        'subscriptionTier: $subscriptionTier, isEmailVerified: $isEmailVerified)';
   }
 }
 
-/// Enum representing possible account statuses
-enum AccountStatus {
-  /// Account is active and fully functional
-  active,
-
-  /// Account is pending email verification
-  pendingVerification,
-
-  /// Account is temporarily suspended
-  suspended,
-
-  /// Account has been permanently deactivated
-  deactivated,
-
-  /// Account is locked due to security concerns
-  locked,
-
-  /// Account is in the process of being deleted
-  pendingDeletion,
-}
-
-/// Enum representing subscription tiers
-enum SubscriptionTier {
-  /// Free tier with basic features
-  free,
-
-  /// Premium tier with advanced features
-  premium,
-
-  /// Professional tier for power users
-  professional,
-
-  /// Enterprise tier for business accounts
-  enterprise,
-}
-
-/// Enum representing notification types
-enum NotificationType {
-  /// Alert for new transactions
-  transactionAlerts,
-
-  /// Reminder for upcoming bill payments
-  billReminders,
-
-  /// Notification for savings goal milestones
-  savingsGoalMilestones,
-
-  /// Alert for unusual spending patterns
-  spendingAlerts,
-
-  /// Notification for portfolio performance updates
-  portfolioUpdates,
-
-  /// Reminder for investment opportunities
-  investmentRecommendations,
-
-  /// Security-related notifications
-  securityAlerts,
-
-  /// Marketing and promotional emails
-  marketingEmails,
-
-  /// Weekly and monthly financial summaries
-  financialSummaries,
-}
-
-/// Enum representing risk tolerance levels for investment recommendations
+/// Risk tolerance levels for investment recommendations.
 enum RiskTolerance {
-  /// Conservative investor - prefers stability over high returns
+  /// Conservative investor - prefers low risk, stable returns.
   conservative,
 
-  /// Moderate investor - balanced approach
+  /// Moderate investor - balanced risk and reward.
   moderate,
 
-  /// Aggressive investor - willing to take risks for higher returns
+  /// Aggressive investor - prefers high risk, high reward.
   aggressive,
 
-  /// Very aggressive investor - maximum risk tolerance
+  /// Very aggressive investor - maximum risk tolerance.
   veryAggressive,
 }
 
-/// Model for emergency contact information
-class EmergencyContact {
-  /// Contact's full name
-  final String name;
+/// User's investment experience level.
+enum ExperienceLevel {
+  /// No investment experience.
+  beginner,
 
-  /// Contact's relationship to the user
-  final String relationship;
+  /// Some investment experience.
+  intermediate,
 
-  /// Contact's phone number
-  final String phoneNumber;
+  /// Experienced investor.
+  advanced,
 
-  /// Contact's email address (optional)
-  final String? email;
-
-  /// Constructor for EmergencyContact
-  EmergencyContact({
-    required this.name,
-    required this.relationship,
-    required this.phoneNumber,
-    this.email,
-  });
-
-  /// Creates an EmergencyContact from a JSON map
-  factory EmergencyContact.fromJson(Map<String, dynamic> json) {
-    return EmergencyContact(
-      name: json['name'] as String,
-      relationship: json['relationship'] as String,
-      phoneNumber: json['phone_number'] as String,
-      email: json['email'] as String?,
-    );
-  }
-
-  /// Converts the EmergencyContact to a JSON map
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'relationship': relationship,
-      'phone_number': phoneNumber,
-      'email': email,
-    };
-  }
-
-  /// Creates a copy of EmergencyContact with updated fields
-  EmergencyContact copyWith({
-    String? name,
-    String? relationship,
-    String? phoneNumber,
-    String? email,
-  }) {
-    return EmergencyContact(
-      name: name ?? this.name,
-      relationship: relationship ?? this.relationship,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      email: email ?? this.email,
-    );
-  }
+  /// Professional investor.
+  expert,
 }
 
-/// Model for security questions
-class SecurityQuestion {
-  /// Unique identifier for the question
-  final String id;
+/// User's employment status.
+enum EmploymentStatus {
+  /// Currently employed full-time.
+  employed,
 
-  /// The question text
-  final String question;
+  /// Currently employed part-time.
+  partTime,
 
-  /// The user's answer (stored hashed)
-  final String hashedAnswer;
+  /// Self-employed.
+  selfEmployed,
 
-  /// Constructor for SecurityQuestion
-  SecurityQuestion({
-    required this.id,
-    required this.question,
-    required this.hashedAnswer,
-  });
+  /// Currently unemployed.
+  unemployed,
 
-  /// Creates a SecurityQuestion from a JSON map
-  factory SecurityQuestion.fromJson(Map<String, dynamic> json) {
-    return SecurityQuestion(
-      id: json['id'] as String,
-      question: json['question'] as String,
-      hashedAnswer: json['hashed_answer'] as String,
-    );
-  }
+  /// Retired.
+  retired,
 
-  /// Converts the SecurityQuestion to a JSON map
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'question': question,
-      'hashed_answer': hashedAnswer,
-    };
-  }
+  /// Student.
+  student,
 
-  /// Creates a copy of SecurityQuestion with updated fields
-  SecurityQuestion copyWith({
-    String? id,
-    String? question,
-    String? hashedAnswer,
-  }) {
-    return SecurityQuestion(
-      id: id ?? this.id,
-      question: question ?? this.question,
-      hashedAnswer: hashedAnswer ?? this.hashedAnswer,
-    );
-  }
+  /// Other employment status.
+  other,
+}
+
+/// User's subscription tier levels.
+enum SubscriptionTier {
+  /// Free tier with basic features.
+  free,
+
+  /// Basic paid subscription.
+  basic,
+
+  /// Premium subscription with advanced features.
+  premium,
+
+  /// Enterprise subscription for businesses.
+  enterprise,
+}
+
+/// Two-factor authentication methods.
+enum TwoFactorMethod {
+  /// No two-factor authentication enabled.
+  none,
+
+  /// Two-factor via SMS text message.
+  sms,
+
+  /// Two-factor via email.
+  email,
+
+  /// Two-factor via authenticator app (TOTP).
+  authenticatorApp,
+
+  /// Two-factor via hardware security key.
+  hardwareKey,
+}
+
+/// KYC (Know Your Customer) verification status.
+enum KycStatus {
+  /// No KYC verification started.
+  none,
+
+  /// KYC verification pending review.
+  pending,
+
+  /// KYC verification in progress.
+  inProgress,
+
+  /// KYC verification completed and approved.
+  verified,
+
+  /// KYC verification failed.
+  failed,
+
+  /// KYC verification expired and needs renewal.
+  expired,
 }

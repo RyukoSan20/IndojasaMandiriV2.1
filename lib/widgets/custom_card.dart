@@ -1,694 +1,816 @@
 import 'package:flutter/material.dart';
 
-/// A customizable card widget for the FinTrack application.
-/// 
-/// This widget provides a flexible card design that can be used for various
-/// purposes including transaction items, account summaries, stock cards,
-/// and savings goal displays.
-/// 
-/// Example usage:
-/// dart
-/// CustomCard(
-///   title: 'Checking Account',
-///   subtitle: '\$5,234.56',
-///   icon: Icons.account_balance_wallet,
-///   onTap: () => print('Card tapped'),
-///   type: CardType.elevated,
-/// )
-/// 
-enum CardType {
-  /// Elevated card with shadow
-  elevated,
-  
-  /// Outlined card with border
-  outlined,
-  
-  /// Filled card with background color
-  filled,
-  
-  /// Compact card for list items
-  compact,
-}
-
-enum CardVariant {
-  /// Default card variant
-  defaultVariant,
-  
-  /// Success variant with green accent
-  success,
-  
-  /// Warning variant with orange accent
-  warning,
-  
-  /// Error variant with red accent
-  error,
-  
-  /// Info variant with blue accent
-  info,
-}
-
-/// Custom card widget for FinTrack application
+/// A customizable card widget for FinTrack application.
+///
+/// Provides various card styles, states, and customization options
+/// suitable for displaying financial data like accounts, transactions,
+/// stock quotes, and savings goals.
 class CustomCard extends StatelessWidget {
-  /// Creates a custom card widget
-  const CustomCard({
-    super.key,
-    this.title,
-    this.subtitle,
-    this.leading,
-    this.trailing,
-    this.icon,
-    this.iconColor,
-    this.type = CardType.elevated,
-    this.variant = CardVariant.defaultVariant,
-    this.onTap,
-    this.padding,
-    this.margin,
-    this.borderRadius,
-    this.backgroundColor,
-    this.elevation,
-    this.child,
-    this.showDivider = false,
-    this.dividerColor,
-    this.dividerThickness,
-    this.gradient,
-  });
+  /// The child widget to display inside the card.
+  final Widget child;
 
-  /// The main title text displayed on the card
-  final String? title;
+  /// Optional header widget displayed at the top of the card.
+  final Widget? header;
 
-  /// The subtitle text displayed below the title
-  final String? subtitle;
+  /// Optional footer widget displayed at the bottom of the card.
+  final Widget? footer;
 
-  /// A widget displayed before the title/subtitle
-  final Widget? leading;
+  /// The card style variant.
+  final CustomCardStyle style;
 
-  /// A widget displayed at the end of the card
-  final Widget? trailing;
-
-  /// An icon to display on the card
-  final IconData? icon;
-
-  /// The color of the icon
-  final Color? iconColor;
-
-  /// The type of card styling to apply
-  final CardType type;
-
-  /// The color variant of the card
-  final CardVariant variant;
-
-  /// Callback when the card is tapped
-  final VoidCallback? onTap;
-
-  /// Internal padding of the card content
-  final EdgeInsetsGeometry? padding;
-
-  /// External margin around the card
-  final EdgeInsetsGeometry? margin;
-
-  /// Custom border radius
-  final double? borderRadius;
-
-  /// Custom background color
+  /// Background color of the card.
   final Color? backgroundColor;
 
-  /// Custom elevation for elevated cards
-  final double? elevation;
+  /// Border color of the card (used in outlined style).
+  final Color? borderColor;
 
-  /// Custom child widget to display instead of title/subtitle
-  final Widget? child;
+  /// Border radius of the card.
+  final double borderRadius;
 
-  /// Whether to show a divider between header and content
-  final bool showDivider;
+  /// Elevation of the card (used in elevated style).
+  final double elevation;
 
-  /// Color of the divider
-  final Color? dividerColor;
+  /// Horizontal padding inside the card.
+  final double horizontalPadding;
 
-  /// Thickness of the divider
-  final double? dividerThickness;
+  /// Vertical padding inside the card.
+  final double verticalPadding;
 
-  /// Gradient to apply to the card background
-  final Gradient? gradient;
+  /// Margin around the card.
+  final EdgeInsetsGeometry? margin;
 
-  /// Returns the appropriate border radius based on card type
-  double get _borderRadiusValue {
-    if (borderRadius != null) return borderRadius!;
-    switch (type) {
-      case CardType.compact:
-        return 8.0;
-      case CardType.elevated:
-      case CardType.outlined:
-      case CardType.filled:
-        return 16.0;
-    }
-  }
+  /// Whether the card is in a loading state.
+  final bool isLoading;
 
-  /// Returns the appropriate padding based on card type
-  EdgeInsetsGeometry get _paddingValue {
-    if (padding != null) return padding!;
-    switch (type) {
-      case CardType.compact:
-        return const EdgeInsets.symmetric(horizontal: 12, vertical: 8);
-      case CardType.elevated:
-      case CardType.outlined:
-      case CardType.filled:
-        return const EdgeInsets.all(16);
-    }
-  }
+  /// Whether the card displays an error state.
+  final bool hasError;
 
-  /// Returns the appropriate elevation based on card type
-  double get _elevationValue {
-    if (elevation != null) return elevation!;
-    switch (type) {
-      case CardType.elevated:
-        return 2.0;
-      case CardType.outlined:
-        return 0.0;
-      case CardType.filled:
-        return 0.0;
-      case CardType.compact:
-        return 1.0;
-    }
-  }
+  /// Error message to display when hasError is true.
+  final String? errorMessage;
 
-  /// Returns the variant color based on card variant
-  Color _getVariantColor(BuildContext context) {
-    switch (variant) {
-      case CardVariant.success:
-        return const Color(0xFF4CAF50);
-      case CardVariant.warning:
-        return const Color(0xFFFF9800);
-      case CardVariant.error:
-        return const Color(0xFFF44336);
-      case CardVariant.info:
-        return const Color(0xFF2196F3);
-      case CardVariant.defaultVariant:
-        return Colors.transparent;
-    }
-  }
+  /// Whether the card is interactive (shows touch feedback).
+  final bool isInteractive;
 
-  /// Returns the appropriate background color
-  Color? _getBackgroundColor(BuildContext context) {
-    if (backgroundColor != null) return backgroundColor;
-    if (gradient != null) return null;
-    switch (type) {
-      case CardType.elevated:
-        return Theme.of(context).cardColor;
-      case CardType.outlined:
-        return Theme.of(context).cardColor;
-      case CardType.filled:
-        return Theme.of(context).cardColor.withOpacity(0.9);
-      case CardType.compact:
-        return Theme.of(context).cardColor.withOpacity(0.7);
-    }
-  }
+  /// Callback when the card is tapped.
+  final VoidCallback? onTap;
 
-  /// Builds the card decoration based on type and variant
-  BoxDecoration _buildDecoration(BuildContext context) {
-    final variantColor = _getVariantColor(context);
-    final bgColor = _getBackgroundColor(context);
-    
-    return BoxDecoration(
-      color: bgColor,
-      gradient: gradient,
-      borderRadius: BorderRadius.circular(_borderRadiusValue),
-      border: type == CardType.outlined
-          ? Border.all(
-              color: variant != CardVariant.defaultVariant
-                  ? variantColor.withOpacity(0.5)
-                  : Theme.of(context).dividerColor,
-              width: 1,
-            )
-          : null,
-      boxShadow: type == CardType.elevated
-          ? [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ]
-          : null,
+  /// Callback when the card is long-pressed.
+  final VoidCallback? onLongPress;
+
+  /// Duration of the tap animation.
+  final Duration tapAnimationDuration;
+
+  /// Icon to display in the top-left corner.
+  final IconData? leadingIcon;
+
+  /// Color of the leading icon.
+  final Color? leadingIconColor;
+
+  /// Size of the leading icon.
+  final double leadingIconSize;
+
+  /// Whether to show a divider between header and body.
+  final bool showHeaderDivider;
+
+  /// Whether to show a divider between body and footer.
+  final bool showFooterDivider;
+
+  /// Custom decoration for the card.
+  final BoxDecoration? customDecoration;
+
+  /// Creates a CustomCard widget.
+  const CustomCard({
+    super.key,
+    required this.child,
+    this.header,
+    this.footer,
+    this.style = CustomCardStyle.elevated,
+    this.backgroundColor,
+    this.borderColor,
+    this.borderRadius = 16.0,
+    this.elevation = 2.0,
+    this.horizontalPadding = 16.0,
+    this.verticalPadding = 16.0,
+    this.margin,
+    this.isLoading = false,
+    this.hasError = false,
+    this.errorMessage,
+    this.isInteractive = false,
+    this.onTap,
+    this.onLongPress,
+    this.tapAnimationDuration = const Duration(milliseconds: 150),
+    this.leadingIcon,
+    this.leadingIconColor,
+    this.leadingIconSize = 24.0,
+    this.showHeaderDivider = false,
+    this.showFooterDivider = false,
+    this.customDecoration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    return AnimatedContainer(
+      duration: tapAnimationDuration,
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isInteractive ? onTap : null,
+          onLongPress: isInteractive ? onLongPress : null,
+          borderRadius: BorderRadius.circular(borderRadius),
+          splashColor: theme.colorScheme.primary.withOpacity(0.1),
+          highlightColor: theme.colorScheme.primary.withOpacity(0.05),
+          child: Ink(
+            decoration: _buildDecoration(context, isDarkMode),
+            child: _buildCardContent(context),
+          ),
+        ),
+      ),
     );
   }
 
-  /// Builds the leading widget
-  Widget? _buildLeading(BuildContext context) {
-    if (leading != null) return leading;
-    if (icon != null) {
-      return Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          icon,
-          color: iconColor ?? Theme.of(context).primaryColor,
-          size: 24,
-        ),
-      );
+  BoxDecoration _buildDecoration(BuildContext context, bool isDarkMode) {
+    if (customDecoration != null) {
+      return customDecoration!;
     }
-    return null;
+
+    final bgColor = backgroundColor ??
+        (isDarkMode ? const Color(0xFF1E1E1E) : Colors.white);
+
+    switch (style) {
+      case CustomCardStyle.elevated:
+        return BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.3 : 0.1),
+              blurRadius: elevation * 2,
+              offset: Offset(0, elevation),
+            ),
+          ],
+        );
+
+      case CustomCardStyle.outlined:
+        return BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(
+            color: borderColor ?? theme.dividerColor,
+            width: 1.0,
+          ),
+        );
+
+      case CustomCardStyle.filled:
+        return BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(borderRadius),
+        );
+
+      case CustomCardStyle.glass:
+        return BoxDecoration(
+          color: bgColor.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(
+            color: borderColor ?? Colors.white.withOpacity(0.2),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        );
+    }
   }
 
-  /// Builds the trailing widget
-  Widget? _buildTrailing(BuildContext context) {
-    if (trailing != null) return trailing;
-    
-    // If there's a variant accent, show a small indicator
-    if (variant != CardVariant.defaultVariant) {
-      return Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: _getVariantColor(context),
-          shape: BoxShape.circle,
-        ),
-      );
+  Widget _buildCardContent(BuildContext context) {
+    if (hasError) {
+      return _buildErrorContent(context);
     }
-    
-    return null;
+
+    if (isLoading) {
+      return _buildLoadingContent(context);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: _buildCardChildren(context),
+    );
   }
 
-  /// Builds the default card content
-  Widget _buildContent(BuildContext context) {
-    if (child != null) return child!;
-    
-    return Row(
-      children: [
-        if (_buildLeading(context) != null) ...[
-          _buildLeading(context)!,
-          const SizedBox(width: 16),
+  List<Widget> _buildCardChildren(BuildContext context) {
+    final List<Widget> children = [];
+
+    if (header != null || leadingIcon != null) {
+      children.add(_buildHeader(context));
+      if (showHeaderDivider) {
+        children.add(_buildDivider(context));
+      }
+    }
+
+    children.add(
+      Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: verticalPadding,
+        ),
+        child: child,
+      ),
+    );
+
+    if (footer != null) {
+      if (showFooterDivider) {
+        children.add(_buildDivider(context));
+      }
+      children.add(_buildFooter(context));
+    }
+
+    return children;
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: horizontalPadding,
+        right: horizontalPadding,
+        top: horizontalPadding,
+        bottom: header != null ? 0 : verticalPadding,
+      ),
+      child: Row(
+        children: [
+          if (leadingIcon != null) ...[
+            Icon(
+              leadingIcon,
+              color: leadingIconColor ?? theme.colorScheme.primary,
+              size: leadingIconSize,
+            ),
+            const SizedBox(width: 12),
+          ],
+          if (header != null) Expanded(child: header!),
         ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (title != null)
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: horizontalPadding,
+        right: horizontalPadding,
+        top: 0,
+        bottom: verticalPadding,
+      ),
+      child: footer!,
+    );
+  }
+
+  Widget _buildDivider(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: Theme.of(context).dividerColor.withOpacity(0.5),
+    );
+  }
+
+  Widget _buildLoadingContent(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(horizontalPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 24),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading...',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).textTheme.bodySmall?.color,
+                ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorContent(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.all(horizontalPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 24),
+          Icon(
+            Icons.error_outline_rounded,
+            size: 48,
+            color: theme.colorScheme.error,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            errorMessage ?? 'An error occurred',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card style variants for CustomCard.
+enum CustomCardStyle {
+  /// Elevated card with shadow effect.
+  elevated,
+
+  /// Card with border outline.
+  outlined,
+
+  /// Filled card without shadow or border.
+  filled,
+
+  /// Glass-morphism style card.
+  glass,
+}
+
+/// A convenience builder for creating account cards.
+class AccountCard extends StatelessWidget {
+  /// The account name.
+  final String accountName;
+
+  /// The account type (e.g., Checking, Savings, Credit).
+  final String accountType;
+
+  /// The current balance.
+  final String balance;
+
+  /// The account icon.
+  final IconData icon;
+
+  /// The icon background color.
+  final Color iconBackgroundColor;
+
+  /// Whether the balance is negative (for credit cards).
+  final bool isNegative;
+
+  /// Callback when the card is tapped.
+  final VoidCallback? onTap;
+
+  /// Creates an AccountCard widget.
+  const AccountCard({
+    super.key,
+    required this.accountName,
+    required this.accountType,
+    required this.balance,
+    required this.icon,
+    this.iconBackgroundColor = const Color(0xFF4CAF50),
+    this.isNegative = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return CustomCard(
+      isInteractive: onTap != null,
+      onTap: onTap,
+      header: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconBackgroundColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: iconBackgroundColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  title!,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  accountName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  accountType,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(
+            'Current Balance',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            balance,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isNegative
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A convenience builder for creating transaction cards.
+class TransactionCard extends StatelessWidget {
+  /// The transaction title/description.
+  final String title;
+
+  /// The transaction category.
+  final String category;
+
+  /// The transaction amount.
+  final String amount;
+
+  /// The transaction date.
+  final String date;
+
+  /// The transaction icon.
+  final IconData icon;
+
+  /// The icon background color.
+  final Color iconBackgroundColor;
+
+  /// Whether the transaction is an expense.
+  final bool isExpense;
+
+  /// Callback when the card is tapped.
+  final VoidCallback? onTap;
+
+  /// Creates a TransactionCard widget.
+  const TransactionCard({
+    super.key,
+    required this.title,
+    required this.category,
+    required this.amount,
+    required this.date,
+    required this.icon,
+    this.iconBackgroundColor = const Color(0xFF2196F3),
+    this.isExpense = true,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final amountColor = isExpense
+        ? theme.colorScheme.error
+        : const Color(0xFF4CAF50);
+
+    return CustomCard(
+      isInteractive: onTap != null,
+      onTap: onTap,
+      horizontalPadding: 12,
+      verticalPadding: 12,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: iconBackgroundColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: iconBackgroundColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              if (subtitle != null) ...[
                 const SizedBox(height: 2),
                 Text(
-                  subtitle!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  '$category • $date',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ],
-          ),
-        ),
-        if (_buildTrailing(context) != null) ...[
-          const SizedBox(width: 12),
-          _buildTrailing(context)!,
-        ],
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget cardContent = Padding(
-      padding: _paddingValue,
-      child: _buildContent(context),
-    );
-
-    // Add variant accent stripe for non-default variants
-    if (variant != CardVariant.defaultVariant && type != CardType.compact) {
-      cardContent = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            height: 4,
-            decoration: BoxDecoration(
-              color: _getVariantColor(context),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(_borderRadiusValue),
-                topRight: Radius.circular(_borderRadiusValue),
-              ),
             ),
           ),
-          Expanded(child: cardContent),
-        ],
-      );
-    }
-
-    Widget card;
-    
-    switch (type) {
-      case CardType.elevated:
-        card = Material(
-          color: Colors.transparent,
-          elevation: _elevationValue,
-          borderRadius: BorderRadius.circular(_borderRadiusValue),
-          child: cardContent,
-        );
-        break;
-      case CardType.outlined:
-      case CardType.filled:
-      case CardType.compact:
-        card = Container(
-          decoration: _buildDecoration(context),
-          child: cardContent,
-        );
-        break;
-    }
-
-    // Wrap with divider if needed
-    if (showDivider && type != CardType.compact) {
-      card = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          card,
-          Divider(
-            height: 1,
-            thickness: dividerThickness ?? 1,
-            color: dividerColor ?? Theme.of(context).dividerColor,
+          const SizedBox(width: 8),
+          Text(
+            '${isExpense ? '-' : '+'}$amount',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: amountColor,
+            ),
           ),
         ],
-      );
-    }
+      ),
+    );
+  }
+}
 
-    // Wrap with margin and tap handling
-    return Padding(
-      padding: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: onTap != null
-          ? Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(_borderRadiusValue),
-              child: InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(_borderRadiusValue),
-                child: card,
+/// A convenience builder for creating stock quote cards.
+class StockQuoteCard extends StatelessWidget {
+  /// The stock symbol.
+  final String symbol;
+
+  /// The company name.
+  final String companyName;
+
+  /// The current price.
+  final String currentPrice;
+
+  /// The price change.
+  final String priceChange;
+
+  /// The percentage change.
+  final String percentageChange;
+
+  /// Whether the stock price is up.
+  final bool isUp;
+
+  /// The stock chart widget (optional).
+  final Widget? chart;
+
+  /// Callback when the card is tapped.
+  final VoidCallback? onTap;
+
+  /// Creates a StockQuoteCard widget.
+  const StockQuoteCard({
+    super.key,
+    required this.symbol,
+    required this.companyName,
+    required this.currentPrice,
+    required this.priceChange,
+    required this.percentageChange,
+    required this.isUp,
+    this.chart,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final changeColor = isUp ? const Color(0xFF4CAF50) : theme.colorScheme.error;
+
+    return CustomCard(
+      isInteractive: onTap != null,
+      onTap: onTap,
+      header: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                symbol.toUpperCase(),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            )
-          : card,
+              const SizedBox(height: 2),
+              Text(
+                companyName,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+          if (chart != null)
+            SizedBox(
+              width: 80,
+              height: 40,
+              child: chart,
+            ),
+        ],
+      ),
+      footer: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Current Price',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                ),
+              ),
+              Text(
+                currentPrice,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: changeColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                  size: 16,
+                  color: changeColor,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$percentageChange%',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: changeColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      child: const SizedBox.shrink(),
     );
   }
 }
 
-/// A more compact version of CustomCard for list items
-class CompactCard extends StatelessWidget {
-  /// Creates a compact card for list items
-  const CompactCard({
-    super.key,
-    this.title,
-    this.subtitle,
-    this.leading,
-    this.trailing,
-    this.onTap,
-    this.padding,
-    this.margin,
-    this.variant = CardVariant.defaultVariant,
-    this.iconColor,
-  });
+/// A convenience builder for creating savings goal cards.
+class SavingsGoalCard extends StatelessWidget {
+  /// The goal name.
+  final String goalName;
 
-  /// The main title text
-  final String? title;
+  /// The target amount.
+  final String targetAmount;
 
-  /// The subtitle text
-  final String? subtitle;
+  /// The current saved amount.
+  final String currentAmount;
 
-  /// A widget displayed before the title
-  final Widget? leading;
+  /// The progress percentage (0.0 to 1.0).
+  final double progress;
 
-  /// A widget displayed at the end
-  final Widget? trailing;
+  /// The target date.
+  final String? targetDate;
 
-  /// Callback when tapped
+  /// The goal icon.
+  final IconData icon;
+
+  /// The icon background color.
+  final Color iconBackgroundColor;
+
+  /// Callback when the card is tapped.
   final VoidCallback? onTap;
 
-  /// Internal padding
-  final EdgeInsetsGeometry? padding;
-
-  /// External margin
-  final EdgeInsetsGeometry? margin;
-
-  /// The color variant
-  final CardVariant variant;
-
-  /// The color of the leading icon
-  final Color? iconColor;
+  /// Creates a SavingsGoalCard widget.
+  const SavingsGoalCard({
+    super.key,
+    required this.goalName,
+    required this.targetAmount,
+    required this.currentAmount,
+    required this.progress,
+    this.targetDate,
+    this.icon = Icons.savings_outlined,
+    this.iconBackgroundColor = const Color(0xFFFF9800),
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return CustomCard(
-      title: title,
-      subtitle: subtitle,
-      leading: leading,
-      trailing: trailing,
-      onTap: onTap,
-      padding: padding,
-      margin: margin,
-      variant: variant,
-      type: CardType.compact,
-      iconColor: iconColor,
-    );
-  }
-}
-
-/// A card specifically designed for displaying amounts
-class AmountCard extends StatelessWidget {
-  /// Creates an amount display card
-  const AmountCard({
-    super.key,
-    required this.amount,
-    this.label,
-    this.currency = '\$',
-    this.isPositive = true,
-    this.showSign = true,
-    this.icon,
-    this.iconColor,
-    this.onTap,
-    this.padding,
-    this.margin,
-    this.compact = false,
-  });
-
-  /// The amount to display
-  final String amount;
-
-  /// Label for the amount
-  final String? label;
-
-  /// Currency symbol
-  final String currency;
-
-  /// Whether the amount is positive
-  final bool isPositive;
-
-  /// Whether to show the +/- sign
-  final bool showSign;
-
-  /// Icon to display
-  final IconData? icon;
-
-  /// Color of the icon
-  final Color? iconColor;
-
-  /// Callback when tapped
-  final VoidCallback? onTap;
-
-  /// Internal padding
-  final EdgeInsetsGeometry? padding;
-
-  /// External margin
-  final EdgeInsetsGeometry? margin;
-
-  /// Whether to use compact styling
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final amountColor = isPositive
-        ? const Color(0xFF4CAF50)
-        : const Color(0xFFF44336);
-    
-    final formattedAmount = showSign
-        ? '${isPositive ? '+' : '-'}$currency$amount'
-        : '$currency$amount';
+    final theme = Theme.of(context);
+    final progressPercent = (progress * 100).clamp(0, 100).toInt();
+    final isComplete = progress >= 1.0;
 
     return CustomCard(
-      title: formattedAmount,
-      subtitle: label,
-      icon: icon,
-      iconColor: iconColor ?? amountColor,
+      isInteractive: onTap != null,
       onTap: onTap,
-      padding: padding,
-      margin: margin,
-      type: compact ? CardType.compact : CardType.elevated,
-      titleStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.bold,
-        color: amountColor,
+      header: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconBackgroundColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isComplete ? Icons.check_circle : icon,
+              color: iconBackgroundColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  goalName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (targetDate != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Target: $targetDate',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (isComplete)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Complete!',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF4CAF50),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
       ),
-    );
-  }
-}
-
-/// Extension to add custom styling to CustomCard
-extension CustomCardExtensions on CustomCard {
-  /// Creates a copy with optional new values
-  CustomCard copyWith({
-    String? title,
-    String? subtitle,
-    Widget? leading,
-    Widget? trailing,
-    IconData? icon,
-    Color? iconColor,
-    CardType? type,
-    CardVariant? variant,
-    VoidCallback? onTap,
-    EdgeInsetsGeometry? padding,
-    EdgeInsetsGeometry? margin,
-    double? borderRadius,
-    Color? backgroundColor,
-    double? elevation,
-    Widget? child,
-    bool? showDivider,
-    Color? dividerColor,
-    double? dividerThickness,
-    Gradient? gradient,
-  }) {
-    return CustomCard(
-      key: key,
-      title: title ?? this.title,
-      subtitle: subtitle ?? this.subtitle,
-      leading: leading ?? this.leading,
-      trailing: trailing ?? this.trailing,
-      icon: icon ?? this.icon,
-      iconColor: iconColor ?? this.iconColor,
-      type: type ?? this.type,
-      variant: variant ?? this.variant,
-      onTap: onTap ?? this.onTap,
-      padding: padding ?? this.padding,
-      margin: margin ?? this.margin,
-      borderRadius: borderRadius ?? this.borderRadius,
-      backgroundColor: backgroundColor ?? this.backgroundColor,
-      elevation: elevation ?? this.elevation,
-      child: child ?? this.child,
-      showDivider: showDivider ?? this.showDivider,
-      dividerColor: dividerColor ?? this.dividerDividerColor,
-      dividerThickness: dividerThickness ?? this.dividerThickness,
-      gradient: gradient ?? this.gradient,
-    );
-  }
-}
-
-/// Text style property added to CustomCard
-extension CustomCardTextStyle on CustomCard {
-  /// Custom title text style
-  TextStyle? get titleStyle => null;
-}
-
-/// Helper class for building common card patterns
-class CardBuilder {
-  /// Builds a transaction card
-  static Widget transaction({
-    required String title,
-    required String amount,
-    required String date,
-    required IconData icon,
-    Color? iconColor,
-    bool isExpense = true,
-    VoidCallback? onTap,
-  }) {
-    return CustomCard(
-      title: title,
-      subtitle: date,
-      icon: icon,
-      iconColor: iconColor,
-      onTap: onTap,
-      trailing: Text(
-        '${isExpense ? '-' : '+'}\$$amount',
-        style: TextStyle(
-          color: isExpense
-              ? const Color(0xFFF44336)
-              : const Color(0xFF4CAF50),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  /// Builds an account summary card
-  static Widget account({
-    required String accountName,
-    required String balance,
-    required IconData icon,
-    Color? iconColor,
-    String? accountNumber,
-    VoidCallback? onTap,
-  }) {
-    return CustomCard(
-      title: accountName,
-      subtitle: accountNumber ?? 'Account',
-      icon: icon,
-      iconColor: iconColor,
-      onTap: onTap,
-      trailing: Text(
-        '\$$balance',
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
-      ),
-    );
-  }
-
-  /// Builds a savings goal card
-  static Widget savingsGoal({
-    required String goalName,
-    required double current,
-    required double target,
-    required IconData icon,
-    Color? iconColor,
-    VoidCallback? onTap,
-  }) {
-    final progress = (current / target).clamp(0.0, 1.0);
-    final percentage = (progress * 100).toStringAsFixed(0);
-    
-    return CustomCard(
-      title: goalName,
-      subtitle: '$percentage% saved',
-      icon: icon,
-      iconColor: iconColor,
-      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '\$${current.toStringAsFixed(2)}',
-                style: const TextStyle(
+                currentAmount,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  color: theme.colorScheme.primary,
                 ),
               ),
               Text(
-                '\$${target.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
+                'of $targetAmount',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
                 ),
               ),
             ],
@@ -697,62 +819,181 @@ class CardBuilder {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[200],
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: theme.dividerColor.withOpacity(0.3),
               valueColor: AlwaysStoppedAnimation<Color>(
-                iconColor ?? const Color(0xFF4CAF50),
+                isComplete ? const Color(0xFF4CAF50) : iconBackgroundColor,
               ),
-              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$progressPercent% complete',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  /// Builds a stock holding card
-  static Widget stockHolding({
-    required String symbol,
-    required String companyName,
-    required double shares,
-    required double currentPrice,
-    required double purchasePrice,
-    VoidCallback? onTap,
-  }) {
-    final change = ((currentPrice - purchasePrice) / purchasePrice) * 100;
-    final isPositive = change >= 0;
-    
+/// A convenience builder for creating summary/stat cards.
+class SummaryCard extends StatelessWidget {
+  /// The card title.
+  final String title;
+
+  /// The card value.
+  final String value;
+
+  /// The subtitle or description.
+  final String? subtitle;
+
+  /// The trend indicator (up, down, or neutral).
+  final SummaryCardTrend trend;
+
+  /// The trend value (e.g., "+5.2%" or "-2.1%").
+  final String? trendValue;
+
+  /// The icon to display.
+  final IconData icon;
+
+  /// The icon background color.
+  final Color iconBackgroundColor;
+
+  /// Callback when the card is tapped.
+  final VoidCallback? onTap;
+
+  /// Creates a SummaryCard widget.
+  const SummaryCard({
+    super.key,
+    required this.title,
+    required this.value,
+    this.subtitle,
+    this.trend = SummaryCardTrend.neutral,
+    this.trendValue,
+    this.icon = Icons.analytics_outlined,
+    this.iconBackgroundColor = const Color(0xFF2196F3),
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Color getTrendColor() {
+      switch (trend) {
+        case SummaryCardTrend.up:
+          return const Color(0xFF4CAF50);
+        case SummaryCardTrend.down:
+          return theme.colorScheme.error;
+        case SummaryCardTrend.neutral:
+          return theme.textTheme.bodySmall?.color ?? Colors.grey;
+      }
+    }
+
+    IconData getTrendIcon() {
+      switch (trend) {
+        case SummaryCardTrend.up:
+          return Icons.trending_up;
+        case SummaryCardTrend.down:
+          return Icons.trending_down;
+        case SummaryCardTrend.neutral:
+          return Icons.trending_flat;
+      }
+    }
+
     return CustomCard(
-      title: symbol,
-      subtitle: '$shares shares • $companyName',
-      icon: Icons.show_chart,
-      iconColor: isPositive
-          ? const Color(0xFF4CAF50)
-          : const Color(0xFFF44336),
+      isInteractive: onTap != null,
       onTap: onTap,
-      trailing: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
+      horizontalPadding: 16,
+      verticalPadding: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconBackgroundColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconBackgroundColor,
+                  size: 20,
+                ),
+              ),
+              if (trendValue != null && trend != SummaryCardTrend.neutral)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: getTrendColor().withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        getTrendIcon(),
+                        size: 14,
+                        color: getTrendColor(),
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        trendValue!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: getTrendColor(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
-            '\$${currentPrice.toStringAsFixed(2)}',
-            style: const TextStyle(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              fontSize: 16,
             ),
           ),
-          Text(
-            '${isPositive ? '+' : ''}${change.toStringAsFixed(2)}%',
-            style: TextStyle(
-              color: isPositive
-                  ? const Color(0xFF4CAF50)
-                  : const Color(0xFFF44336),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.textTheme.bodySmall?.color?.withOpacity(0.5),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// Trend direction for SummaryCard.
+enum SummaryCardTrend {
+  /// Price/value is trending up.
+  up,
+
+  /// Price/value is trending down.
+  down,
+
+  /// No significant trend.
+  neutral,
 }
