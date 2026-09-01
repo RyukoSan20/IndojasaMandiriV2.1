@@ -1,248 +1,881 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/account.dart';
 import '../models/transaction.dart';
+import '../models/stock.dart';
 import '../models/savings_goal.dart';
-import '../models/portfolio_stock.dart';
-import '../services/finance_service.dart';
-import '../widgets/account_card.dart';
-import '../widgets/transaction_list_item.dart';
-import '../widgets/savings_goal_card.dart';
+import '../services/financial_service.dart';
+import '../widgets/balance_card.dart';
+import '../widgets/account_list_tile.dart';
+import '../widgets/transaction_list_tile.dart';
 import '../widgets/stock_card.dart';
+import '../widgets/savings_progress_card.dart';
+import '../widgets/expense_chart.dart';
 import '../widgets/quick_action_button.dart';
-import '../widgets/balance_chart.dart';
-import '../widgets/expense_breakdown_chart.dart';
-import '../utils/formatters.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userId;
+  final VoidCallback onNavigateToAccounts;
+  final VoidCallback onNavigateToTransactions;
+  final VoidCallback onNavigateToSavings;
+  final VoidCallback onNavigateToStocks;
+  final VoidCallback onNavigateToAnalytics;
+  final VoidCallback onNavigateToSettings;
 
   const DashboardScreen({
     super.key,
     required this.userId,
+    required this.onNavigateToAccounts,
+    required this.onNavigateToTransactions,
+    required this.onNavigateToSavings,
+    required this.onNavigateToStocks,
+    required this.onNavigateToAnalytics,
+    required this.onNavigateToSettings,
   });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
-  final FinanceService _financeService = FinanceService();
-  final NumberFormat _currencyFormat = NumberFormat.currency(symbol: '\$');
-  final NumberFormat _percentFormat = NumberFormat.percentPattern();
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  final FinancialService _financialService = FinancialService();
+  final NumberFormat _currencyFormat = NumberFormat.currency(
+    symbol: '\$',
+    decimalDigits: 2,
+  );
+  final DateFormat _dateFormat = DateFormat('MMM dd, yyyy');
+  final DateFormat _timeFormat = DateFormat('hh:mm a');
 
   bool _isLoading = true;
-  bool _showBalances = true;
+  bool _isRefreshing = false;
 
   double _totalBalance = 0.0;
   double _monthlyIncome = 0.0;
   double _monthlyExpenses = 0.0;
-  double _totalInvested = 0.0;
-  double _portfolioChange = 0.0;
+  double _monthlySavings = 0.0;
+  double _savingsRate = 0.0;
 
   List<Account> _accounts = [];
   List<Transaction> _recentTransactions = [];
+  List<Stock> _topStocks = [];
   List<SavingsGoal> _savingsGoals = [];
-  List<PortfolioStock> _portfolioStocks = [];
-  Map<String, double> _expenseCategories = {};
+
+  Map<String, double> _expensesByCategory = {};
+  List<double> _weeklyExpenses = [];
 
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
     _loadDashboardData();
+  }
+
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _animationController.forward();
   }
 
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
 
     try {
-      final results = await Future.wait([
-        _financeService.getTotalBalance(widget.userId),
-        _financeService.getMonthlyIncome(widget.userId),
-        _financeService.getMonthlyExpenses(widget.userId),
-        _financeService.getAccounts(widget.userId),
-        _financeService.getRecentTransactions(widget.userId, limit: 5),
-        _financeService.getSavingsGoals(widget.userId),
-        _financeService.getPortfolioStocks(widget.userId),
-        _financeService.getPortfolioValue(widget.userId),
-        _financeService.getPortfolioChange(widget.userId),
-        _financeService.getExpenseCategories(widget.userId),
+      await Future.wait([
+        _loadAccounts(),
+        _loadTransactions(),
+        _loadStocks(),
+        _loadSavingsGoals(),
+        _loadFinancialSummary(),
       ]);
 
-      setState(() {
-        _totalBalance = results[0] as double;
-        _monthlyIncome = results[1] as double;
-        _monthlyExpenses = results[2] as double;
-        _accounts = results[3] as List<Account>;
-        _recentTransactions = results[4] as List<Transaction>;
-        _savingsGoals = results[5] as List<SavingsGoal>;
-        _portfolioStocks = results[6] as List<PortfolioStock>;
-        _totalInvested = results[7] as double;
-        _portfolioChange = results[8] as double;
-        _expenseCategories = results[9] as Map<String, double>;
-        _isLoading = false;
-      });
+      _animationController.forward();
     } catch (e) {
-      setState(() => _isLoading = false);
+      _showErrorSnackBar('Failed to load dashboard data: $e');
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading dashboard: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _refreshData() async {
-    await _loadDashboardData();
+  Future<void> _loadAccounts() async {
+    try {
+      final accounts = await _financialService.getAccounts(widget.userId);
+      if (mounted) {
+        setState(() {
+          _accounts = accounts;
+          _totalBalance = accounts.fold(
+            0.0,
+            (sum, account) => sum + account.balance,
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading accounts: $e');
+    }
   }
 
-  void _navigateToAccounts() {
-    Navigator.pushNamed(context, '/accounts');
+  Future<void> _loadTransactions() async {
+    try {
+      final transactions = await _financialService.getRecentTransactions(
+        widget.userId,
+        limit: 5,
+      );
+      final expenses = await _financialService.getExpensesByCategory(
+        widget.userId,
+      );
+      final weekly = await _financialService.getWeeklyExpenses(widget.userId);
+
+      if (mounted) {
+        setState(() {
+          _recentTransactions = transactions;
+          _expensesByCategory = expenses;
+          _weeklyExpenses = weekly;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading transactions: $e');
+    }
   }
 
-  void _navigateToTransactions() {
-    Navigator.pushNamed(context, '/transactions');
+  Future<void> _loadStocks() async {
+    try {
+      final stocks = await _financialService.getStocks(widget.userId);
+      if (mounted) {
+        setState(() {
+          _topStocks = stocks.take(3).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading stocks: $e');
+    }
   }
 
-  void _navigateToSavingsGoals() {
-    Navigator.pushNamed(context, '/savings-goals');
+  Future<void> _loadSavingsGoals() async {
+    try {
+      final goals = await _financialService.getSavingsGoals(widget.userId);
+      if (mounted) {
+        setState(() {
+          _savingsGoals = goals;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading savings goals: $e');
+    }
   }
 
-  void _navigateToPortfolio() {
-    Navigator.pushNamed(context, '/portfolio');
+  Future<void> _loadFinancialSummary() async {
+    try {
+      final summary = await _financialService.getFinancialSummary(
+        widget.userId,
+      );
+
+      if (mounted) {
+        setState(() {
+          _monthlyIncome = summary['monthlyIncome'] ?? 0.0;
+          _monthlyExpenses = summary['monthlyExpenses'] ?? 0.0;
+          _monthlySavings = summary['monthlySavings'] ?? 0.0;
+          _savingsRate = summary['savingsRate'] ?? 0.0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading financial summary: $e');
+    }
   }
 
-  void _navigateToAddTransaction() {
-    Navigator.pushNamed(context, '/add-transaction');
+  Future<void> _refreshDashboard() async {
+    setState(() => _isRefreshing = true);
+
+    try {
+      await _loadDashboardData();
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
   }
 
-  void _navigateToAddAccount() {
-    Navigator.pushNamed(context, '/add-account');
-  }
-
-  void _navigateToSettings() {
-    Navigator.pushNamed(context, '/settings');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: _buildAppBar(),
-      body: _isLoading ? _buildLoadingState() : _buildDashboardContent(),
-      floatingActionButton: _buildFAB(),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'FinTrack',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          Text(
-            DateFormat('EEEE, MMM d').format(DateTime.now()),
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: Colors.white,
+          onPressed: _loadDashboardData,
+        ),
       ),
-      actions: [
-        IconButton(
-          icon: Icon(_showBalances ? Icons.visibility : Icons.visibility_off),
-          onPressed: () => setState(() => _showBalances = !_showBalances),
-          tooltip: _showBalances ? 'Hide balances' : 'Show balances',
-        ),
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _refreshData,
-          tooltip: 'Refresh',
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: _navigateToSettings,
-          tooltip: 'Settings',
-        ),
-      ],
     );
   }
 
-  Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text('Loading your finances...'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDashboardContent() {
-    return RefreshIndicator(
-      onRefresh: _refreshData,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+  void _showQuickAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _buildBalanceOverviewCard(),
-            const SizedBox(height: 16),
-            _buildQuickActions(),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Quick Add',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            _buildQuickAddOption(
+              icon: Icons.add_circle_outline,
+              label: 'Add Income',
+              color: Colors.green,
+              onTap: () {
+                Navigator.pop(context);
+                _showAddTransactionDialog(isIncome: true);
+              },
+            ),
+            _buildQuickAddOption(
+              icon: Icons.remove_circle_outline,
+              label: 'Add Expense',
+              color: Colors.red,
+              onTap: () {
+                Navigator.pop(context);
+                _showAddTransactionDialog(isIncome: false);
+              },
+            ),
+            _buildQuickAddOption(
+              icon: Icons.savings_outlined,
+              label: 'Add to Savings Goal',
+              color: Colors.blue,
+              onTap: () {
+                Navigator.pop(context);
+                _showAddSavingsDialog();
+              },
+            ),
+            _buildQuickAddOption(
+              icon: Icons.show_chart,
+              label: 'Add Stock Purchase',
+              color: Colors.purple,
+              onTap: () {
+                Navigator.pop(context);
+                _showAddStockDialog();
+              },
+            ),
             const SizedBox(height: 24),
-            _buildMonthlySummary(),
-            const SizedBox(height: 24),
-            _buildAccountsSection(),
-            const SizedBox(height: 24),
-            _buildRecentTransactionsSection(),
-            const SizedBox(height: 24),
-            _buildSavingsGoalsSection(),
-            const SizedBox(height: 24),
-            _buildPortfolioSection(),
-            const SizedBox(height: 24),
-            _buildExpenseBreakdownSection(),
-            const SizedBox(height: 80),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBalanceOverviewCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
+  Widget _buildQuickAddOption({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(label),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
+
+  void _showAddTransactionDialog({required bool isIncome}) {
+    final amountController = TextEditingController();
+    final descriptionController = TextEditingController();
+    String selectedCategory = 'Other';
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isIncome ? 'Add Income' : 'Add Expense'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '\$ ',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                ),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                ),
+                items: _getCategories(isIncome).map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedCategory = value ?? 'Other';
+                },
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Date'),
+                subtitle: Text(_dateFormat.format(selectedDate)),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                  );
+                  if (date != null) {
+                    selectedDate = date;
+                  }
+                },
+              ),
             ],
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(amountController.text);
+              if (amount != null && amount > 0) {
+                await _financialService.addTransaction(
+                  userId: widget.userId,
+                  amount: amount,
+                  description: descriptionController.text,
+                  category: selectedCategory,
+                  date: selectedDate,
+                  isIncome: isIncome,
+                );
+                Navigator.pop(context);
+                _loadDashboardData();
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _getCategories(bool isIncome) {
+    if (isIncome) {
+      return ['Salary', 'Freelance', 'Investment', 'Gift', 'Refund', 'Other'];
+    }
+    return [
+      'Food & Dining',
+      'Transportation',
+      'Shopping',
+      'Entertainment',
+      'Bills & Utilities',
+      'Healthcare',
+      'Education',
+      'Travel',
+      'Groceries',
+      'Insurance',
+      'Other',
+    ];
+  }
+
+  void _showAddSavingsDialog() {
+    if (_savingsGoals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No savings goals found. Create one first!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    SavingsGoal? selectedGoal;
+    final amountController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add to Savings Goal'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<SavingsGoal>(
+                decoration: const InputDecoration(
+                  labelText: 'Select Goal',
+                ),
+                items: _savingsGoals.map((goal) {
+                  return DropdownMenuItem(
+                    value: goal,
+                    child: Text(goal.name),
+                  );
+                }).toList(),
+                onChanged: (goal) {
+                  setDialogState(() => selectedGoal = goal);
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '\$ ',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountController.text);
+                if (amount != null && amount > 0 && selectedGoal != null) {
+                  await _financialService.addToSavingsGoal(
+                    goalId: selectedGoal!.id,
+                    amount: amount,
+                  );
+                  Navigator.pop(context);
+                  _loadDashboardData();
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddStockDialog() {
+    final symbolController = TextEditingController();
+    final sharesController = TextEditingController();
+    final priceController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add Stock Purchase'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: symbolController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Stock Symbol',
+                  hintText: 'e.g., AAPL',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: sharesController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,4}')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Number of Shares',
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Price per Share',
+                  prefixText: '\$ ',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final shares = double.tryParse(sharesController.text);
+              final price = double.tryParse(priceController.text);
+              if (shares != null && shares > 0 && price != null && price > 0) {
+                await _financialService.addStockPurchase(
+                  userId: widget.userId,
+                  symbol: symbolController.text.toUpperCase(),
+                  shares: shares,
+                  pricePerShare: price,
+                );
+                Navigator.pop(context);
+                _loadDashboardData();
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _refreshDashboard,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    _buildAppBar(),
+                    SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          _buildBalanceSection(),
+                          const SizedBox(height: 24),
+                          _buildFinancialSummaryCards(),
+                          const SizedBox(height: 24),
+                          _buildQuickActionsSection(),
+                          const SizedBox(height: 24),
+                          _buildExpensesChartSection(),
+                          const SizedBox(height: 24),
+                          _buildAccountsSection(),
+                          const SizedBox(height: 24),
+                          _buildRecentTransactionsSection(),
+                          const SizedBox(height: 24),
+                          _buildSavingsGoalsSection(),
+                          const SizedBox(height: 24),
+                          _buildPortfolioSection(),
+                          const SizedBox(height: 24),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showQuickAddMenu,
+        backgroundColor: const Color(0xFF6C63FF),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      floating: true,
+      backgroundColor: const Color(0xFFF5F7FA),
+      elevation: 0,
+      title: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Good Morning!',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Your Finances',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1A1A2E),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1A1A2E)),
+          onPressed: () {
+            // Navigate to notifications
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.settings_outlined, color: Color(0xFF1A1A2E)),
+          onPressed: widget.onNavigateToSettings,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBalanceSection() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: BalanceCard(
+          totalBalance: _totalBalance,
+          monthlyIncome: _monthlyIncome,
+          monthlyExpenses: _monthlyExpenses,
+          savingsRate: _savingsRate,
+          onTap: widget.onNavigateToAccounts,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinancialSummaryCards() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildSummaryCard(
+                title: 'Income',
+                amount: _monthlyIncome,
+                icon: Icons.arrow_downward,
+                iconColor: Colors.green,
+                backgroundColor: Colors.green.shade50,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSummaryCard(
+                title: 'Expenses',
+                amount: _monthlyExpenses,
+                icon: Icons.arrow_upward,
+                iconColor: Colors.red,
+                backgroundColor: Colors.red.shade50,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSummaryCard(
+                title: 'Savings',
+                amount: _monthlySavings,
+                icon: Icons.savings,
+                iconColor: Colors.blue,
+                backgroundColor: Colors.blue.shade50,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required double amount,
+    required IconData icon,
+    required Color iconColor,
+    required Color backgroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _currencyFormat.format(amount),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Quick Actions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              QuickActionButton(
+                icon: Icons.add_circle_outline,
+                label: 'Add Income',
+                color: Colors.green,
+                onTap: () => _showAddTransactionDialog(isIncome: true),
+              ),
+              QuickActionButton(
+                icon: Icons.remove_circle_outline,
+                label: 'Add Expense',
+                color: Colors.red,
+                onTap: () => _showAddTransactionDialog(isIncome: false),
+              ),
+              QuickActionButton(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Accounts',
+                color: Colors.blue,
+                onTap: widget.onNavigateToAccounts,
+              ),
+              QuickActionButton(
+                icon: Icons.pie_chart_outline,
+                label: 'Analytics',
+                color: Colors.purple,
+                onTap: widget.onNavigateToAnalytics,
+              ),
+              QuickActionButton(
+                icon: Icons.savings_outlined,
+                label: 'Savings',
+                color: Colors.orange,
+                onTap: widget.onNavigateToSavings,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpensesChartSection() {
+    if (_expensesByCategory.isEmpty) return const SizedBox.shrink();
+
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -250,75 +883,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Total Balance',
+                    'Expense Breakdown',
                     style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _totalBalance >= 0 ? Icons.trending_up : Icons.trending_down,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _showBalances
-                              ? (_totalBalance >= 0 ? 'Positive' : 'Negative')
-                              : '***',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                  TextButton(
+                    onPressed: widget.onNavigateToAnalytics,
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                _showBalances ? Formatters.formatCurrency(_totalBalance) : '\$••••••',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 200,
+                child: ExpenseChart(expenses: _expensesByCategory),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildBalanceStat(
-                      'Income',
-                      _monthlyIncome,
-                      Icons.arrow_upward,
-                      Colors.greenAccent,
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: Colors.white24,
-                  ),
-                  Expanded(
-                    child: _buildBalanceStat(
-                      'Expenses',
-                      _monthlyExpenses,
-                      Icons.arrow_downward,
-                      Colors.redAccent,
-                    ),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 16),
+              _buildExpenseLegend(),
             ],
           ),
         ),
@@ -326,623 +916,371 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildBalanceStat(String label, double amount, IconData icon, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                ),
-              ),
-              Text(
-                _showBalances ? Formatters.formatCurrency(amount) : '\$•••',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _buildExpenseLegend() {
+    final colors = [
+      const Color(0xFF6C63FF),
+      const Color(0xFFFF6B6B),
+      const Color(0xFFFFD93D),
+      const Color(0xFF6BCB77),
+      const Color(0xFF4D96FF),
+      const Color(0xFFFF9F43),
+    ];
 
-  Widget _buildQuickActions() {
-    return SizedBox(
-      height: 90,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          QuickActionButton(
-            icon: Icons.add_circle_outline,
-            label: 'Add\nTransaction',
-            color: Theme.of(context).colorScheme.primary,
-            onTap: _navigateToAddTransaction,
-          ),
-          QuickActionButton(
-            icon: Icons.account_balance_wallet_outlined,
-            label: 'Add\nAccount',
-            color: Colors.blue,
-            onTap: _navigateToAddAccount,
-          ),
-          QuickActionButton(
-            icon: Icons.savings_outlined,
-            label: 'Savings\nGoals',
-            color: Colors.green,
-            onTap: _navigateToSavingsGoals,
-          ),
-          QuickActionButton(
-            icon: Icons.show_chart,
-            label: 'View\nPortfolio',
-            color: Colors.purple,
-            onTap: _navigateToPortfolio,
-          ),
-          QuickActionButton(
-            icon: Icons.receipt_long_outlined,
-            label: 'All\nTransactions',
-            color: Colors.orange,
-            onTap: _navigateToTransactions,
-          ),
-        ],
-      ),
-    );
-  }
+    final entries = _expensesByCategory.entries.toList();
+    final total = entries.fold(0.0, (sum, e) => sum + e.value);
 
-  Widget _buildMonthlySummary() {
-    final savings = _monthlyIncome - _monthlyExpenses;
-    final savingsRate = _monthlyIncome > 0 ? savings / _monthlyIncome : 0.0;
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      children: entries.asMap().entries.map((entry) {
+        final index = entry.key;
+        final category = entry.value.key;
+        final amount = entry.value.value;
+        final percentage = total > 0 ? (amount / total * 100) : 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Monthly Summary',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: colors[index % colors.length],
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-            TextButton(
-              onPressed: _navigateToTransactions,
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildSummaryItem(
-                        'Net Savings',
-                        _showBalances ? Formatters.formatCurrency(savings) : '\$•••',
-                        savings >= 0 ? Colors.green : Colors.red,
-                        savings >= 0 ? Icons.trending_up : Icons.trending_down,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildSummaryItem(
-                        'Savings Rate',
-                        _showBalances ? _percentFormat.format(savingsRate) : '••%',
-                        savingsRate >= 0.2 ? Colors.green : Colors.orange,
-                        Icons.percent,
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
-                SizedBox(
-                  height: 120,
-                  child: BalanceChart(
-                    income: _monthlyIncome,
-                    expenses: _monthlyExpenses,
-                    showBalances: _showBalances,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryItem(String label, String value, Color color, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            const SizedBox(width: 6),
             Text(
-              label,
-              style: TextStyle(
+              '$category (${percentage.toStringAsFixed(1)}%)',
+              style: const TextStyle(
                 fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
+                color: Colors.grey,
               ),
             ),
           ],
-        ),
-      ],
+        );
+      }).toList(),
     );
   }
 
   Widget _buildAccountsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Accounts',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            TextButton(
-              onPressed: _navigateToAccounts,
-              child: const Text('Manage'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_accounts.isEmpty)
-          _buildEmptyState(
-            'No accounts yet',
-            'Add your first account to start tracking',
-            Icons.account_balance_wallet_outlined,
-          )
-        else
-          SizedBox(
-            height: 140,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _accounts.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    right: index < _accounts.length - 1 ? 12 : 0,
-                  ),
-                  child: AccountCard(
-                    account: _accounts[index],
-                    showBalance: _showBalances,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/account-detail',
-                      arguments: _accounts[index].id,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Your Accounts',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
-                );
-              },
-            ),
+                  TextButton(
+                    onPressed: widget.onNavigateToAccounts,
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_accounts.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'No accounts added yet',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _accounts.take(3).length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final account = _accounts[index];
+                    return AccountListTile(
+                      account: account,
+                      onTap: () {
+                        // Navigate to account details
+                      },
+                    );
+                  },
+                ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 
   Widget _buildRecentTransactionsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Recent Transactions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            TextButton(
-              onPressed: _navigateToTransactions,
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_recentTransactions.isEmpty)
-          _buildEmptyState(
-            'No transactions yet',
-            'Your recent transactions will appear here',
-            Icons.receipt_long_outlined,
-          )
-        else
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _recentTransactions.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return TransactionListItem(
-                  transaction: _recentTransactions[index],
-                  showAmount: _showBalances,
-                );
-              },
-            ),
+            ],
           ),
-      ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recent Transactions',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: widget.onNavigateToTransactions,
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_recentTransactions.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'No transactions yet',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _recentTransactions.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final transaction = _recentTransactions[index];
+                    return TransactionListTile(
+                      transaction: transaction,
+                      onTap: () {
+                        // Navigate to transaction details
+                      },
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildSavingsGoalsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Savings Goals',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            TextButton(
-              onPressed: _navigateToSavingsGoals,
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_savingsGoals.isEmpty)
-          _buildEmptyState(
-            'No savings goals',
-            'Set your first savings goal to start saving',
-            Icons.savings_outlined,
-          )
-        else
-          SizedBox(
-            height: 180,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _savingsGoals.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    right: index < _savingsGoals.length - 1 ? 12 : 0,
-                  ),
-                  child: SavingsGoalCard(
-                    goal: _savingsGoals[index],
-                    showAmount: _showBalances,
-                    onTap: () => Navigator.pushNamed(
-                      context,
-                      '/savings-goal-detail',
-                      arguments: _savingsGoals[index].id,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Savings Goals',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
                   ),
-                );
-              },
-            ),
+                  TextButton(
+                    onPressed: widget.onNavigateToSavings,
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_savingsGoals.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'No savings goals yet',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 140,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _savingsGoals.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final goal = _savingsGoals[index];
+                      return SavingsProgressCard(
+                        goal: goal,
+                        onTap: () {
+                          // Navigate to goal details
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 
   Widget _buildPortfolioSection() {
-    final isPositiveChange = _portfolioChange >= 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Stock Portfolio',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            TextButton(
-              onPressed: _navigateToPortfolio,
-              child: const Text('View All'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Invested',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _showBalances
-                              ? Formatters.formatCurrency(_totalInvested)
-                              : '\$••••••',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Stock Portfolio',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1A2E),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: (isPositiveChange ? Colors.green : Colors.red).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isPositiveChange ? Icons.trending_up : Icons.trending_down,
-                            color: isPositiveChange ? Colors.green : Colors.red,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _showBalances
-                                ? '${isPositiveChange ? '+' : ''}${Formatters.formatCurrency(_portfolioChange)}'
-                                : '\$•••',
-                            style: TextStyle(
-                              color: isPositiveChange ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  ),
+                  TextButton(
+                    onPressed: widget.onNavigateToStocks,
+                    child: const Text(
+                      'View All',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ],
-                ),
-                if (_portfolioStocks.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _portfolioStocks.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: StockCard(
-                            stock: _portfolioStocks[index],
-                            showValue: _showBalances,
-                          ),
-                        );
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_topStocks.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'No stocks in portfolio',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _topStocks.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final stock = _topStocks[index];
+                    return StockCard(
+                      stock: stock,
+                      onTap: () {
+                        // Navigate to stock details
                       },
-                    ),
-                  ),
-                ] else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.show_chart,
-                          size: 40,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No stocks in portfolio',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExpenseBreakdownSection() {
-    if (_expenseCategories.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Expense Breakdown',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 200,
-                  child: ExpenseBreakdownChart(
-                    categories: _expenseCategories,
-                    showValues: _showBalances,
-                  ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 16),
-                ..._expenseCategories.entries.map((entry) {
-                  return _buildCategoryItem(
-                    entry.key,
-                    entry.value,
-                    _monthlyExpenses > 0 ? entry.value / _monthlyExpenses : 0,
-                  );
-                }),
-              ],
-            ),
+            ],
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryItem(String category, double amount, double percentage) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: _getCategoryColor(category),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              category,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-          Text(
-            _showBalances ? Formatters.formatCurrency(amount) : '\$•••',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 50,
-            child: Text(
-              _showBalances ? _percentFormat.format(percentage) : '••%',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getCategoryColor(String category) {
-    final colors = {
-      'Food & Dining': Colors.orange,
-      'Transportation': Colors.blue,
-      'Shopping': Colors.pink,
-      'Entertainment': Colors.purple,
-      'Bills & Utilities': Colors.red,
-      'Healthcare': Colors.green,
-      'Travel': Colors.teal,
-      'Education': Colors.indigo,
-      'Personal': Colors.amber,
-      'Other': Colors.grey,
-    };
-    return colors[category] ?? Colors.grey;
-  }
-
-  Widget _buildEmptyState(String title, String subtitle, IconData icon) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 48,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  Widget _buildFAB() {
-    return FloatingActionButton.extended(
-      onPressed: _navigateToAddTransaction,
-      icon: const Icon(Icons.add),
-      label: const Text('Add'),
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-    );
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 }
