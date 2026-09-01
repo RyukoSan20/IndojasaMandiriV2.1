@@ -1,0 +1,335 @@
+# FinTrack ERD - Part 3: Relasi & Implementasi
+
+## 7. Relasi Antar Entitas
+
+### 7.1 Diagram Relasi
+
+
+┌─────────────┐       ┌─────────────────┐       ┌─────────────┐
+│   User      │───────│   Account       │───────│ Transaction │
+│             │  1:N  │                 │  1:N  │             │
+└─────────────┘       └─────────────────┘       └─────────────┘
+      │                                                 │
+      │                  ┌─────────────────┐            │
+      │                  │  Transaction    │◄───────────┘
+      │                  │  Category       │
+      │                  └─────────────────┘
+      │                         │
+      │  ┌──────────────────────┼──────────────────────┐
+      │  │                      │                      │
+      ▼  ▼                      ▼                      ▼
+┌─────────────┐       ┌─────────────────┐       ┌─────────────┐
+│  Savings    │       │    Stock        │       │   Stock     │
+│  Goal       │       │  Portfolio      │       │  Watchlist  │
+└─────────────┘       └─────────────────┘       └─────────────┘
+
+
+### 7.2 Kardinalitas Relasi
+
+| Entitas A        | Relasi | Entitas B          | Tipe      | Deskripsi                           |
+|-------------------|--------|--------------------|-----------|-------------------------------------|
+| User              | 1:N    | Account            | Mandatory | Satu user punya banyak akun         |
+| User              | 1:N    | Transaction        | Mandatory | Satu user punya banyak transaksi    |
+| User              | 1:N    | SavingsGoal        | Optional  | Satu user punya banyak target       |
+| User              | 1:N    | StockPortfolio     | Optional  | Satu user punya banyak portofolio  |
+| User              | 1:N    | StockWatchlist     | Optional  | Satu user punya banyak watchlist    |
+| Account           | 1:N    | Transaction        | Mandatory | Satu akun punya banyak transaksi   |
+| Category          | 1:N    | Transaction        | Mandatory | Satu kategori punya banyak transaksi|
+| Stock             | 1:N    | StockPortfolio     | Mandatory | Satu saham punya banyak portofolio |
+| Stock             | 1:N    | StockWatchlist     | Mandatory | Satu saham punya banyak watchlist   |
+| User              | 1:1    | UserSettings       | Mandatory | Satu user punya satu pengaturan     |
+| User              | 1:N    | Budget             | Optional  | Satu user punya banyak budget       |
+
+## 8. Implementasi Database
+
+### 8.1 PostgreSQL Schema (Primary)
+
+sql
+-- Users
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),
+    name VARCHAR(100) NOT NULL,
+    pin_hash VARCHAR(255),
+    biometric_enabled BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Accounts
+CREATE TABLE accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    balance DECIMAL(15,2) DEFAULT 0,
+    currency VARCHAR(3) DEFAULT 'IDR',
+    icon VARCHAR(50),
+    color VARCHAR(7),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Categories
+CREATE TABLE categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    icon VARCHAR(50),
+    color VARCHAR(7),
+    is_system BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Transactions
+CREATE TABLE transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    description TEXT,
+    date DATE NOT NULL,
+    receipt_url VARCHAR(500),
+    tags TEXT[],
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Savings Goals
+CREATE TABLE savings_goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    target_amount DECIMAL(15,2) NOT NULL,
+    current_amount DECIMAL(15,2) DEFAULT 0,
+    deadline DATE,
+    icon VARCHAR(50),
+    color VARCHAR(7),
+    is_completed BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Stocks
+CREATE TABLE stocks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    symbol VARCHAR(20) UNIQUE NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    exchange VARCHAR(50),
+    sector VARCHAR(100),
+    last_price DECIMAL(15,4),
+    last_updated TIMESTAMP
+);
+
+-- Stock Portfolio
+CREATE TABLE stock_portfolios (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id UUID NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    quantity DECIMAL(15,4) NOT NULL,
+    average_price DECIMAL(15,4) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, stock_id)
+);
+
+-- Stock Transactions (Buy/Sell)
+CREATE TABLE stock_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    portfolio_id UUID NOT NULL REFERENCES stock_portfolios(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(10) NOT NULL,
+    quantity DECIMAL(15,4) NOT NULL,
+    price DECIMAL(15,4) NOT NULL,
+    fee DECIMAL(15,2) DEFAULT 0,
+    date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Stock Watchlist
+CREATE TABLE stock_watchlists (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id UUID NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    target_price DECIMAL(15,4),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, stock_id)
+);
+
+-- User Settings
+CREATE TABLE user_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    currency VARCHAR(3) DEFAULT 'IDR',
+    theme VARCHAR(20) DEFAULT 'light',
+    language VARCHAR(10) DEFAULT 'id',
+    notifications_enabled BOOLEAN DEFAULT true,
+    biometric_enabled BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_transactions_user_date ON transactions(user_id, date);
+CREATE INDEX idx_transactions_account ON transactions(account_id);
+CREATE INDEX idx_transactions_category ON transactions(category_id);
+CREATE INDEX idx_stock_portfolios_user ON stock_portfolios(user_id);
+CREATE INDEX idx_accounts_user ON accounts(user_id);
+
+
+### 8.2 SQLite Schema (Offline/Mobile)
+
+sql
+-- Simplified schema for SQLite (mobile offline support)
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT,
+    name TEXT NOT NULL,
+    pin_hash TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE accounts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    balance REAL DEFAULT 0,
+    currency TEXT DEFAULT 'IDR',
+    icon TEXT,
+    color TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE transactions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    category_id TEXT,
+    amount REAL NOT NULL,
+    type TEXT NOT NULL,
+    description TEXT,
+    date INTEGER NOT NULL,
+    receipt_url TEXT,
+    tags TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE categories (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    icon TEXT,
+    color TEXT,
+    is_system INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE savings_goals (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    current_amount REAL DEFAULT 0,
+    deadline INTEGER,
+    icon TEXT,
+    color TEXT,
+    is_completed INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE stock_portfolios (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    stock_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    average_price REAL NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE stock_watchlists (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    stock_id TEXT NOT NULL,
+    target_price REAL,
+    notes TEXT,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE user_settings (
+    id TEXT PRIMARY KEY,
+    user_id TEXT UNIQUE NOT NULL,
+    currency TEXT DEFAULT 'IDR',
+    theme TEXT DEFAULT 'light',
+    language TEXT DEFAULT 'id',
+    notifications_enabled INTEGER DEFAULT 1,
+    biometric_enabled INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+
+## 9. Panduan Implementasi
+
+### 9.1 Sync Strategy
+
+javascript
+// Sync conflict resolution
+const syncStrategy = {
+    transactions: 'server_wins',      // Transaksi keuangan: akurasi prioritas
+    accounts: 'client_wins',          // Saldo: client lebih up-to-date
+    portfolios: 'server_wins',        // Portofolio: harga dari server
+    goals: 'merge',                   // Target: merge amount
+    watchlists: 'client_wins'         // Watchlist: preferensi user
+};
+
+
+### 9.2 Offline-First Approach
+
+1. **Local-first writes**: Semua operasi tulis dilakukan ke SQLite lokal
+2. **Background sync**: Sinkronisasi ke server saat koneksi tersedia
+3. **Conflict detection**: Gunakan timestamp + version vector
+4. **Rollback support**: Simpan history perubahan untuk rollback
+
+### 9.3 Security Considerations
+
+1. **Authentication**: JWT dengan refresh token
+2. **Encryption**: AES-256 untuk data sensitif di lokal
+3. **PIN/Biometric**: Untuk akses aplikasi
+4. **Audit log**: Catat semua perubahan data
+
+## 10. Kesimpulan
+
+ERD ini menyediakan fondasi database yang komprehensif untuk aplikasi FinTrack dengan dukungan:
+
+- Multi-device sync
+- Offline-first capability
+- Scalable untuk fitur tambahan
+- Secure dan compliant
+
+Untuk implementasi, disarankan untuk memulai dengan PostgreSQL sebagai primary database dan SQLite untuk offline support pada mobile app.
+
+---
+
+*Generated: FinTrack ERD Documentation*
+*Version: 1.0.0*

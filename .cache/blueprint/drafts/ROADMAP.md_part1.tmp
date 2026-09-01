@@ -1,0 +1,328 @@
+# FinTrack Roadmap
+
+## Part 1: Project Overview & Foundation
+
+---
+
+## 1. Project Overview
+
+**Project Name:** FinTrack  
+**Project Type:** Cross-platform Mobile Application (iOS & Android)  
+**Core Functionality:** Personal Finance and Stock Portfolio Tracker that helps users manage personal finances, savings, and stock investments in one unified platform.  
+**Target Launch:** Q2 2025  
+**Development Phase:** MVP Development (Part 1 of 3)
+
+### 1.1 Vision Statement
+
+FinTrack empowers individuals to take control of their financial journey through intuitive tracking, smart insights, and comprehensive portfolio management. We believe financial wellness should be accessible, simple, and actionable for everyone—from students to seasoned investors.
+
+### 1.2 Problem Statement
+
+- **Fragmentation:** Users manage finances across multiple apps (banking apps, spreadsheets, investment platforms)
+- **Complexity:** Existing finance apps are overwhelming with features users don't need
+- **Lack of Insights:** No automated financial intelligence or actionable recommendations
+- **Poor UX:** Finance apps prioritize features over user experience
+- **Accessibility:** Many users find finance tracking intimidating or time-consuming
+
+### 1.3 Solution Pillars
+
+| Pillar | Description |
+|--------|-------------|
+| **Simplicity** | One app for all financial needs—transactions, savings, investments |
+| **Intelligence** | Automated insights and recommendations powered by data analysis |
+| **Speed** | Sub-second app response times with offline-first architecture |
+| **Security** | Bank-grade security with biometric authentication |
+
+---
+
+## 2. Technology Stack
+
+### 2.1 Frontend Framework
+
+**Framework:** Flutter 3.19+  
+**Language:** Dart 3.3+  
+**State Management:** Riverpod 2.5+  
+**Architecture Pattern:** Clean Architecture with Feature-First Organization
+
+**Rationale:** Flutter provides native performance on both iOS and Android from a single codebase, reducing development time by 40-50%. Riverpod offers compile-time safety and excellent testing support compared to other state management solutions.
+
+### 2.2 Backend Services
+
+**Backend Framework:** Node.js 20 LTS with Fastify  
+**Language:** TypeScript 5.3+  
+**API Protocol:** RESTful API with JSON:API standard  
+**Authentication:** JWT with refresh token rotation
+
+**Alternative Consideration:** Supabase for rapid MVP development, migrating to custom backend in later phases.
+
+### 2.3 Database
+
+**Primary Database:** PostgreSQL 16  
+**ORM:** Prisma 5+  
+**Caching Layer:** Redis 7+  
+**Offline Storage:** Drift (SQLite wrapper for Flutter)
+
+### 2.4 Infrastructure
+
+**Cloud Provider:** AWS or Google Cloud Platform  
+**Container Orchestration:** Kubernetes (via EKS/GKE)  
+**CI/CD:** GitHub Actions  
+**Monitoring:** Datadog or New Relic  
+**Error Tracking:** Sentry
+
+### 2.5 External Integrations
+
+| Service | Purpose | API Type |
+|---------|---------|----------|
+| Alpha Vantage | Stock market data | REST |
+| Yahoo Finance | Real-time quotes | Unofficial API |
+| Midtrans | Payment gateway | REST |
+| SendGrid | Email notifications | REST |
+
+---
+
+## 3. System Architecture
+
+### 3.1 High-Level Architecture
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        Client Layer                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │   Flutter   │  │   Flutter   │  │   Flutter Web (PWA)     │  │
+│  │  Android    │  │     iOS     │  │                         │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       API Gateway Layer                          │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │                    Fastify Server                        │    │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐  │    │
+│  │  │   Auth   │  │  User    │  │Financial │  │ Stock   │  │    │
+│  │  │ Service  │  │ Service  │  │ Service  │  │ Service │  │    │
+│  │  └──────────┘  └──────────┘  └──────────┘  └─────────┘  │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Data Layer                                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ PostgreSQL  │  │    Redis    │  │     External APIs       │  │
+│  │  Database   │  │   Cache     │  │  (Stock Data, etc.)     │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+
+
+### 3.2 Clean Architecture Layers (Flutter)
+
+
+lib/
+├── core/                      # Shared utilities and constants
+│   ├── constants/
+│   ├── errors/
+│   ├── extensions/
+│   ├── theme/
+│   ├── utils/
+│   └── widgets/
+│
+├── features/                  # Feature modules (domain-driven)
+│   ├── auth/
+│   │   ├── data/
+│   │   │   ├── datasources/
+│   │   │   ├── models/
+│   │   │   └── repositories/
+│   │   ├── domain/
+│   │   │   ├── entities/
+│   │   │   ├── repositories/
+│   │   │   └── usecases/
+│   │   └── presentation/
+│   │       ├── providers/
+│   │       ├── screens/
+│   │       └── widgets/
+│   │
+│   ├── dashboard/
+│   ├── transactions/
+│   ├── accounts/
+│   ├── savings/
+│   ├── stocks/
+│   └── settings/
+│
+├── shared/                    # Shared across features
+│   ├── models/
+│   ├── services/
+│   └── widgets/
+│
+└── main.dart
+
+
+### 3.3 Data Flow Architecture
+
+
+User Action → Provider → Use Case → Repository → Data Source
+                ↑                                         │
+                └──────────── State Update ←──────────────┘
+
+
+---
+
+## 4. Project Structure
+
+### 4.1 Flutter Project Structure
+
+
+fintrack/
+├── lib/
+│   ├── main.dart
+│   ├── app.dart
+│   ├── injection_container.dart
+│   │
+│   ├── core/
+│   │   ├── constants/
+│   │   │   ├── app_constants.dart
+│   │   │   ├── api_constants.dart
+│   │   │   └── storage_keys.dart
+│   │   ├── errors/
+│   │   │   ├── exceptions.dart
+│   │   │   └── failures.dart
+│   │   ├── network/
+│   │   │   ├── api_client.dart
+│   │   │   ├── network_info.dart
+│   │   │   └── interceptors.dart
+│   │   ├── theme/
+│   │   │   ├── app_theme.dart
+│   │   │   ├── colors.dart
+│   │   │   └── typography.dart
+│   │   ├── utils/
+│   │   │   ├── currency_formatter.dart
+│   │   │   ├── date_utils.dart
+│   │   │   └── validators.dart
+│   │   └── widgets/
+│   │       ├── custom_button.dart
+│   │       ├── custom_text_field.dart
+│   │       ├── loading_indicator.dart
+│   │       └── error_widget.dart
+│   │
+│   ├── features/
+│   │   ├── auth/
+│   │   ├── dashboard/
+│   │   ├── transactions/
+│   │   ├── accounts/
+│   │   ├── savings_targets/
+│   │   ├── stocks/
+│   │   └── settings/
+│   │
+│   └── shared/
+│       ├── models/
+│       ├── services/
+│       └── widgets/
+│
+├── test/
+├── assets/
+│   ├── images/
+│   ├── icons/
+│   └── fonts/
+│
+├── pubspec.yaml
+├── analysis_options.yaml
+└── README.md
+
+
+### 4.2 Backend Project Structure
+
+
+fintrack-api/
+├── src/
+│   ├── app.ts
+│   ├── server.ts
+│   │
+│   ├── config/
+│   │   ├── database.ts
+│   │   ├── redis.ts
+│   │   └── env.ts
+│   │
+│   ├── modules/
+│   │   ├── auth/
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── auth.routes.ts
+│   │   │   └── dto/
+│   │   ├── users/
+│   │   ├── transactions/
+│   │   ├── accounts/
+│   │   ├── savings/
+│   │   └── stocks/
+│   │
+│   ├── shared/
+│   │   ├── middlewares/
+│   │   ├── validators/
+│   │   └── utils/
+│   │
+│   └── types/
+│
+├── prisma/
+│   └── schema.prisma
+│
+├── tests/
+├── package.json
+├── tsconfig.json
+└── .env.example
+
+
+### 4.3 Database Schema Overview
+
+
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│    users     │     │   accounts   │     │ transactions │
+├──────────────┤     ├──────────────┤     ├──────────────┤
+│ id           │────<│ id           │────<│ id           │
+│ email        │     │ user_id      │     │ account_id   │
+│ password     │     │ name         │     │ type         │
+│ name         │     │ type         │     │ amount       │
+│ created_at   │     │ balance      │     │ category_id  │
+│ updated_at   │     │ currency     │     │ description  │
+└──────────────┘     │ created_at   │     │ date         │
+     │                └──────────────┘     │ created_at   │
+     │                     │               └──────────────┘
+     │                     │                    │
+     ▼                     ▼                    ▼
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  user_tokens │     │   savings    │     │  categories  │
+├──────────────┤     ├──────────────┤     ├──────────────┤
+│ id           │     │ id           │     │ id           │
+│ user_id      │     │ user_id      │     │ name         │
+│ refresh_token│     │ name         │     │ type         │
+│ expires_at   │     │ target_amount│     │ icon         │
+│ created_at   │     │ current_amount│   │ color        │
+└──────────────┘     │ deadline     │     └──────────────┘
+                     │ created_at   │
+                     └──────────────┘
+                           │
+                           ▼
+                     ┌──────────────┐     ┌──────────────┐
+                     │stock_portfolio│   │   stocks     │
+                     ├──────────────┤     ├──────────────┤
+                     │ id           │────<│ symbol       │
+                     │ user_id      │     │ name         │
+                     │ symbol       │     │ exchange     │
+                     │ shares       │     │ logo_url     │
+                     │ avg_buy_price│    │ updated_at   │
+                     └──────────────┘     └──────────────┘
+
+
+---
+
+## 5. Development Timeline Overview
+
+| Phase | Duration | Focus |
+|-------|----------|-------|
+| **Phase 1** | Weeks 1-4 | Project Setup, Auth, Core Infrastructure |
+| **Phase 2** | Weeks 5-8 | Transactions, Accounts, Dashboard |
+| **Phase 3** | Weeks 9-12 | Savings, Stocks, Statistics |
+| **Phase 4** | Weeks 13-14 | Testing, Polish, Launch Prep |
+
+---
+
+*End of Part 1: Project Overview & Foundation*

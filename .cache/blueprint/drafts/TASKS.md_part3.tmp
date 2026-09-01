@@ -1,0 +1,343 @@
+# FinTrack - Part 3: Stock Portfolio, Statistics & Advanced Features
+
+---
+
+## 8. Stock Portfolio (Investasi Saham)
+
+### 8.1 Data Model
+
+
+StockPortfolio {
+  id: UUID
+  user_id: UUID (FK)
+  symbol: String (3-5 chars, e.g., "BBRI", "TLKM")
+  company_name: String
+  shares: Decimal (lot, 1 lot = 100 shares)
+  average_buy_price: Decimal
+  current_price: Decimal
+  sector: String
+  exchange: Enum ("IDX", "NASDAQ", "NYSE")
+  created_at: DateTime
+  updated_at: DateTime
+}
+
+StockTransaction {
+  id: UUID
+  portfolio_id: UUID (FK)
+  user_id: UUID (FK)
+  type: Enum ("BUY", "SELL")
+  shares: Decimal
+  price_per_share: Decimal
+  transaction_date: Date
+  broker: String
+  fee: Decimal
+  tax: Decimal
+  notes: Text
+  created_at: DateTime
+}
+
+StockWatchlist {
+  id: UUID
+  user_id: UUID (FK)
+  symbol: String
+  company_name: String
+  target_price: Decimal
+  alert_enabled: Boolean
+  created_at: DateTime
+}
+
+
+### 8.2 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v1/stocks/portfolio | Get user stock portfolio |
+| POST | /api/v1/stocks/portfolio | Add stock to portfolio |
+| PUT | /api/v1/stocks/portfolio/:id | Update stock holding |
+| DELETE | /api/v1/stocks/portfolio/:id | Remove from portfolio |
+| POST | /api/v1/stocks/portfolio/:id/transactions | Record buy/sell |
+| GET | /api/v1/stocks/watchlist | Get watchlist |
+| POST | /api/v1/stocks/watchlist | Add to watchlist |
+| DELETE | /api/v1/stocks/watchlist/:id | Remove from watchlist |
+| GET | /api/v1/stocks/quote/:symbol | Get real-time quote |
+
+### 8.3 User Stories
+
+- [ ] **US-8.1**: User dapat menambah saham ke portofolio dengan simbol, jumlah lot, dan harga rata-rata beli
+- [ ] **US-8.2**: Sistem otomatis menghitung total investasi, profit/loss, dan ROI
+- [ ] **US-8.3**: User dapat mencatat transaksi beli/jual saham
+- [ ] **US-8.4**: User dapat menambah saham ke watchlist dengan target harga
+- [ ] **US-8.5**: Sistem menampilkangrafik performa portofolio saham
+- [ ] **US-8.6**: User dapat melihat nilai portofolio saham di dashboard
+
+### 8.4 Technical Tasks
+
+- [ ] **T-8.1**: Setup database tables for stock portfolio
+- [ ] **T-8.2**: Integrate stock price API (e.g., Indonesia Stock Exchange API, Yahoo Finance)
+- [ ] **T-8.3**: Implement portfolio calculation logic (average buy, P/L, ROI)
+- [ ] **T-8.4**: Build stock portfolio UI with real-time prices
+- [ ] **T-8.5**: Create stock transaction form with fee/tax calculation
+- [ ] **T-8.6**: Implement watchlist with price alert feature
+- [ ] **T-8.7**: Build stock performance charts (line chart, pie chart by sector)
+- [ ] **T-8.8**: Add push notification for watchlist alerts
+
+---
+
+## 9. Statistics & Analytics (Statistik)
+
+### 9.1 Chart Types
+
+| Chart | Purpose | Data Source |
+|-------|---------|-------------|
+| Line Chart | Cash flow trend | Transactions (monthly) |
+| Bar Chart | Income vs Expense | Transactions (monthly) |
+| Pie Chart | Expense by category | Transactions (monthly) |
+| Donut Chart | Asset allocation | Financial accounts |
+| Area Chart | Net worth over time | Accounts + Portfolio |
+| Stacked Bar | Investment vs Savings | Monthly aggregated |
+
+### 9.2 Predefined Reports
+
+- [ ] Monthly income report
+- [ ] Monthly expense report
+- [ ] Category breakdown report
+- [ ] Cash flow analysis
+- [ ] Net worth statement
+- [ ] Investment performance report
+- [ ] Savings goal progress report
+- [ ] Year-to-date summary
+
+### 9.3 Technical Tasks
+
+- [ ] **T-9.1**: Implement aggregation queries for chart data
+- [ ] **T-9.2**: Build reusable chart components (Recharts/Chart.js)
+- [ ] **T-9.3**: Create export functionality (PDF, Excel, CSV)
+- [ ] **T-9.4**: Implement date range filter for reports
+- [ ] **T-9.5**: Build comparison mode (current vs previous period)
+- [ ] **T-9.6**: Add drill-down functionality on charts
+
+---
+
+## 10. Security & Privacy (Keamanan)
+
+### 10.1 Authentication Features
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| Email Login | P0 | Email + password authentication |
+| Google OAuth | P0 | Google sign-in integration |
+| PIN Lock | P1 | 4-6 digit PIN for app access |
+| Biometric | P1 | Fingerprint/Face ID authentication |
+| Session Timeout | P0 | Auto-logout after inactivity |
+
+### 10.2 Data Security
+
+- [ ] **T-10.1**: Implement JWT with refresh token rotation
+- [ ] **T-10.2**: Add rate limiting on auth endpoints
+- [ ] **T-10.3**: Encrypt sensitive data at rest (AES-256)
+- [ ] **T-10.4**: Implement 2FA option for high-security users
+- [ ] **T-10.5**: Add audit logging for sensitive actions
+- [ ] **T-10.6**: Implement data export/delete (GDPR compliance)
+- [ ] **T-10.7**: Add PIN hashing and verification
+- [ ] **T-10.8**: Implement biometric authentication via native APIs
+
+### 10.3 User Stories
+
+- [ ] **US-10.1**: User dapat login dengan email dan password
+- [ ] **US-10.2**: User dapat login dengan akun Google
+- [ ] **US-10.3**: User dapat mengatur PIN untuk keamanan tambahan
+- [ ] **US-10.4**: User dapat menggunakan biometric (sidik jari) untuk login
+- [ ] **US-10.5**: App otomatis logout setelah 5 menit tidak aktif
+
+---
+
+## 11. Settings & Preferences
+
+### 11.1 User Preferences
+
+
+UserPreferences {
+  user_id: UUID (FK)
+  currency: String (default: "IDR")
+  language: String (default: "id-ID")
+  theme: Enum ("light", "dark", "system")
+  date_format: String (default: "DD/MM/YYYY")
+  first_day_of_week: Enum ("sunday", "monday")
+  notifications_enabled: Boolean
+  biometric_enabled: Boolean
+  pin_enabled: Boolean
+  auto_sync: Boolean
+  sync_frequency: Enum ("realtime", "hourly", "daily")
+}
+
+
+### 11.2 Technical Tasks
+
+- [ ] **T-11.1**: Build settings screen UI
+- [ ] **T-11.2**: Implement theme switching (light/dark)
+- [ ] **T-11.3**: Add language support (i18n)
+- [ ] **T-11.4**: Create notification preferences
+- [ ] **T-11.5**: Implement data backup/restore
+- [ ] **T-11.6**: Build account management (change password, delete account)
+
+---
+
+## 12. Testing & Quality Assurance
+
+### 12.1 Test Coverage Requirements
+
+| Category | Coverage Target | Tools |
+|----------|-----------------|-------|
+| Unit Tests | 80% | Jest, React Testing Library |
+| Integration Tests | 60% | Supertest, Detox |
+| E2E Tests | Critical flows | Cypress, Appium |
+| Performance | <2s load time | Lighthouse, k6 |
+| Security | No critical vulns | OWASP ZAP, Snyk |
+
+### 12.2 Test Scenarios
+
+#### Authentication
+- [ ] TC-12.1: Login with valid email/password
+- [ ] TC-12.2: Login with Google OAuth
+- [ ] TC-12.3: Login with wrong password (show error)
+- [ ] TC-12.4: PIN authentication flow
+- [ ] TC-12.5: Biometric authentication
+- [ ] TC-12.6: Session timeout after inactivity
+
+#### Transactions
+- [ ] TC-12.7: Add income transaction
+- [ ] TC-12.8: Add expense transaction with category
+- [ ] TC-12.9: Edit existing transaction
+- [ ] TC-12.10: Delete transaction with confirmation
+- [ ] TC-12.11: Upload receipt image
+
+#### Portfolio
+- [ ] TC-12.12: Add stock to portfolio
+- [ ] TC-12.13: Record buy transaction
+- [ ] TC-12.14: Calculate average buy correctly
+- [ ] TC-12.15: Calculate P/L accurately
+
+### 12.3 Performance Benchmarks
+
+- [ ] First Contentful Paint: <1.5s
+- [ ] Time to Interactive: <3s
+- [ ] Lighthouse Score: >90
+- [ ] API Response Time: <200ms
+- [ ] Offline capability: 100% core features
+
+---
+
+## 13. Deployment & DevOps
+
+### 13.1 Environments
+
+| Environment | Purpose | URL |
+|-------------|---------|-----|
+| Development | Local development | localhost:3000 |
+| Staging | Pre-production testing | staging.fintrack.app |
+| Production | Live application | app.fintrack.app |
+| API | Backend services | api.fintrack.app |
+
+### 13.2 CI/CD Pipeline
+
+yaml
+# GitHub Actions Workflow
+stages:
+  - lint: ESLint, Prettier checks
+  - test: Unit & Integration tests
+  - build: Docker image build
+  - e2e: Cypress E2E tests
+  - deploy-staging: Auto-deploy to staging
+  - deploy-production: Manual approval required
+
+
+### 13.3 Infrastructure
+
+
+Production Architecture:
+├── CDN (CloudFlare)
+│   ├── Static Assets
+│   └── API Gateway
+├── Frontend (Vercel/Netlify)
+│   └── React PWA
+├── Backend (AWS ECS/Railway)
+│   ├── API Service
+│   ├── WebSocket Server
+│   └── Worker Service
+├── Database (Supabase/PostgreSQL)
+│   ├── Primary DB
+│   └── Read Replicas
+├── Cache (Redis)
+│   ├── Session Store
+│   └── API Cache
+├── Storage (S3/R2)
+│   ├── User Uploads
+│   └── Backups
+└── Monitoring (Sentry, Datadog)
+
+
+### 13.4 Technical Tasks
+
+- [ ] **T-13.1**: Setup CI/CD with GitHub Actions
+- [ ] **T-13.2**: Configure staging environment
+- [ ] **T-13.3**: Setup production infrastructure
+- [ ] **T-13.4**: Implement monitoring and alerting
+- [ ] **T-13.5**: Setup automated database backups
+- [ ] **T-13.6**: Configure CDN for static assets
+- [ ] **T-13.7**: Implement disaster recovery plan
+
+---
+
+## 14. Post-MVP Roadmap
+
+### Phase 2 Features (v2.0)
+
+- [ ] Bill reminder/recurring transactions
+- [ ] Split bill feature
+- [ ] Investment calculator (SIP, CAGR)
+- [ ] Multiple currency support
+- [ ] Export to accounting software
+- [ ] Collaboration features (family accounts)
+
+### Phase 3 Features (v3.0)
+
+- [ ] AI-powered financial insights
+- [ ] Investment recommendations
+- [ ] Budget planning with ML
+- [ ] Tax preparation reports
+- [ ] Multi-language support
+- [ ] Desktop application
+
+---
+
+## Appendix A: Priority Matrix
+
+| Priority | Criteria | Features |
+|----------|----------|----------|
+| P0 (Critical) | MVP, revenue blocker | Auth, Dashboard, Transactions, Accounts |
+| P1 (High) | Core experience | Savings goals, Basic stats, Stock portfolio |
+| P2 (Medium) | Enhanced UX | Charts, Export, Advanced stats |
+| P3 (Low) | Nice-to-have | AI insights, Recommendations |
+
+---
+
+## Appendix B: Definition of Done
+
+A task is considered complete when:
+- [ ] Code is written and follows style guide
+- [ ] Unit tests written and passing (>80% coverage)
+- [ ] Integration with related modules verified
+- [ ] UI matches design specifications
+- [ ] Responsive design tested (mobile, tablet, desktop)
+- [ ] Accessibility compliance (WCAG 2.1 AA)
+- [ ] Security review completed
+- [ ] Documentation updated
+- [ ] Code reviewed and approved
+- [ ] Deployed to staging environment
+
+---
+
+*End of TASKS.md - Part 3 of 3*
+
+**Total Tasks: ~95 tasks across 14 sections**
+**Estimated Development Time: 16-20 weeks (MVP: 8-10 weeks)**

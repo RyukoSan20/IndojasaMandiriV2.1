@@ -1,0 +1,379 @@
+# FinTrack - Design Document (Part 3)
+
+## 8. Keamanan & Autentikasi
+
+### 8.1 Metode Autentikasi
+
+FinTrack menyediakan tiga metode autentikasi untuk keamanan akun pengguna:
+
+**Email Login**
+- Registrasi dengan email dan password
+- Password harus minimal 8 karakter dengan kombinasi huruf besar, huruf kecil, angka, dan simbol
+- Password di-hash menggunakan bcrypt dengan salt rounds 12
+- Token reset password dikirim via email dengan expiry 1 jam
+
+**Google OAuth Login**
+- Integrasi dengan Google Identity Services
+- Mendapatkan email, profile, dan avatar dari Google account
+- OAuth 2.0 dengan PKCE untuk keamanan tambahan
+- Token refresh otomatis untuk session management
+
+**Two-Factor Authentication (2FA)**
+- PIN 6 digit untuk verifikasi tambahan
+- Biometric authentication menggunakan Face ID atau Fingerprint
+- PIN dapat diubah kapan saja melalui settings
+- Biometric memerlukan persetujuan explisit pengguna
+
+### 8.2 Keamanan Data
+
+**Enkripsi**
+- Data sensitif di-enkripsi menggunakan AES-256-GCM
+- Encryption key dikelola terpisah dari data
+- HTTPS-only untuk semua komunikasi API
+- Certificate pinning untuk aplikasi mobile
+
+**Session Management**
+- JWT access token dengan expiry 15 menit
+- Refresh token dengan expiry 7 hari
+- Auto-logout setelah 30 menit tidak aktif
+- Single device login dapat diaktifkan opsional
+
+**Privacy & Compliance**
+- Data tidak dijual ke pihak ketiga
+- User consent diperlukan untuk data collection
+- Right to delete account dan data tersimpan
+- GDPR compliant untuk pengguna EU
+
+## 9. Arsitektur Backend
+
+### 9.1 API Design
+
+RESTful API dengan JSON response menggunakan protocol berikut:
+
+**Base URL**
+
+https://api.fintrack.app/v1
+
+
+**Authentication Endpoints**
+
+POST /auth/register        - Registrasi pengguna baru
+POST /auth/login           - Login dengan email/password
+POST /auth/google          - Login dengan Google OAuth
+POST /auth/refresh         - Refresh access token
+POST /auth/logout          - Logout dan invalidate token
+POST /auth/forgot-password - Request reset password
+POST /auth/reset-password  - Reset password dengan token
+
+
+**Account Endpoints**
+
+GET    /accounts           - List semua akun
+POST   /accounts           - Tambah akun baru
+GET    /accounts/:id       - Detail akun
+PUT    /accounts/:id       - Update akun
+DELETE /accounts/:id       - Hapus akun
+GET    /accounts/:id/balance - Get saldo akun
+
+
+**Transaction Endpoints**
+
+GET    /transactions                - List transaksi (paginated)
+POST   /transactions                - Tambah transaksi
+GET    /transactions/:id            - Detail transaksi
+PUT    /transactions/:id            - Update transaksi
+DELETE /transactions/:id            - Hapus transaksi
+GET    /transactions/export         - Export transaksi CSV/PDF
+POST   /transactions/upload-receipt - Upload struk
+
+
+**Category Endpoints**
+
+GET    /categories          - List kategori
+POST   /categories         - Tambah kategori
+PUT    /categories/:id     - Update kategori
+DELETE /categories/:id     - Hapus kategori
+
+
+**Goals Endpoints**
+
+GET    /goals           - List target tabungan
+POST   /goals           - Tambah target
+GET    /goals/:id       - Detail target
+PUT    /goals/:id       - Update target
+DELETE /goals/:id       - Hapus target
+POST   /goals/:id/contribution - Add kontribusi
+
+
+**Portfolio Endpoints**
+
+GET    /portfolio            - Get portofolio saham
+POST   /portfolio/buy        - Tambah pembelian saham
+POST   /portfolio/sell       - Record penjualan saham
+GET    /portfolio/performance - Get performa portofolio
+GET    /portfolio/history    - Get history transaksi saham
+
+
+**Watchlist Endpoints**
+
+GET    /watchlist            - List watchlist
+POST   /watchlist            - Tambah ke watchlist
+DELETE /watchlist/:symbol    - Hapus dari watchlist
+
+
+**Dashboard Endpoints**
+
+GET    /dashboard/summary    - Get ringkasan dashboard
+GET    /dashboard/cashflow   - Get data cashflow chart
+GET    /dashboard/networth   - Get data net worth chart
+GET    /dashboard/insights   - Get financial insights
+
+
+**Statistics Endpoints**
+
+GET    /stats/spending       - Get statistik pengeluaran
+GET    /stats/income         - Get statistik pendapatan
+GET    /stats/categories     - Get statistik per kategori
+GET    /stats/assets         - Get statistik aset
+
+
+### 9.2 Response Format
+
+**Success Response**
+json
+{
+  "success": true,
+  "data": { ... },
+  "meta": {
+    "page": 1,
+    "per_page": 20,
+    "total": 100
+  }
+}
+
+
+**Error Response**
+json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input data",
+    "details": [
+      { "field": "amount", "message": "Amount must be positive" }
+    ]
+  }
+}
+
+
+## 10. Database Schema
+
+### 10.1 Core Entities
+
+**users**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| email | VARCHAR(255) | UNIQUE, NOT NULL |
+| password_hash | VARCHAR(255) | NULL |
+| google_id | VARCHAR(255) | UNIQUE, NULL |
+| name | VARCHAR(100) | NOT NULL |
+| pin_hash | VARCHAR(255) | NULL |
+| biometric_enabled | BOOLEAN | DEFAULT FALSE |
+| settings | JSONB | DEFAULT '{}' |
+| created_at | TIMESTAMP | NOT NULL |
+| updated_at | TIMESTAMP | NOT NULL |
+
+**accounts**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users |
+| name | VARCHAR(100) | NOT NULL |
+| type | ENUM | kas, bank, ewallet, savings, investment |
+| currency | VARCHAR(3) | DEFAULT 'IDR' |
+| balance | DECIMAL(15,2) | DEFAULT 0 |
+| icon | VARCHAR(50) | NULL |
+| color | VARCHAR(7) | NULL |
+| is_active | BOOLEAN | DEFAULT TRUE |
+| created_at | TIMESTAMP | NOT NULL |
+| updated_at | TIMESTAMP | NOT NULL |
+
+**transactions**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users |
+| account_id | UUID | FK -> accounts |
+| category_id | UUID | FK -> categories |
+| type | ENUM | income, expense |
+| amount | DECIMAL(15,2) | NOT NULL |
+| description | VARCHAR(255) | NULL |
+| date | DATE | NOT NULL |
+| receipt_url | VARCHAR(500) | NULL |
+| created_at | TIMESTAMP | NOT NULL |
+| updated_at | TIMESTAMP | NOT NULL |
+
+**categories**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users (NULL untuk default) |
+| name | VARCHAR(100) | NOT NULL |
+| type | ENUM | income, expense |
+| icon | VARCHAR(50) | NOT NULL |
+| color | VARCHAR(7) | NOT NULL |
+| is_default | BOOLEAN | DEFAULT FALSE |
+| created_at | TIMESTAMP | NOT NULL |
+
+**goals**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users |
+| name | VARCHAR(100) | NOT NULL |
+| target_amount | DECIMAL(15,2) | NOT NULL |
+| current_amount | DECIMAL(15,2) | DEFAULT 0 |
+| deadline | DATE | NULL |
+| icon | VARCHAR(50) | NULL |
+| color | VARCHAR(7) | NULL |
+| status | ENUM | active, completed, cancelled |
+| created_at | TIMESTAMP | NOT NULL |
+| updated_at | TIMESTAMP | NOT NULL |
+
+**stock_portfolios**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users |
+| symbol | VARCHAR(10) | NOT NULL |
+| company_name | VARCHAR(100) | NOT NULL |
+| total_shares | DECIMAL(10,4) | NOT NULL |
+| average_price | DECIMAL(15,2) | NOT NULL |
+| created_at | TIMESTAMP | NOT NULL |
+| updated_at | TIMESTAMP | NOT NULL |
+
+**stock_transactions**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users |
+| symbol | VARCHAR(10) | NOT NULL |
+| type | ENUM | buy, sell |
+| shares | DECIMAL(10,4) | NOT NULL |
+| price | DECIMAL(15,2) | NOT NULL |
+| total_amount | DECIMAL(15,2) | NOT NULL |
+| date | DATE | NOT NULL |
+| created_at | TIMESTAMP | NOT NULL |
+
+**watchlists**
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK -> users |
+| symbol | VARCHAR(10) | NOT NULL |
+| created_at | TIMESTAMP | NOT NULL |
+
+### 10.2 Indexes
+
+sql
+CREATE INDEX idx_transactions_user_date ON transactions(user_id, date);
+CREATE INDEX idx_transactions_user_type ON transactions(user_id, type);
+CREATE INDEX idx_accounts_user ON accounts(user_id);
+CREATE INDEX idx_goals_user ON goals(user_id);
+CREATE INDEX idx_portfolio_user ON stock_portfolios(user_id);
+CREATE INDEX idx_watchlist_user ON watchlists(user_id);
+
+
+## 11. Deployment & Infrastructure
+
+### 11.1 Environment
+
+**Development**
+- Local development dengan Docker Compose
+- PostgreSQL 15 untuk database
+- Redis untuk caching dan session
+- MinIO untuk object storage (receipts)
+
+**Staging**
+- Single server deployment
+- Auto-scaling tidak diperlukan
+- Manual deployment via CI/CD
+
+**Production**
+- Kubernetes cluster dengan 3 node
+- PostgreSQL dengan read replica
+- Redis cluster untuk high availability
+- S3-compatible object storage
+- CDN untuk static assets
+
+### 11.2 CI/CD Pipeline
+
+yaml
+stages:
+  - lint        # Code linting dan formatting
+  - test        # Unit dan integration tests
+  - build       # Build Docker images
+  - deploy      # Deploy ke environment
+
+
+### 11.3 Monitoring & Logging
+
+- Application monitoring: Sentry
+- Infrastructure monitoring: Prometheus + Grafana
+- Log aggregation: ELK Stack
+- Uptime monitoring: UptimeRobot
+- Error alerting: Slack notifications
+
+## 12. Roadmap Pengembangan
+
+### Phase 1: MVP (Bulan 1-2)
+- [x] Authentication (email, Google)
+- [x] Dashboard dengan ringkasan
+- [x] CRUD transaksi
+- [x] CRUD akun keuangan
+- [x] CRUD target tabungan
+- [x] Portofolio saham dasar
+- [x] Statistik dasar
+
+### Phase 2: Enhanced Features (Bulan 3-4)
+- [ ] Upload struk transaksi
+- [ ] Grafik advanced
+- [ ] PIN dan biometric lock
+- [ ] Export laporan
+- [ ] Notifikasi dan reminder
+
+### Phase 3: Advanced Features (Bulan 5-6)
+- [ ] Investment insights
+- [ ] Budget planning
+- [ ] Debt tracking
+- [ ] Multiple currency
+- [ ] Recurring transactions
+
+### Phase 4: Ecosystem (Bulan 7+)
+- [ ] Browser extension
+- [ ] API public untuk developer
+- [ ] Widget dashboard
+- [ ] Multi-language support
+- [ ] Investment advisory
+
+## 13. Estimasi Tim & Resource
+
+### Tim Development
+- 1 Product Manager
+- 1 UI/UX Designer
+- 2 Backend Developers
+- 2 Mobile Developers
+- 1 QA Engineer
+
+### Teknologi Stack
+- Frontend: React Native, TailwindCSS
+- Backend: Node.js, Express, PostgreSQL
+- Infrastructure: AWS/GCP, Docker, Kubernetes
+- Monitoring: Sentry, DataDog, Grafana
+
+---
+
+*Document Version: 1.0*
+*Last Updated: $(date +%Y-%m-%d)*
+*Status: Draft for Review*

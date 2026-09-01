@@ -1,0 +1,394 @@
+# FinTrack - Bagian 2: Arsitektur Teknis
+
+## Tech Stack
+
+### Frontend Mobile
+- **Framework**: React Native 0.76+
+- **Language**: TypeScript 5.x
+- **State Management**: Zustand
+- **Navigation**: React Navigation 6
+- **UI Components**: React Native Paper
+- **Charts**: Victory Native
+- **Storage**: AsyncStorage + WatermelonDB
+
+### Backend API
+- **Runtime**: Node.js 20 LTS
+- **Framework**: Express.js
+- **Language**: TypeScript 5.x
+- **Database**: PostgreSQL 16
+- **ORM**: Prisma
+- **Cache**: Redis
+- **Auth**: JWT + Firebase Auth
+
+### Infrastructure
+- **Cloud**: Google Cloud Platform
+- **Container**: Docker
+- **CI/CD**: GitHub Actions
+- **Monitoring**: Cloud Logging + Sentry
+
+## Database Schema
+
+### Users
+
+users
+├── id (UUID, PK)
+├── email (VARCHAR, UNIQUE)
+├── password_hash (VARCHAR)
+├── name (VARCHAR)
+├── avatar_url (VARCHAR)
+├── pin_hash (VARCHAR)
+├── biometric_enabled (BOOLEAN)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+### Financial Accounts
+
+accounts
+├── id (UUID, PK)
+├── user_id (UUID, FK → users)
+├── name (VARCHAR)
+├── type (ENUM: cash, bank, ewallet, savings, investment)
+├── balance (DECIMAL)
+├── currency (VARCHAR)
+├── icon (VARCHAR)
+├── color (VARCHAR)
+├── is_active (BOOLEAN)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+### Transactions
+
+transactions
+├── id (UUID, PK)
+├── user_id (UUID, FK → users)
+├── account_id (UUID, FK → accounts)
+├── type (ENUM: income, expense, transfer)
+├── amount (DECIMAL)
+├── category (VARCHAR)
+├── description (TEXT)
+├── date (DATE)
+├── receipt_url (VARCHAR)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+### Savings Goals
+
+savings_goals
+├── id (UUID, PK)
+├── user_id (UUID, FK → users)
+├── name (VARCHAR)
+├── target_amount (DECIMAL)
+├── current_amount (DECIMAL)
+├── deadline (DATE)
+├── icon (VARCHAR)
+├── color (VARCHAR)
+├── status (ENUM: active, completed, cancelled)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+### Stock Portfolio
+
+portfolios
+├── id (UUID, PK)
+├── user_id (UUID, FK → users)
+├── symbol (VARCHAR)
+├── company_name (VARCHAR)
+├── quantity (DECIMAL)
+├── average_price (DECIMAL)
+├── current_price (DECIMAL)
+├── sector (VARCHAR)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+### Stock Watchlist
+
+watchlists
+├── id (UUID, PK)
+├── user_id (UUID, FK → users)
+├── symbol (VARCHAR)
+├── target_price (DECIMAL)
+├── alert_enabled (BOOLEAN)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+### Categories
+
+categories
+├── id (UUID, PK)
+├── user_id (UUID, FK → users, NULLABLE)
+├── name (VARCHAR)
+├── type (ENUM: income, expense)
+├── icon (VARCHAR)
+├── color (VARCHAR)
+├── is_system (BOOLEAN)
+├── parent_id (UUID, FK → categories, NULLABLE)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+
+## API Endpoints
+
+### Authentication
+
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/logout
+POST   /api/auth/refresh
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password
+POST   /api/auth/verify-email
+POST   /api/auth/set-pin
+POST   /api/auth/verify-pin
+
+
+### Users
+
+GET    /api/users/me
+PUT    /api/users/me
+PUT    /api/users/me/avatar
+PUT    /api/users/me/password
+PUT    /api/users/me/pin
+PUT    /api/users/me/biometric
+DELETE /api/users/me
+
+
+### Accounts
+
+GET    /api/accounts
+POST   /api/accounts
+GET    /api/accounts/:id
+PUT    /api/accounts/:id
+DELETE /api/accounts/:id
+GET    /api/accounts/:id/balance
+PUT    /api/accounts/:id/balance
+
+
+### Transactions
+
+GET    /api/transactions
+POST   /api/transactions
+GET    /api/transactions/:id
+PUT    /api/transactions/:id
+DELETE /api/transactions/:id
+POST   /api/transactions/transfer
+POST   /api/transactions/upload-receipt
+GET    /api/transactions/export
+
+
+### Categories
+
+GET    /api/categories
+POST   /api/categories
+PUT    /api/categories/:id
+DELETE /api/categories/:id
+
+
+### Savings Goals
+
+GET    /api/savings-goals
+POST   /api/savings-goals
+GET    /api/savings-goals/:id
+PUT    /api/savings-goals/:id
+DELETE /api/savings-goals/:id
+POST   /api/savings-goals/:id/contribute
+
+
+### Portfolio
+
+GET    /api/portfolio
+POST   /api/portfolio
+GET    /api/portfolio/:id
+PUT    /api/portfolio/:id
+DELETE /api/portfolio/:id
+POST   /api/portfolio/buy
+POST   /api/portfolio/sell
+GET    /api/portfolio/summary
+GET    /api/portfolio/performance
+
+
+### Watchlist
+
+GET    /api/watchlist
+POST   /api/watchlist
+DELETE /api/watchlist/:id
+PUT    /api/watchlist/:id
+
+
+### Dashboard
+
+GET    /api/dashboard/summary
+GET    /api/dashboard/cashflow
+GET    /api/dashboard/networth
+GET    /api/dashboard/insights
+
+
+### Statistics
+
+GET    /api/stats/expenses
+GET    /api/stats/income
+GET    /api/stats/categories
+GET    /api/stats/assets
+GET    /api/stats/investments
+
+
+## Data Models (TypeScript)
+
+### User Model
+typescript
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+  pinEnabled: boolean;
+  biometricEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
+### Account Model
+typescript
+interface Account {
+  id: string;
+  userId: string;
+  name: string;
+  type: AccountType;
+  balance: number;
+  currency: string;
+  icon: string;
+  color: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type AccountType = 'cash' | 'bank' | 'ewallet' | 'savings' | 'investment';
+
+
+### Transaction Model
+typescript
+interface Transaction {
+  id: string;
+  userId: string;
+  accountId: string;
+  type: TransactionType;
+  amount: number;
+  category: string;
+  description: string;
+  date: Date;
+  receiptUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type TransactionType = 'income' | 'expense' | 'transfer';
+
+
+### SavingsGoal Model
+typescript
+interface SavingsGoal {
+  id: string;
+  userId: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: Date;
+  icon: string;
+  color: string;
+  status: GoalStatus;
+  progress: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type GoalStatus = 'active' | 'completed' | 'cancelled';
+
+
+### Portfolio Model
+typescript
+interface Portfolio {
+  id: string;
+  userId: string;
+  symbol: string;
+  companyName: string;
+  quantity: number;
+  averagePrice: number;
+  currentPrice: number;
+  sector: string;
+  totalValue: number;
+  profitLoss: number;
+  profitLossPercent: number;
+  returnPercent: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
+## Security Implementation
+
+### Authentication Flow
+1. User registers/logs in via email or Google
+2. Server validates credentials
+3. JWT access token (15min) + refresh token (7 days) issued
+4. Access token stored in memory
+5. Refresh token stored in HttpOnly cookie
+
+### PIN Security
+1. User sets 6-digit PIN after registration
+2. PIN hashed with bcrypt (salt rounds: 12)
+3. PIN verified on sensitive operations
+4. 5 failed attempts = 30min lockout
+
+### Biometric Authentication
+1. Face ID / Fingerprint registered via device
+2. Biometric assertion sent to server
+3. Server validates with Firebase Auth
+4. Session token issued on success
+
+### Data Encryption
+- HTTPS/TLS 1.3 for all connections
+- AES-256 for sensitive local storage
+- Database encryption at rest
+- Backup encryption with user-specific keys
+
+## Offline Support Architecture
+
+### Local Database (WatermelonDB)
+- Full offline read capability
+- Queue writes for sync
+- Conflict resolution with last-write-wins
+- Sync status indicator
+
+### Sync Strategy
+1. On app open: fetch delta changes
+2. On connectivity restore: push queued changes
+3. Background sync every 5 minutes
+4. Manual sync button available
+5. Conflict detection and resolution
+
+## State Management (Zustand)
+
+### Stores
+typescript
+// authStore - authentication state
+// accountStore - financial accounts
+// transactionStore - transactions
+// savingsStore - savings goals
+// portfolioStore - stock portfolio
+// watchlistStore - stock watchlist
+// categoryStore - transaction categories
+// settingsStore - user preferences
+// syncStore - sync status
+
+
+### Persistence
+- Auth state: AsyncStorage (memory only)
+- User data: WatermelonDB (local SQLite)
+- Settings: AsyncStorage (persistent)

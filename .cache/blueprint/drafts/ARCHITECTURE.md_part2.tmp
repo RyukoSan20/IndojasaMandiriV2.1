@@ -1,0 +1,513 @@
+# FinTrack Architecture - Part 2
+
+## 4. Data Architecture
+
+### 4.1 Database Design
+
+#### 4.1.1 Database Type
+- **Primary Database**: SQLite for local storage (offline-first capability)
+- **Cloud Database**: PostgreSQL for cloud sync and multi-device support
+- **Cache Layer**: Redis for session management and real-time data
+
+#### 4.1.2 Core Entities
+
+
+┌─────────────────┐     ┌─────────────────┐
+│     User        │     │    Account      │
+├─────────────────┤     ├─────────────────┤
+│ id (UUID)       │────<│ id (UUID)       │
+│ email           │     │ user_id         │
+│ password_hash   │     │ name            │
+│ google_id       │     │ type            │
+│ pin_hash        │     │ balance         │
+│ biometric_key   │     │ currency        │
+│ created_at      │     │ color           │
+│ updated_at      │     │ icon            │
+│ last_sync       │     │ is_active       │
+└─────────────────┘     │ created_at      │
+        │               │ updated_at      │
+        │               └─────────────────┘
+        │
+        │               ┌─────────────────┐
+        │               │   Transaction   │
+        │               ├─────────────────┤
+        └──────────────>│ id (UUID)       │
+                        │ account_id      │
+                        │ user_id         │>────┌─────────────────┐
+                        │ type            │     │   Category      │
+                        │ amount          │     ├─────────────────┤
+                        │ description      │     │ id (UUID)       │
+                        │ category_id     │     │ user_id         │
+                        │ date            │     │ name            │
+                        │ receipt_url     │     │ type            │
+                        │ is_recurring    │     │ icon            │
+                        │ recurring_id    │     │ color           │
+                        │ notes           │     │ parent_id       │
+                        │ tags            │     │ is_system       │
+                        │ location        │     └─────────────────┘
+                        │ created_at      │
+                        │ updated_at      │
+                        └─────────────────┘
+
+┌─────────────────┐     ┌─────────────────┐
+│  SavingsGoal    │     │  StockHolding   │
+├─────────────────┤     ├─────────────────┤
+│ id (UUID)       │     │ id (UUID)       │
+│ user_id         │     │ user_id         │
+│ name            │     │ symbol          │
+│ target_amount   │     │ company_name    │
+│ current_amount  │     │ quantity        │
+│ deadline        │     │ average_price   │
+│ icon            │     │ current_price   │
+│ color           │     │ sector          │
+│ is_completed    │     │ exchange        │
+│ completed_at    │     │ last_updated    │
+│ created_at      │     │ created_at      │
+│ updated_at      │     │ updated_at      │
+└─────────────────┘     └─────────────────┘
+
+
+#### 4.1.3 Database Schema (SQLite)
+
+sql
+-- Users Table
+CREATE TABLE users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT,
+    google_id TEXT UNIQUE,
+    pin_hash TEXT,
+    biometric_key TEXT,
+    settings TEXT DEFAULT '{}',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_sync INTEGER
+);
+
+-- Accounts Table
+CREATE TABLE accounts (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('cash', 'bank', 'ewallet', 'savings', 'investment')),
+    balance REAL DEFAULT 0,
+    currency TEXT DEFAULT 'IDR',
+    color TEXT,
+    icon TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Categories Table
+CREATE TABLE categories (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+    icon TEXT,
+    color TEXT,
+    parent_id TEXT,
+    is_system INTEGER DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
+-- Transactions Table
+CREATE TABLE transactions (
+    id TEXT PRIMARY KEY,
+    account_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'transfer')),
+    amount REAL NOT NULL,
+    description TEXT,
+    category_id TEXT,
+    date INTEGER NOT NULL,
+    receipt_url TEXT,
+    is_recurring INTEGER DEFAULT 0,
+    recurring_id TEXT,
+    notes TEXT,
+    tags TEXT,
+    location TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
+-- Savings Goals Table
+CREATE TABLE savings_goals (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    current_amount REAL DEFAULT 0,
+    deadline INTEGER,
+    icon TEXT,
+    color TEXT,
+    is_completed INTEGER DEFAULT 0,
+    completed_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Stock Holdings Table
+CREATE TABLE stock_holdings (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    company_name TEXT,
+    quantity REAL NOT NULL,
+    average_price REAL NOT NULL,
+    current_price REAL,
+    sector TEXT,
+    exchange TEXT,
+    last_updated INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Stock Watchlist Table
+CREATE TABLE stock_watchlist (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    company_name TEXT,
+    target_price REAL,
+    notes TEXT,
+    added_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, symbol)
+);
+
+-- Recurring Transactions Table
+CREATE TABLE recurring_transactions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    amount REAL NOT NULL,
+    description TEXT,
+    category_id TEXT,
+    frequency TEXT NOT NULL CHECK(frequency IN ('daily', 'weekly', 'monthly', 'yearly')),
+    start_date INTEGER NOT NULL,
+    end_date INTEGER,
+    next_execution INTEGER NOT NULL,
+    is_active INTEGER DEFAULT 1,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Indexes for Performance
+CREATE INDEX idx_transactions_user_date ON transactions(user_id, date);
+CREATE INDEX idx_transactions_account ON transactions(account_id);
+CREATE INDEX idx_transactions_category ON transactions(category_id);
+CREATE INDEX idx_stock_holdings_user ON stock_holdings(user_id);
+CREATE INDEX idx_savings_goals_user ON savings_goals(user_id);
+
+
+### 4.2 Data Synchronization
+
+#### 4.2.1 Sync Strategy
+- **Conflict Resolution**: Last-write-wins with timestamp comparison
+- **Sync Protocol**: Optimistic locking with version vectors
+- **Offline Queue**: IndexedDB for pending operations
+- **Sync Interval**: Real-time via WebSocket, fallback to 5-minute polling
+
+#### 4.2.2 Sync Data Flow
+
+┌─────────────────────────────────────────────────────────────┐
+│                      Client (Mobile)                        │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐      │
+│  │  SQLite DB  │◄──►│ Sync Engine │◄──►│  Local Cache │      │
+│  └─────────────┘    └──────┬──────┘    └─────────────┘      │
+│                            │                                 │
+│                     ┌──────▼──────┐                          │
+│                     │ Offline Queue│                          │
+│                     └─────────────┘                          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   REST API / WSS  │
+                    └─────────┬─────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│                      Cloud Server                           │
+│                     ┌─────────────┐                          │
+│                     │ Sync Service│                          │
+│                     └──────┬──────┘                          │
+│                            │                                 │
+│                     ┌──────▼──────┐                          │
+│                     │ PostgreSQL  │                          │
+│                     └─────────────┘                          │
+└─────────────────────────────────────────────────────────────┘
+
+
+## 5. Security Architecture
+
+### 5.1 Authentication Flow
+
+
+┌──────────────────────────────────────────────────────────────┐
+│                    Authentication Flow                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐  │
+│   │  Login  │───►│ Validate│───►│  Issue  │───►│ Store   │  │
+│   │ Request │    │  Input  │    │  Tokens │    │  Token  │  │
+│   └─────────┘    └─────────┘    └─────────┘    └─────────┘  │
+│                                              │                │
+│                                              ▼                │
+│   ┌─────────┐    ┌─────────┐    ┌─────────────────────────┐ │
+│   │ Success │◄───│ Dashboard│◄───│ 2FA / Biometric Verify │ │
+│   │ Response│    │  Access  │    │ (if enabled)            │ │
+│   └─────────┘    └─────────┘    └─────────────────────────┘ │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+
+### 5.2 Token Management
+
+| Token Type | Storage | Lifetime | Purpose |
+|------------|---------|----------|---------|
+| Access Token | Memory/SecureStorage | 15 minutes | API authentication |
+| Refresh Token | HttpOnly Cookie | 7 days | Token renewal |
+| Biometric Key | Secure Enclave | Until logout | Quick re-auth |
+
+### 5.3 Encryption Strategy
+
+javascript
+// Data Encryption at Rest
+const encryptionConfig = {
+  algorithm: 'aes-256-gcm',
+  keyDerivation: 'pbkdf2',
+  iterations: 100000,
+  keyLength: 256,
+  ivLength: 16,
+  authTagLength: 128
+};
+
+// Sensitive Fields Encrypted:
+// - PIN (hashed)
+// - Biometric keys
+// - Receipt images
+// - API keys
+
+
+### 5.4 Security Layers
+
+
+┌─────────────────────────────────────────────────────────────┐
+│                    Security Layers                           │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 1: Network Security                                   │
+│  ├── TLS 1.3 for all connections                            │
+│  ├── Certificate Pinning (mobile)                           │
+│  └── HSTS Headers                                           │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: Application Security                               │
+│  ├── JWT with short expiry                                  │
+│  ├── Rate Limiting (100 req/min)                            │
+│  ├── Input Validation & Sanitization                        │
+│  └── CSRF Protection                                         │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: Data Security                                      │
+│  ├── Field-level encryption                                 │
+│  ├── Secure password hashing (Argon2)                       │
+│  ├── Encrypted local storage                                │
+│  └── Secure backup encryption                                │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: User Security                                      │
+│  ├── PIN protection                                         │
+│  ├── Biometric authentication                                │
+│  ├── Session timeout (5 min idle)                          │
+│  └── Login notifications                                     │
+└─────────────────────────────────────────────────────────────┘
+
+
+## 6. State Management
+
+### 6.1 Global State Structure
+
+javascript
+const globalState = {
+  // Authentication State
+  auth: {
+    user: null,
+    isAuthenticated: false,
+    accessToken: null,
+    refreshToken: null,
+    biometricEnabled: false
+  },
+  
+  // Accounts State
+  accounts: {
+    list: [],
+    activeAccount: null,
+    totalBalance: 0,
+    isLoading: false,
+    error: null
+  },
+  
+  // Transactions State
+  transactions: {
+    list: [],
+    filters: { dateRange, category, account, type },
+    pagination: { page: 1, limit: 50, hasMore: true },
+    pendingSync: [],
+    isLoading: false
+  },
+  
+  // Savings Goals State
+  savings: {
+    list: [],
+    totalSaved: 0,
+    totalTarget: 0,
+    progress: {}
+  },
+  
+  // Stock Portfolio State
+  portfolio: {
+    holdings: [],
+    watchlist: [],
+    totalValue: 0,
+    totalProfitLoss: 0,
+    performance: {},
+    lastUpdated: null
+  },
+  
+  // UI State
+  ui: {
+    theme: 'system', // light, dark, system
+    currency: 'IDR',
+    language: 'id',
+    sidebarOpen: false,
+    activeModal: null,
+    notifications: []
+  },
+  
+  // Sync State
+  sync: {
+    status: 'idle', // idle, syncing, error, offline
+    lastSyncTime: null,
+    pendingChanges: 0,
+    conflictQueue: []
+  }
+};
+
+
+### 6.2 State Management Flow
+
+
+┌─────────────────────────────────────────────────────────────┐
+│                  State Management Architecture               │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                    React Context                      │   │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐    │   │
+│  │  │ AuthCtx    │  │ AccountCtx │  │ TransCtx   │    │   │
+│  │  └────────────┘  └────────────┘  └────────────┘    │   │
+│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐    │   │
+│  │  │ Portfolio  │  │ SavingsCtx │  │ UIStateCtx │    │   │
+│  │  └────────────┘  └────────────┘  └────────────┘    │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                            │                                 │
+│                            ▼                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                  Custom Hooks                         │   │
+│  │  useAuth() │ useAccounts() │ useTransactions()      │   │
+│  │  useSavings() │ usePortfolio() │ useSync()           │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                            │                                 │
+│                            ▼                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                  Persistence Layer                    │   │
+│  │  LocalStorage │ SQLite │ AsyncStorage                 │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+
+### 6.3 Persistence Strategy
+
+| Data Type | Storage | Encryption | Sync Priority |
+|-----------|---------|------------|---------------|
+| User Profile | SQLite | Yes | High |
+| Accounts | SQLite | Yes | High |
+| Transactions | SQLite | No | Medium |
+| Categories | SQLite | No | Low |
+| Savings Goals | SQLite | No | Medium |
+| Stock Holdings | SQLite | Yes | High |
+| Settings | MMKV | Yes | Low |
+| Auth Tokens | SecureStorage | Yes | Critical |
+
+## 7. Error Handling
+
+### 7.1 Error Types
+
+javascript
+const ErrorTypes = {
+  // Network Errors
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  TIMEOUT_ERROR: 'TIMEOUT_ERROR',
+  CONNECTION_OFFLINE: 'CONNECTION_OFFLINE',
+  
+  // Auth Errors
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  BIOMETRIC_FAILED: 'BIOMETRIC_FAILED',
+  ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
+  
+  // Validation Errors
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  DUPLICATE_ENTRY: 'DUPLICATE_ENTRY',
+  
+  // Sync Errors
+  SYNC_CONFLICT: 'SYNC_CONFLICT',
+  SYNC_FAILED: 'SYNC_FAILED',
+  
+  // Server Errors
+  SERVER_ERROR: 'SERVER_ERROR',
+  MAINTENANCE: 'MAINTENANCE'
+};
+
+
+### 7.2 Error Recovery Strategy
+
+
+┌─────────────────────────────────────────────────────────────┐
+│                 Error Recovery Flow                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   Error Occurs                                               │
+│        │                                                     │
+│        ▼                                                     │
+│   ┌─────────────┐    No     ┌─────────────────┐            │
+│   │ Recoverable?│─────────►│ Show Error UI    │            │
+│   └──────┬──────┘           │ & Log to Analytics│           │
+│          │ Yes                                               │
+│          ▼                                                   │
+│   ┌─────────────┐                                           │
+│   │ Error Type? │                                           │
+│   └──────┬──────┘                                           │
+│          │                                                   │
+│    ┌────┴────┬───────────┬────────────┐                    │
+│    ▼         ▼           ▼            ▼                    │
+│ Network   Auth      Validation    Sync                     │
+│    │         │           │            │                     │
+│    ▼         ▼           ▼            ▼                     │
+│ Retry(3)  Re-auth   Fix Input   Resolve                     │
+│ w/ expo               inline     conflict                   │
+│                                              │               │
+│                                              ▼               │
+│                                    ┌─────────────┐          │
+│                                    │ Retry Sync  │          │
+│                                    └─────────────┘          │
+└─────────────────────────────────────────────────────────────┘
+

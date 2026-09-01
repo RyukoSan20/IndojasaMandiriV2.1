@@ -1,0 +1,199 @@
+# FinTrack - Project Specification
+
+## Part 1: Project Overview & Vision
+
+---
+
+## 1. Introduction
+
+FinTrack is a comprehensive Personal Finance and Stock Portfolio Tracker designed to help users manage their personal finances, savings goals, and stock investments within a single, unified platform. The application prioritizes simplicity, speed, and ease of use while providing powerful financial insights.
+
+The name "FinTrack" combines "Financial" and "Track," reflecting the core purpose: enabling users to track, manage, and understand their financial health with minimal friction.
+
+---
+
+## 2. Product Vision
+
+FinTrack envisions a world where everyone—regardless of financial literacy level—can take control of their money. The application serves as a personal financial companion that:
+
+- **Simplifies Complexity**: Transforms complicated financial data into clear, actionable insights
+- **Encourages Good Habits**: Makes budgeting and saving feel rewarding rather than restrictive
+- **Builds Financial Awareness**: Helps users understand where their money goes and how to grow it
+- **Democratizes Investment**: Lowers barriers to entry for stock market participation
+
+The guiding principle is: *"Financial freedom starts with awareness, and awareness starts with FinTrack."*
+
+---
+
+## 3. Core Objectives
+
+### Primary Goals
+
+1. **Expense & Income Tracking**
+   - Enable users to record daily income and expenses effortlessly
+   - Provide real-time financial status visibility
+   - Support multiple transaction categories and tagging
+
+2. **Savings Management**
+   - Help users set and track financial goals
+   - Visualize progress toward savings targets
+   - Motivate consistent saving behavior
+
+3. **Account Management**
+   - Consolidate multiple financial accounts in one place
+   - Support diverse account types (cash, bank, e-wallet, investments)
+   - Calculate total net worth automatically
+
+4. **Investment Tracking**
+   - Monitor stock portfolio performance
+   - Calculate profit/loss and average buy prices
+   - Track investment returns over time
+
+5. **Financial Insights**
+   - Generate automatic financial insights
+   - Identify spending patterns
+   - Suggest improvement opportunities
+
+---
+
+## 4. Target Users
+
+### Primary User Segments
+
+| User Segment | Description | Key Needs |
+|--------------|-------------|-----------|
+| **Students** | University/college students managing allowance or part-time income | Simple budgeting, expense tracking, learning financial basics |
+| **Fresh Graduates** | New workforce members starting financial independence | Budget management, emergency fund setup, basic investment knowledge |
+| **Employees** | Working professionals with regular income | Multi-account management, savings goals, comprehensive tracking |
+| **Freelancers** | Self-employed individuals with variable income | Income tracking, tax preparation support, irregular expense management |
+| **Beginner Investors** | Individuals starting their investment journey | Portfolio tracking, profit/loss calculation, watchlist management |
+| **Retail Investors** | Active investors managing personal portfolios | Advanced portfolio analytics, multiple holdings tracking |
+
+### User Personas
+
+**Persona 1: Maya (23, Fresh Graduate)**
+- Just started working, earning first salary
+- Wants to track expenses to avoid overspending
+- Saving for emergency fund and first car
+- Has a bank account and e-wallet
+
+**Persona 2: Bagus (28, Freelance Designer)**
+- Variable monthly income
+- Needs to separate business and personal expenses
+- Interested in starting stock investment
+- Uses multiple payment methods
+
+**Persona 3: Sari (35, Marketing Manager)**
+- Established career with stable income
+- Has multiple investments including stocks
+- Focused on long-term wealth building
+- Values detailed analytics and reporting
+
+---
+
+## 5. MVP Scope
+
+### Phase 1: Minimum Viable Product
+
+The MVP focuses on essential features that deliver immediate value to users.
+
+#### Included in MVP
+
+1. **Authentication System**
+   - Email/password registration and login
+   - Google OAuth integration
+   - PIN code protection
+   - Biometric authentication (fingerprint/face)
+
+2. **Dashboard**
+   - Total balance overview
+   - Monthly income summary
+   - Monthly expense summary
+   - Total savings amount
+   - Stock portfolio value
+   - Cashflow trend chart
+   - Net worth chart
+   - Automated financial insights
+
+3. **Transaction Management**
+   - Add income transactions
+   - Add expense transactions
+   - Edit existing transactions
+   - Delete transactions
+   - Categorize transactions
+   - Receipt/struk upload functionality
+
+4. **Financial Accounts**
+   - Cash account
+   - Bank account
+   - E-Wallet account
+   - Savings account
+   - Investment account
+
+5. **Savings Goals**
+   - Emergency fund goal
+   - Vacation fund goal
+   - Custom savings targets
+   - Progress tracking with visual indicators
+
+6. **Stock Portfolio**
+   - Portfolio holdings list
+   - Add/remove holdings
+   - Average buy price calculation
+   - Profit/loss calculation
+   - Return on investment (ROI) tracking
+   - Performance chart
+
+7. **Basic Statistics**
+   - Expense breakdown by category
+   - Income vs expense comparison
+   - Category-wise spending analysis
+
+#### Excluded from MVP (Phase 2+)
+
+- Advanced investment analytics
+- Bill reminders and notifications
+- Budget limits and alerts
+- Export to PDF/Excel
+- Multiple currencies
+- Investment recommendations
+- Tax report generation
+- Investment news integration
+
+---
+
+## 6. Success Metrics
+
+### Key Performance Indicators
+
+| Metric | Target | Measurement |
+|--------|--------|-------------|
+| App Load Time | < 2 seconds | Time to interactive |
+| User Retention (Day 1) | > 60% | DAU/MAU ratio |
+| User Retention (Day 7) | > 40% | Users returning after 1 week |
+| Transaction Completion | > 90% | Successful transaction recording |
+| Dashboard Loading | < 1 second | Initial data load time |
+| Offline Capability | 100% core features | App usability without internet |
+
+---
+
+## 7. Technical Constraints
+
+### Platform Requirements
+
+- **Primary Platform**: Mobile (iOS & Android)
+- **Design Approach**: Mobile-first, responsive
+- **Offline Support**: Full functionality without internet
+- **Cloud Sync**: Automatic data synchronization
+- **Data Storage**: Secure, encrypted local and cloud storage
+
+### Security Requirements
+
+- End-to-end encryption for sensitive data
+- Secure authentication with token-based sessions
+- Biometric data never leaves the device
+- Compliance with data protection regulations
+
+---
+
+*End of Part 1: Project Overview & Vision*

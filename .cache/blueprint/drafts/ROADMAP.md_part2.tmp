@@ -1,0 +1,412 @@
+# FinTrack Roadmap - Part 2: Technical Architecture & Implementation Phases
+
+## Tech Stack Decisions
+
+### Frontend
+- **Framework**: Flutter (iOS & Android cross-platform)
+- **State Management**: flutter_bloc (BLoC pattern)
+- **Local Storage**: Hive (offline-first, fast)
+- **HTTP Client**: Dio with interceptors
+- **Charts**: fl_chart for visualizations
+- **Biometrics**: local_auth package
+
+### Backend
+- **Framework**: Node.js with Express or Fastify
+- **Language**: TypeScript for type safety
+- **Database**: PostgreSQL (relational data integrity)
+- **Cache**: Redis (session, real-time data)
+- **ORM**: Prisma (type-safe database access)
+- **Auth**: JWT + refresh tokens
+
+### Infrastructure
+- **Cloud**: Firebase for notifications, crashlytics
+- **CI/CD**: GitHub Actions
+- **Hosting**: Vercel/Heroku for backend
+- **CDN**: Cloudflare for static assets
+
+---
+
+## Data Models
+
+### User
+
+- id: UUID
+- email: string
+- password_hash: string
+- name: string
+- pin_hash: string (optional)
+- biometric_enabled: boolean
+- created_at: timestamp
+- updated_at: timestamp
+
+
+### Account
+
+- id: UUID
+- user_id: UUID (FK)
+- name: string
+- type: enum (cash, bank, ewallet, savings, investment)
+- balance: decimal
+- currency: string
+- icon: string
+- color: string
+- is_active: boolean
+- created_at: timestamp
+
+
+### Transaction
+
+- id: UUID
+- user_id: UUID (FK)
+- account_id: UUID (FK)
+- type: enum (income, expense)
+- amount: decimal
+- category: string
+- description: string
+- date: date
+- receipt_url: string (optional)
+- created_at: timestamp
+
+
+### SavingsTarget
+
+- id: UUID
+- user_id: UUID (FK)
+- name: string
+- target_amount: decimal
+- current_amount: decimal
+- deadline: date (optional)
+- icon: string
+- color: string
+- is_completed: boolean
+- created_at: timestamp
+
+
+### Stock
+
+- id: UUID
+- user_id: UUID (FK)
+- symbol: string
+- name: string
+- total_shares: decimal
+- average_price: decimal
+- current_price: decimal
+- sector: string
+- created_at: timestamp
+
+
+### StockTransaction
+
+- id: UUID
+- user_id: UUID (FK)
+- stock_id: UUID (FK)
+- type: enum (buy, sell)
+- shares: decimal
+- price_per_share: decimal
+- total_amount: decimal
+- date: date
+- broker: string
+- created_at: timestamp
+
+
+---
+
+## Implementation Phases
+
+### Phase 1: Foundation (Weeks 1-4)
+
+**Authentication System**
+- Email/password registration and login
+- JWT token generation and validation
+- Password reset functionality
+- Session management
+- Device tracking
+
+**Core Infrastructure**
+- Project setup with clean architecture
+- Database schema and migrations
+- API routing structure
+- Error handling middleware
+- Logging system
+- Unit testing setup
+
+**Deliverables**:
+- [ ] User registration flow
+- [ ] Login with email/password
+- [ ] JWT authentication working
+- [ ] Database migrations running
+- [ ] CI/CD pipeline configured
+
+---
+
+### Phase 2: Core Features (Weeks 5-8)
+
+**Account Management**
+- Create/edit/delete accounts
+- Account types (cash, bank, ewallet, savings, investment)
+- Balance tracking
+- Account icons and colors
+
+**Transaction Management**
+- Add income transactions
+- Add expense transactions
+- Edit and delete transactions
+- Transaction categories
+- Receipt upload functionality
+- Transaction filtering and search
+
+**Dashboard**
+- Total balance calculation
+- Monthly income/expense summary
+- Recent transactions list
+- Quick action buttons
+- Pull-to-refresh functionality
+
+**Deliverables**:
+- [ ] CRUD operations for accounts
+- [ ] Transaction entry form
+- [ ] Transaction history with filters
+- [ ] Basic dashboard layout
+- [ ] Receipt image upload
+
+---
+
+### Phase 3: Savings & Goals (Weeks 9-11)
+
+**Savings Targets**
+- Create savings goals
+- Set target amounts and deadlines
+- Track progress
+- Add funds to goals
+- Goal completion notifications
+- Visual progress indicators
+
+**Target Categories**
+- Emergency fund
+- Vacation
+- Vehicle
+- Gadget
+- Custom goals
+- Goal templates
+
+**Deliverables**:
+- [ ] Savings goal CRUD
+- [ ] Progress tracking UI
+- [ ] Fund allocation to goals
+- [ ] Goal completion alerts
+- [ ] Visual charts for progress
+
+---
+
+### Phase 4: Stock Portfolio (Weeks 12-15)
+
+**Portfolio Management**
+- Add stocks to portfolio
+- Track total shares and average buy price
+- Real-time price updates
+- Portfolio value calculation
+- Performance metrics
+
+**Watchlist**
+- Add stocks to watch
+- Price alerts
+- Daily/weekly price changes
+- Technical indicators
+
+**Stock Transactions**
+- Record buy transactions
+- Record sell transactions
+- Calculate profit/loss
+- Average cost calculation
+- Trading history
+
+**Deliverables**:
+- [ ] Stock portfolio view
+- [ ] Watchlist functionality
+- [ ] Buy/sell transaction entry
+- [ ] P&L calculations
+- [ ] Stock price API integration
+
+---
+
+### Phase 5: Analytics & Insights (Weeks 16-18)
+
+**Statistics Dashboard**
+- Income vs expense charts
+- Category breakdown pie charts
+- Monthly trends
+- Year-over-year comparison
+- Asset allocation charts
+
+**Financial Insights**
+- Spending pattern analysis
+- Savings rate calculation
+- Budget recommendations
+- Alert for unusual transactions
+- Monthly summary reports
+
+**Reports**
+- Export transactions to CSV/PDF
+- Monthly financial reports
+- Tax report preparation
+- Investment performance report
+
+**Deliverables**:
+- [ ] Interactive charts
+- [ ] Insight notifications
+- [ ] Report generation
+- [ ] Data export functionality
+- [ ] Trend analysis
+
+---
+
+## API Design
+
+### Authentication Endpoints
+
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/logout
+POST   /api/auth/refresh
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password
+PUT    /api/auth/pin
+
+
+### Account Endpoints
+
+GET    /api/accounts
+POST   /api/accounts
+GET    /api/accounts/:id
+PUT    /api/accounts/:id
+DELETE /api/accounts/:id
+GET    /api/accounts/balance
+
+
+### Transaction Endpoints
+
+GET    /api/transactions
+POST   /api/transactions
+GET    /api/transactions/:id
+PUT    /api/transactions/:id
+DELETE /api/transactions/:id
+POST   /api/transactions/upload
+GET    /api/transactions/summary
+
+
+### Savings Target Endpoints
+
+GET    /api/targets
+POST   /api/targets
+GET    /api/targets/:id
+PUT    /api/targets/:id
+DELETE /api/targets/:id
+POST   /api/targets/:id/contribute
+
+
+### Stock Endpoints
+
+GET    /api/stocks
+POST   /api/stocks
+GET    /api/stocks/:id
+PUT    /api/stocks/:id
+DELETE /api/stocks/:id
+GET    /api/stocks/:id/transactions
+GET    /api/stocks/portfolio/summary
+
+
+### Analytics Endpoints
+
+GET    /api/analytics/overview
+GET    /api/analytics/income
+GET    /api/analytics/expenses
+GET    /api/analytics/categories
+GET    /api/analytics/trends
+GET    /api/analytics/insights
+
+
+---
+
+## Security Implementation
+
+### Authentication
+- bcrypt for password hashing (12 rounds)
+- JWT with 15-minute expiry
+- Refresh tokens with 7-day expiry
+- Rate limiting on auth endpoints
+- Account lockout after 5 failed attempts
+
+### Data Protection
+- HTTPS everywhere
+- Input validation and sanitization
+- SQL injection prevention via ORM
+- XSS protection headers
+- CORS configuration
+- API key rotation
+
+### Mobile Security
+- Encrypted local storage
+- Biometric authentication option
+- PIN protection for sensitive actions
+- Session timeout (5 minutes inactive)
+- Remote logout capability
+
+---
+
+## Offline-First Strategy
+
+### Local Database
+- Hive for mobile local storage
+- Automatic sync when online
+- Conflict resolution (last-write-wins)
+- Sync status indicators
+- Manual sync trigger option
+
+### Sync Logic
+
+1. User performs action offline
+2. Action saved to local DB
+3. Sync queue populated
+4. When online, process queue
+5. Server processes and confirms
+6. Update local state with server response
+7. Handle conflicts if any
+
+
+### Cache Strategy
+- Cache API responses for 5 minutes
+- Cache stock prices for 15 minutes
+- Preload dashboard data on app open
+- Background sync every 15 minutes
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+- Business logic validation
+- Data transformation functions
+- Calculation accuracy
+- Error handling
+
+### Integration Tests
+- API endpoint testing
+- Database operations
+- Authentication flows
+- Sync functionality
+
+### E2E Tests
+- Critical user journeys
+- Transaction flows
+- Authentication scenarios
+- Portfolio management
+
+### Performance Targets
+- App cold start: < 2 seconds
+- Screen transitions: < 300ms
+- API response: < 500ms
+- Offline action save: < 100ms
+
+---
+
+*Part 2 covers technical architecture, data models, implementation phases, API design, security, offline strategy, and testing approach.*

@@ -1,0 +1,302 @@
+# FinTrack - Entity Relationship Diagram (Part 2)
+
+## 2. Core Financial Entities
+
+### 2.1 Financial Accounts (`accounts`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| user_id | UUID | FK → users.id, NOT NULL, INDEX | Account owner |
+| account_type_id | UUID | FK → account_types.id, NOT NULL | Type of account |
+| name | VARCHAR(100) | NOT NULL | Account name (e.g., "Bank BCA", "GoPay") |
+| balance | DECIMAL(18,2) | NOT NULL, DEFAULT 0, INDEX | Current balance |
+| currency | VARCHAR(3) | NOT NULL, DEFAULT 'IDR' | Currency code (ISO 4217) |
+| icon | VARCHAR(50) | NULL | Icon identifier |
+| color | VARCHAR(7) | NULL | Hex color code (e.g., #FF5722) |
+| is_active | BOOLEAN | NOT NULL, DEFAULT TRUE | Soft delete flag |
+| include_in_total | BOOLEAN | NOT NULL, DEFAULT TRUE | Include in net worth calculation |
+| sort_order | INT | NOT NULL, DEFAULT 0 | Display order |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Creation timestamp |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_accounts_user_id` on (user_id)
+- `idx_accounts_type_id` on (account_type_id)
+- `idx_accounts_balance` on (balance)
+
+**Relationships:**
+- 1 User → Many Accounts (user_id)
+- 1 Account Type → Many Accounts (account_type_id)
+- 1 Account → Many Transactions (as source_account_id)
+- 1 Account → Many Transactions (as destination_account_id)
+
+---
+
+### 2.2 Account Types (`account_types`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| code | VARCHAR(30) | NOT NULL, UNIQUE | Type code (e.g., "cash", "bank") |
+| name | VARCHAR(50) | NOT NULL | Display name (e.g., "Kas", "Bank") |
+| icon | VARCHAR(50) | NOT NULL | Icon identifier |
+| color | VARCHAR(7) | NOT NULL | Default hex color |
+| sort_order | INT | NOT NULL, DEFAULT 0 | Display order |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Creation timestamp |
+
+**Default Values:**
+sql
+INSERT INTO account_types (code, name, icon, color, sort_order) VALUES
+('cash', 'Kas', 'wallet', '#4CAF50', 1),
+('bank', 'Bank', 'account-balance', '#2196F3', 2),
+('ewallet', 'E-Wallet', 'mobile-friendly', '#FF9800', 3),
+('savings', 'Tabungan', 'savings', '#9C27B0', 4),
+('investment', 'Rekening Investasi', 'trending-up', '#00BCD4', 5);
+
+
+---
+
+### 2.3 Transactions (`transactions`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| user_id | UUID | FK → users.id, NOT NULL, INDEX | Transaction owner |
+| account_id | UUID | FK → accounts.id, NOT NULL, INDEX | Primary account |
+| destination_account_id | UUID | FK → accounts.id, NULL | For transfers |
+| transaction_type_id | UUID | FK → transaction_types.id, NOT NULL | Income/Expense/Transfer |
+| category_id | UUID | FK → categories.id, NULL, INDEX | Transaction category |
+| amount | DECIMAL(18,2) | NOT NULL, CHECK > 0 | Transaction amount |
+| description | VARCHAR(255) | NULL | Transaction notes |
+| transaction_date | DATE | NOT NULL, INDEX | Date of transaction |
+| is_recurring | BOOLEAN | NOT NULL, DEFAULT FALSE | Recurring flag |
+| recurring_id | UUID | FK → recurring_transactions.id, NULL | Recurring reference |
+| receipt_url | VARCHAR(500) | NULL | Uploaded receipt path |
+| tags | JSON | NULL | Array of tag strings |
+| latitude | DECIMAL(10,8) | NULL | Location latitude |
+| longitude | DECIMAL(11,8) | NULL | Location longitude |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Creation timestamp |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_transactions_user_date` on (user_id, transaction_date)
+- `idx_transactions_account_date` on (account_id, transaction_date)
+- `idx_transactions_category_date` on (category_id, transaction_date)
+- `idx_transactions_type_date` on (transaction_type_id, transaction_date)
+
+**Relationships:**
+- 1 User → Many Transactions
+- 1 Account → Many Transactions (as primary)
+- 1 Account → Many Transactions (as destination for transfers)
+- 1 Transaction Type → Many Transactions
+- 1 Category → Many Transactions (optional)
+
+**Business Rules:**
+- For income/expense: only account_id is set
+- For transfer: both account_id and destination_account_id are set
+- Transfer creates two transaction records (debit and credit)
+
+---
+
+### 2.4 Transaction Types (`transaction_types`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| code | VARCHAR(20) | NOT NULL, UNIQUE | Type code |
+| name | VARCHAR(50) | NOT NULL | Display name |
+| effect | ENUM | NOT NULL | 'debit', 'credit', 'transfer' |
+| icon | VARCHAR(50) | NOT NULL | Icon identifier |
+| color | VARCHAR(7) | NOT NULL | Hex color |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Creation timestamp |
+
+**Default Values:**
+sql
+INSERT INTO transaction_types (code, name, effect, icon, color) VALUES
+('income', 'Pemasukan', 'credit', 'arrow-downward', '#4CAF50'),
+('expense', 'Pengeluaran', 'debit', 'arrow-upward', '#F44336'),
+('transfer', 'Transfer', 'transfer', 'swap-horiz', '#2196F3');
+
+
+---
+
+### 2.5 Categories (`categories`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| user_id | UUID | FK → users.id, NULL, INDEX | NULL = system category |
+| transaction_type_id | UUID | FK → transaction_types.id, NOT NULL | Associated type |
+| parent_id | UUID | FK → categories.id, NULL | Parent category for subcategories |
+| name | VARCHAR(100) | NOT NULL | Category name |
+| icon | VARCHAR(50) | NOT NULL | Icon identifier |
+| color | VARCHAR(7) | NOT NULL | Hex color |
+| budget_limit | DECIMAL(18,2) | NULL | Monthly budget limit |
+| is_active | BOOLEAN | NOT NULL, DEFAULT TRUE | Active flag |
+| sort_order | INT | NOT NULL, DEFAULT 0 | Display order |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Creation timestamp |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_categories_user_type` on (user_id, transaction_type_id)
+- `idx_categories_parent` on (parent_id)
+
+**Relationships:**
+- 1 User → Many Categories (optional)
+- 1 Transaction Type → Many Categories
+- 1 Category → Many Subcategories (self-referential)
+- 1 Category → Many Transactions
+
+**System Categories (user_id = NULL):**
+sql
+-- Income Categories
+('income', 'Gaji', 'payments', '#4CAF50'),
+('income', 'Freelance', 'work', '#8BC34A'),
+('income', 'Investasi', 'trending-up', '#CDDC39'),
+('income', 'Hadiah', 'card-giftcard', '#FFEB3B'),
+('income', 'Lainnya', 'more-horiz', '#FFC107');
+
+-- Expense Categories
+('expense', 'Makanan', 'restaurant', '#F44336'),
+('expense', 'Transportasi', 'directions-car', '#E91E63'),
+('expense', 'Belanja', 'shopping-cart', '#9C27B0'),
+('expense', 'Kesehatan', 'medical-services', '#673AB7'),
+('expense', 'Pendidikan', 'school', '#3F51B5'),
+('expense', 'Hiburan', 'movie', '#2196F3'),
+('expense', 'Tagihan', 'receipt', '#03A9F4'),
+('expense', 'Pulsa & Data', 'sim', '#00BCD4'),
+('expense', 'Kosmetik', 'face', '#009688'),
+('expense', 'Donasi', 'volunteer', '#4CAF50'),
+('expense', 'Lainnya', 'more-horiz', '#607D8B');
+
+
+---
+
+### 2.6 Receipts (`receipts`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| user_id | UUID | FK → users.id, NOT NULL, INDEX | Receipt owner |
+| transaction_id | UUID | FK → transactions.id, NULL | Associated transaction |
+| original_filename | VARCHAR(255) | NOT NULL | Original upload filename |
+| storage_path | VARCHAR(500) | NOT NULL | Cloud storage path |
+| file_size | INT | NOT NULL | File size in bytes |
+| mime_type | VARCHAR(100) | NOT NULL | MIME type |
+| ocr_data | JSON | NULL | Extracted OCR data |
+| ocr_confidence | DECIMAL(5,2) | NULL | OCR confidence score |
+| processed_at | TIMESTAMP | NULL | OCR processing timestamp |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Upload timestamp |
+
+**Indexes:**
+- `idx_receipts_user_id` on (user_id)
+- `idx_receipts_transaction_id` on (transaction_id)
+
+**Relationships:**
+- 1 User → Many Receipts
+- 1 Transaction → Many Receipts (0..1)
+
+---
+
+### 2.7 Recurring Transactions (`recurring_transactions`)
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| id | UUID | PK, NOT NULL | Unique identifier |
+| user_id | UUID | FK → users.id, NOT NULL, INDEX | Owner |
+| account_id | UUID | FK → accounts.id, NOT NULL | Target account |
+| destination_account_id | UUID | FK → accounts.id, NULL | For recurring transfers |
+| transaction_type_id | UUID | FK → transaction_types.id, NOT NULL | Type |
+| category_id | UUID | FK → categories.id, NULL | Category |
+| amount | DECIMAL(18,2) | NOT NULL | Fixed amount |
+| description | VARCHAR(255) | NULL | Notes |
+| frequency | ENUM | NOT NULL | 'daily', 'weekly', 'biweekly', 'monthly', 'yearly' |
+| day_of_week | INT | NULL | 0-6 for weekly (0=Sunday) |
+| day_of_month | INT | NULL | 1-31 for monthly |
+| start_date | DATE | NOT NULL | First occurrence |
+| end_date | DATE | NULL | Last occurrence |
+| next_run_date | DATE | NOT NULL, INDEX | Next scheduled execution |
+| last_run_date | DATE | NULL | Last successful execution |
+| is_active | BOOLEAN | NOT NULL, DEFAULT TRUE | Active flag |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Creation timestamp |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | Last update timestamp |
+
+**Indexes:**
+- `idx_recurring_next_run` on (next_run_date, is_active)
+
+**Relationships:**
+- 1 User → Many Recurring Transactions
+- 1 Account → Many Recurring Transactions
+- 1 Transaction Type → Many Recurring Transactions
+
+---
+
+## Entity Relationship Diagram (Partial)
+
+
+┌─────────────────┐       ┌──────────────────┐
+│   account_types │       │    users         │
+├─────────────────┤       ├──────────────────┤
+│ PK id           │       │ PK id            │
+│    code         │       │    email         │
+│    name         │       │    name          │
+│    icon         │       │    ...           │
+│    color        │       └────────┬─────────┘
+└────────┬────────┘                │
+         │ 1:N                    │ 1:N
+         ▼                        ▼
+┌─────────────────┐       ┌──────────────────┐
+│    accounts     │       │   categories     │
+├─────────────────┤       ├──────────────────┤
+│ PK id           │       │ PK id           │
+│ FK user_id ─────────────│ FK user_id      │
+│ FK account_type_id───────│    name         │
+│    name         │       │ FK transaction   │
+│    balance      │       │   _type_id       │
+│    currency     │       │ FK parent_id     │
+│    ...          │       │    ...           │
+└────────┬────────┘       └────────┬─────────┘
+         │ 1:N                    │ 1:N
+         │                        ▼
+         │                ┌──────────────────┐
+         │                │ transaction_types│
+         │                ├──────────────────┤
+         │                │ PK id           │
+         │                │    code         │
+         │                │    name         │
+         │                │    effect       │
+         │                │    ...          │
+         │                └────────┬─────────┘
+         │                         │ 1:N
+         │  1:N      ┌─────────────┘
+         ▼           │
+┌─────────────────┐  │     ┌──────────────────┐
+│  transactions   │◄─┘     │    receipts      │
+├─────────────────┤        ├──────────────────┤
+│ PK id           │        │ PK id           │
+│ FK user_id      │        │ FK user_id      │
+│ FK account_id   │────────│ FK transaction_id│
+│ FK dest_acc_id  │        │    storage_path │
+│ FK transaction  │        │    ocr_data     │
+│   _type_id      │        │    ...          │
+│ FK category_id  │        └─────────────────┘
+│    amount       │
+│    description  │
+│    date         │
+│    ...          │
+└─────────────────┘
+
+         ┌──────────────────┐
+         │recurring_trans. │
+         ├──────────────────┤
+         │ PK id           │
+         │ FK user_id      │
+         │ FK account_id   │
+         │ FK transaction  │
+         │   _type_id      │
+         │    frequency    │
+         │    next_run     │
+         │    ...          │
+         └──────────────────┘
+

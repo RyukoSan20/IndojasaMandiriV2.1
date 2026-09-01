@@ -1,0 +1,166 @@
+## 3. Transaction Management
+
+### 3.1 Transaction Data Model
+- [ ] Create Transaction entity with fields: id, type (income/expense), amount, category, account_id, description, date, receipt_url, created_at, updated_at
+- [ ] Create TransactionCategory entity with fields: id, name, icon, color, type, is_system, user_id
+- [ ] Add SQLite indexes for date and account_id queries
+- [ ] Implement TransactionRepository with CRUD operations
+
+### 3.2 Transaction List Screen
+- [ ] Design transaction list UI with date headers
+- [ ] Implement infinite scroll pagination (20 items per page)
+- [ ] Add pull-to-refresh functionality
+- [ ] Display transaction type indicator (green for income, red for expense)
+- [ ] Show category icon and name for each transaction
+- [ ] Implement swipe-to-delete with confirmation
+- [ ] Add FAB for quick add transaction
+
+### 3.3 Add/Edit Transaction Screen
+- [ ] Create AddTransactionScreen with form fields
+- [ ] Implement transaction type toggle (income/expense)
+- [ ] Add amount input with currency formatting
+- [ ] Implement category picker with grid view
+- [ ] Add account selector dropdown
+- [ ] Include date picker (default today)
+- [ ] Add optional description field
+- [ ] Implement receipt image upload feature
+- [ ] Add form validation (amount > 0, category required, account required)
+- [ ] Handle save with loading state
+
+### 3.4 Category Management
+- [ ] Create default expense categories: Makanan, Transportasi, Belanja, Hiburan, Kesehatan, Pendidikan, Tagihan, Lainnya
+- [ ] Create default income categories: Gaji, Freelance, Investasi, Bonus, Lainnya
+- [ ] Implement custom category creation
+- [ ] Add category editing capability
+- [ ] Implement category deletion (move transactions to "Lainnya")
+- [ ] Store category preferences in local storage
+
+### 3.5 Receipt Scanner
+- [ ] Integrate camera for receipt capture
+- [ ] Implement image cropping functionality
+- [ ] Add OCR placeholder for future receipt parsing
+- [ ] Store receipt images locally with compression
+- [ ] Link receipts to transaction records
+
+---
+
+## 4. Financial Accounts
+
+### 4.1 Account Data Model
+- [ ] Create Account entity with fields: id, name, type, balance, currency, icon, color, is_active, created_at, updated_at, sync_status
+- [ ] Create AccountType enum: CASH, BANK, E_WALLET, SAVINGS, INVESTMENT
+- [ ] Add AccountRepository with CRUD operations
+- [ ] Implement balance calculation from transactions
+
+### 4.2 Account List Screen
+- [ ] Design account cards with balance display
+- [ ] Show account type icon and color coding
+- [ ] Display total balance across all accounts
+- [ ] Implement account card tap for details
+- [ ] Add account type filter chips
+- [ ] Implement add account FAB
+
+### 4.3 Add/Edit Account Screen
+- [ ] Create account form with name input
+- [ ] Implement account type selector (visual cards)
+- [ ] Add initial balance input
+- [ ] Include icon picker (emoji-based)
+- [ ] Add color picker for account card
+- [ ] Implement validation (name required, balance >= 0)
+
+### 4.4 Account Detail Screen
+- [ ] Display account information header
+- [ ] Show transaction history for account
+- [ ] Implement balance edit capability
+- [ ] Add account edit/delete options
+- [ ] Show account statistics (monthly in/out)
+
+### 4.5 Default Accounts Setup
+- [ ] Create "Tunai" cash account on first launch
+- [ ] Prompt user to add more accounts
+- [ ] Allow skipping account setup
+
+---
+
+## 5. Savings Goals
+
+### 5.1 Savings Goal Data Model
+- [ ] Create SavingsGoal entity with fields: id, name, target_amount, current_amount, deadline, icon, color, is_completed, created_at, updated_at
+- [ ] Add SavingsGoalRepository with CRUD operations
+- [ ] Implement progress calculation
+
+### 5.2 Savings Goal List Screen
+- [ ] Design goal cards with progress indicators
+- [ ] Show progress percentage and remaining amount
+- [ ] Display deadline countdown
+- [ ] Add "Tambah Target" button
+- [ ] Implement goal completion celebration
+- [ ] Show completed vs active goals sections
+
+### 5.3 Add/Edit Savings Goal Screen
+- [ ] Create goal form with name input
+- [ ] Add target amount input with formatting
+- [ ] Include deadline date picker
+- [ ] Add icon and color picker
+- [ ] Implement existing goal edit
+- [ ] Add goal deletion with confirmation
+
+### 5.4 Goal Progress Management
+- [ ] Implement add/withdraw funds to goal
+- [ ] Show contribution history
+- [ ] Calculate estimated completion date
+- [ ] Send notification when goal is reached
+- [ ] Auto-suggest goal adjustment based on spending
+
+### 5.5 Default Goals
+- [ ] Offer to create "Dana Darurat" goal (6x monthly expenses)
+- [ ] Present preset goal templates
+- [ ] Allow custom goal creation
+
+---
+
+## 6. Stock Portfolio
+
+### 6.1 Stock Data Model
+- [ ] Create Stock entity with fields: id, symbol, name, exchange, sector, current_price, last_updated, user_id
+- [ ] Create Portfolio holding entity: id, stock_id, quantity, average_buy_price, account_id, created_at, updated_at
+- [ ] Add StockRepository and PortfolioRepository
+- [ ] Implement price update mechanism
+
+### 6.2 Portfolio Overview Screen
+- [ ] Display total portfolio value
+- [ ] Show total gain/loss (amount and percentage)
+- [ ] List all holdings with current value
+- [ ] Show allocation pie chart
+- [ ] Add "Tambah Saham" button
+- [ ] Implement refresh for latest prices
+
+### 6.3 Add Stock to Portfolio
+- [ ] Create stock search functionality
+- [ ] Display search results with company name
+- [ ] Add stock symbol input
+- [ ] Include quantity input
+- [ ] Add average buy price input
+- [ ] Select linked account
+- [ ] Calculate total investment and gain/loss
+
+### 6.4 Stock Detail Screen
+- [ ] Show stock information header
+- [ ] Display holding details (qty, avg price, current value)
+- [ ] Calculate and show profit/loss per stock
+- [ ] Show percentage return
+- [ ] Add edit/delete holding options
+- [ ] Link to external stock chart
+
+### 6.5 Watchlist Feature
+- [ ] Create Watchlist entity with stock symbols
+- [ ] Implement add/remove from watchlist
+- [ ] Display watchlist on portfolio screen
+- [ ] Show price change indicators
+- [ ] Add quick add to portfolio from watchlist
+
+### 6.6 Portfolio Analytics
+- [ ] Calculate sector allocation
+- [ ] Show top gainers/losers
+- [ ] Display portfolio performance chart
+- [ ] Implement time period selector (1D, 1W, 1M, 3M, 1Y, ALL)

@@ -1,0 +1,319 @@
+# FinTrack - Technical Design (Part 2)
+
+## Technical Architecture
+
+### Technology Stack
+
+#### Frontend (Mobile-First PWA)
+- **Framework**: Flutter 3.x with Dart
+- **State Management**: flutter_bloc (BLoC pattern)
+- **Local Storage**: Hive (offline-first NoSQL database)
+- **HTTP Client**: Dio with interceptors
+- **Charts**: fl_chart for data visualization
+- **Image Processing**: image_picker for receipt scanning
+
+#### Backend (Cloud Sync)
+- **Runtime**: Node.js 18+ with TypeScript
+- **Framework**: NestJS (modular architecture)
+- **Database**: PostgreSQL with Prisma ORM
+- **Cache**: Redis for session management
+- **Auth**: JWT with refresh token rotation
+- **API Style**: RESTful with JSON responses
+
+#### Infrastructure
+- **Hosting**: Cloud Run (Google Cloud)
+- **Database**: Cloud SQL (PostgreSQL)
+- **Storage**: Cloud Storage for receipt images
+- **CDN**: Cloud CDN for static assets
+- **Monitoring**: Cloud Logging + Error Reporting
+
+### Project Structure
+
+
+fintrack/
+├── lib/
+│   ├── core/
+│   │   ├── constants/
+│   │   ├── errors/
+│   │   ├── themes/
+│   │   └── utils/
+│   ├── data/
+│   │   ├── datasources/
+│   │   ├── models/
+│   │   └── repositories/
+│   ├── domain/
+│   │   ├── entities/
+│   │   ├── repositories/
+│   │   └── usecases/
+│   ├── presentation/
+│   │   ├── blocs/
+│   │   ├── pages/
+│   │   └── widgets/
+│   └── main.dart
+├── assets/
+│   ├── icons/
+│   └── images/
+└── test/
+
+
+## Design System
+
+### Color Palette
+
+#### Light Theme
+
+Primary:        #2563EB (Blue 600)
+Primary Dark:   #1D4ED8 (Blue 700)
+Secondary:      #10B981 (Emerald 500)
+Accent:         #F59E0B (Amber 500)
+Background:     #FFFFFF (White)
+Surface:        #F8FAFC (Slate 50)
+Text Primary:   #1E293B (Slate 800)
+Text Secondary: #64748B (Slate 500)
+Success:        #22C55E (Green 500)
+Warning:        #EAB308 (Yellow 500)
+Error:          #EF4444 (Red 500)
+Income:         #10B981 (Green)
+Expense:        #EF4444 (Red)
+
+
+#### Dark Theme
+
+Primary:        #3B82F6 (Blue 500)
+Primary Dark:   #2563EB (Blue 600)
+Secondary:      #34D399 (Emerald 400)
+Accent:         #FBBF24 (Amber 400)
+Background:     #0F172A (Slate 900)
+Surface:        #1E293B (Slate 800)
+Text Primary:   #F8FAFC (Slate 50)
+Text Secondary: #94A3B8 (Slate 400)
+
+
+### Typography
+
+
+Font Family: Inter (Google Fonts)
+
+Headings:
+  H1: 32px / Bold / Line Height 1.2
+  H2: 24px / SemiBold / Line Height 1.3
+  H3: 20px / SemiBold / Line Height 1.4
+  H4: 16px / Medium / Line Height 1.4
+
+Body:
+  Large:  16px / Regular / Line Height 1.5
+  Medium: 14px / Regular / Line Height 1.5
+  Small:  12px / Regular / Line Height 1.4
+
+Numbers (Currency):
+  Large:  28px / Bold / Tabular nums
+  Medium: 20px / SemiBold / Tabular nums
+  Small:  16px / Medium / Tabular nums
+
+
+### Spacing System (8pt Grid)
+
+
+xs:   4px
+sm:   8px
+md:  16px
+lg:  24px
+xl:  32px
+2xl: 48px
+
+Border Radius:
+  sm:   4px
+  md:   8px
+  lg:  12px
+  xl:  16px
+  full: 9999px
+
+
+### Component Specifications
+
+#### Cards
+- Background: Surface color
+- Border Radius: 12px
+- Padding: 16px
+- Shadow: 0 1px 3px rgba(0,0,0,0.1)
+- Shadow (Dark): 0 1px 3px rgba(0,0,0,0.3)
+
+#### Buttons
+
+Primary:
+  Background: Primary color
+  Text: White
+  Height: 48px
+  Border Radius: 12px
+  Pressed: Primary Dark
+  Disabled: 50% opacity
+
+Secondary:
+  Background: Transparent
+  Border: 1px Primary
+  Text: Primary
+  Height: 48px
+  Border Radius: 12px
+
+
+#### Input Fields
+- Height: 56px
+- Border: 1px Slate 300
+- Border (Focused): 2px Primary
+- Border Radius: 12px
+- Label: Above field, 12px, Slate 500
+- Padding: 16px horizontal
+
+## Data Models
+
+### User
+dart
+class User {
+  String id;
+  String email;
+  String? name;
+  String? avatarUrl;
+  String currency; // IDR, USD
+  String language; // id, en
+  bool darkMode;
+  DateTime createdAt;
+  DateTime updatedAt;
+}
+
+
+### Account (Akun Keuangan)
+dart
+class Account {
+  String id;
+  String userId;
+  String name;
+  AccountType type; // cash, bank, ewallet, savings, investment
+  double balance;
+  String currency;
+  String? icon;
+  String? color;
+  bool isActive;
+  DateTime createdAt;
+  DateTime updatedAt;
+}
+
+
+### Transaction (Transaksi)
+dart
+class Transaction {
+  String id;
+  String userId;
+  String? accountId;
+  TransactionType type; // income, expense, transfer
+  double amount;
+  String category;
+  String? description;
+  DateTime date;
+  String? receiptUrl;
+  List<String>? tags;
+  DateTime createdAt;
+  DateTime updatedAt;
+}
+
+
+### Savings Target (Target Tabungan)
+dart
+class SavingsTarget {
+  String id;
+  String userId;
+  String name;
+  double targetAmount;
+  double currentAmount;
+  DateTime? deadline;
+  String? icon;
+  String? color;
+  bool isCompleted;
+  DateTime createdAt;
+  DateTime updatedAt;
+}
+
+
+### Stock Portfolio (Portofolio Saham)
+dart
+class StockHolding {
+  String id;
+  String userId;
+  String symbol; // AAPL, BBCA
+  String companyName;
+  double shares;
+  double averagePrice;
+  double currentPrice;
+  String currency;
+  DateTime createdAt;
+  DateTime updatedAt;
+}
+
+
+### Watchlist
+dart
+class WatchlistItem {
+  String id;
+  String userId;
+  String symbol;
+  double? targetPrice;
+  String? notes;
+  DateTime addedAt;
+}
+
+
+## State Management (BLoC)
+
+### Blocs Required
+
+
+AuthBloc          - Authentication state
+DashboardBloc     - Dashboard data aggregation
+AccountsBloc      - Account CRUD operations
+TransactionsBloc  - Transaction management
+SavingsBloc       - Savings targets
+PortfolioBloc     - Stock holdings
+WatchlistBloc     - Watchlist management
+SettingsBloc      - User preferences
+SyncBloc          - Offline/online sync status
+
+
+### Events & States Pattern
+
+dart
+// Example: TransactionsBloc
+abstract class TransactionsEvent {}
+class LoadTransactions extends TransactionsEvent {}
+class AddTransaction extends TransactionsEvent {}
+class UpdateTransaction extends TransactionsEvent {}
+class DeleteTransaction extends TransactionsEvent {}
+class FilterTransactions extends TransactionsEvent {}
+
+abstract class TransactionsState {}
+class TransactionsInitial extends TransactionsState {}
+class TransactionsLoading extends TransactionsState {}
+class TransactionsLoaded extends TransactionsState {}
+class TransactionsError extends TransactionsState {}
+
+
+## Offline-First Architecture
+
+### Sync Strategy
+
+1. **Local-First**: All operations write to Hive first
+2. **Queue System**: Pending changes queued in local storage
+3. **Background Sync**: Service runs when connectivity restored
+4. **Conflict Resolution**: Last-write-wins with timestamp comparison
+5. **Sync Status**: Real-time indicator in UI
+
+### Sync Flow
+
+User Action → Hive Write → UI Update → Queue Sync
+                                          ↓
+                              Network Available?
+                            ↓ Yes           ↓ No
+                        Push to Server  Wait for Network
+                            ↓
+                     Server Response
+                            ↓
+                  Mark as Synced / Handle Conflict
+

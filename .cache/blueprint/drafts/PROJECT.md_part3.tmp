@@ -1,0 +1,318 @@
+# FinTrack - Technical Architecture & Implementation
+
+## Technology Stack
+
+### Frontend
+- **Framework**: React Native with Expo
+- **Language**: TypeScript
+- **State Management**: Zustand
+- **Navigation**: React Navigation v6
+- **UI Components**: React Native Paper
+- **Charts**: react-native-gifted-charts
+- **Storage**: AsyncStorage + SQLite
+
+### Backend
+- **Runtime**: Node.js 18+
+- **Framework**: Express.js
+- **Database**: PostgreSQL
+- **ORM**: Prisma
+- **Authentication**: JWT + Firebase Auth
+- **File Storage**: Cloudinary
+- **Cache**: Redis
+
+### Infrastructure
+- **Hosting**: AWS / Vercel
+- **CI/CD**: GitHub Actions
+- **Monitoring**: Sentry
+- **Analytics**: Firebase Analytics
+
+---
+
+## Database Schema
+
+### Users
+
+id              UUID PRIMARY KEY
+email           VARCHAR(255) UNIQUE
+password_hash   VARCHAR(255)
+name            VARCHAR(100)
+pin_hash        VARCHAR(255)
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+
+
+### Accounts
+
+id              UUID PRIMARY KEY
+user_id         UUID REFERENCES users
+name            VARCHAR(100)
+type            ENUM('cash', 'bank', 'e-wallet', 'savings', 'investment')
+balance         DECIMAL(15,2)
+currency        VARCHAR(3)
+icon            VARCHAR(50)
+color           VARCHAR(7)
+is_active       BOOLEAN
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+
+
+### Transactions
+
+id              UUID PRIMARY KEY
+user_id         UUID REFERENCES users
+account_id      UUID REFERENCES accounts
+category_id     UUID REFERENCES categories
+amount          DECIMAL(15,2)
+type            ENUM('income', 'expense')
+description     VARCHAR(255)
+date            DATE
+receipt_url     VARCHAR(500)
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+
+
+### Categories
+
+id              UUID PRIMARY KEY
+user_id         UUID REFERENCES users
+name            VARCHAR(100)
+type            ENUM('income', 'expense')
+icon            VARCHAR(50)
+color           VARCHAR(7)
+parent_id       UUID REFERENCES categories
+is_default      BOOLEAN
+
+
+### Savings Goals
+
+id              UUID PRIMARY KEY
+user_id         UUID REFERENCES users
+name            VARCHAR(100)
+target_amount   DECIMAL(15,2)
+current_amount  DECIMAL(15,2)
+deadline        DATE
+icon            VARCHAR(50)
+color           VARCHAR(7)
+status          ENUM('active', 'completed', 'cancelled')
+created_at      TIMESTAMP
+
+
+### Stock Portfolios
+
+id              UUID PRIMARY KEY
+user_id         UUID REFERENCES users
+symbol          VARCHAR(10)
+company_name    VARCHAR(100)
+quantity        DECIMAL(15,4)
+average_price   DECIMAL(15,2)
+current_price   DECIMAL(15,2)
+sector          VARCHAR(50)
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
+
+
+### Stock Watchlist
+
+id              UUID PRIMARY KEY
+user_id         UUID REFERENCES users
+symbol          VARCHAR(10)
+target_price    DECIMAL(15,2)
+notes           TEXT
+created_at      TIMESTAMP
+
+
+---
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/google` - Login with Google
+- `POST /api/auth/refresh` - Refresh JWT token
+- `POST /api/auth/pin` - Set/verify PIN
+- `POST /api/auth/logout` - Logout user
+
+### Accounts
+- `GET /api/accounts` - List all accounts
+- `POST /api/accounts` - Create account
+- `GET /api/accounts/:id` - Get account details
+- `PUT /api/accounts/:id` - Update account
+- `DELETE /api/accounts/:id` - Delete account
+- `GET /api/accounts/:id/balance` - Get account balance
+
+### Transactions
+- `GET /api/transactions` - List transactions (with filters)
+- `POST /api/transactions` - Create transaction
+- `GET /api/transactions/:id` - Get transaction details
+- `PUT /api/transactions/:id` - Update transaction
+- `DELETE /api/transactions/:id` - Delete transaction
+- `POST /api/transactions/upload-receipt` - Upload receipt image
+
+### Categories
+- `GET /api/categories` - List categories
+- `POST /api/categories` - Create category
+- `PUT /api/categories/:id` - Update category
+- `DELETE /api/categories/:id` - Delete category
+
+### Savings Goals
+- `GET /api/goals` - List all goals
+- `POST /api/goals` - Create goal
+- `GET /api/goals/:id` - Get goal details
+- `PUT /api/goals/:id` - Update goal
+- `DELETE /api/goals/:id` - Delete goal
+- `POST /api/goals/:id/contribute` - Add contribution
+
+### Stock Portfolio
+- `GET /api/portfolio` - Get portfolio summary
+- `POST /api/portfolio` - Add stock position
+- `PUT /api/portfolio/:id` - Update position
+- `DELETE /api/portfolio/:id` - Remove position
+- `GET /api/portfolio/performance` - Get performance metrics
+- `GET /api/portfolio/summary` - Get portfolio summary
+
+### Watchlist
+- `GET /api/watchlist` - Get watchlist
+- `POST /api/watchlist` - Add to watchlist
+- `DELETE /api/watchlist/:id` - Remove from watchlist
+
+### Statistics
+- `GET /api/stats/overview` - Financial overview
+- `GET /api/stats/cashflow` - Cashflow data
+- `GET /api/stats/categories` - Category breakdown
+- `GET /api/stats/assets` - Asset allocation
+
+### Sync
+- `POST /api/sync` - Sync local data to cloud
+- `GET /api/sync/last` - Get last sync timestamp
+
+---
+
+## Security Implementation
+
+### Authentication Flow
+1. User registers or logs in
+2. Server validates credentials
+3. JWT access token (15min) issued
+4. Refresh token (7 days) stored in httpOnly cookie
+5. Biometric/PIN for quick access on app
+
+### Data Encryption
+- Passwords: bcrypt with salt rounds 12
+- PIN: SHA-256 hash
+- Data at rest: AES-256 encryption
+- Data in transit: TLS 1.3
+
+### Session Management
+- JWT tokens with short expiry
+- Automatic refresh before expiry
+- Force logout on password change
+- Device tracking for anomalies
+
+---
+
+## Deployment Strategy
+
+### Development
+- Local development with Expo
+- SQLite for local database
+- Mock APIs for testing
+
+### Staging
+- Vercel preview deployments
+- PostgreSQL test database
+- Full feature parity with production
+
+### Production
+- Auto-deployment from main branch
+- PostgreSQL with read replicas
+- Redis for caching and sessions
+- Cloudflare CDN for assets
+- Automated backups daily
+
+### Mobile Release
+- TestFlight for iOS beta
+- Internal testing channel for Android
+- Staged rollout on production stores
+
+---
+
+## Development Timeline
+
+### Phase 1: Foundation (4 weeks)
+- Project setup and architecture
+- Authentication system
+- Basic UI components
+- Local database setup
+
+### Phase 2: Core Features (6 weeks)
+- Dashboard implementation
+- Account management
+- Transaction CRUD
+- Category management
+
+### Phase 3: Savings & Goals (3 weeks)
+- Savings goal tracking
+- Progress visualization
+- Notifications system
+
+### Phase 4: Stock Portfolio (4 weeks)
+- Portfolio tracking
+- Stock API integration
+- Performance calculations
+- Watchlist feature
+
+### Phase 5: Analytics (3 weeks)
+- Statistics dashboard
+- Charts and visualizations
+- Financial insights
+
+### Phase 6: Polish (2 weeks)
+- Offline support
+- Cloud sync
+- Performance optimization
+- Bug fixes
+
+---
+
+## Performance Targets
+
+- App launch: < 2 seconds
+- Screen transitions: < 300ms
+- API response: < 500ms
+- Offline capability: Full CRUD operations
+- Battery impact: Minimal background usage
+- Storage efficiency: < 100MB app size
+
+---
+
+## Accessibility
+
+- WCAG 2.1 AA compliance
+- Screen reader support
+- High contrast mode
+- Adjustable text sizes
+- Keyboard navigation
+- Color blind friendly charts
+
+---
+
+## Future Roadmap
+
+### v2.0
+- Multiple currencies
+- Budget planning
+- Bill reminders
+- Investment news feed
+
+### v2.1
+- Family sharing
+- Collaborative goals
+- Export to Excel/PDF
+- Tax report generation
+
+### v3.0
+- Cryptocurrency tracking
+- Real estate valuation
+- Debt tracking
+- AI-powered insights

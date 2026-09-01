@@ -1,0 +1,612 @@
+# FinTrack - Project Tasks
+
+## Document Information
+- **Project Name:** FinTrack
+- **Type:** Personal Finance & Stock Portfolio Tracker Mobile Application
+- **Total Parts:** 3
+- **Current Part:** 1 of 3
+
+---
+
+## Table of Contents - Part 1
+1. [Project Setup & Configuration](#1-project-setup--configuration)
+2. [Core Architecture & Infrastructure](#2-core-architecture--infrastructure)
+3. [Authentication System](#3-authentication-system)
+4. [Data Models & Database Schema](#4-data-models--database-schema)
+5. [State Management Implementation](#5-state-management-implementation)
+
+---
+
+## 1. Project Setup & Configuration
+
+### 1.1 Environment Setup
+- [ ] Install Flutter SDK (latest stable version)
+- [ ] Configure Android SDK with proper API levels
+- [ ] Configure iOS deployment target (iOS 12.0+)
+- [ ] Install CocoaPods for iOS dependencies
+- [ ] Set up development IDE (VS Code / Android Studio)
+- [ ] Configure emulator for testing (Pixel 4, iPhone 12)
+- [ ] Set up physical device testing environment
+
+### 1.2 Project Initialization
+- [ ] Create Flutter project: `flutter create flintrack`
+- [ ] Set project name: `com.flintrack.app`
+- [ ] Set application ID (Android): `com.flintrack.app`
+- [ ] Set bundle identifier (iOS): `com.flintrack.app`
+- [ ] Configure project display name: "FinTrack"
+- [ ] Set version code and version name
+- [ ] Configure app icon and splash screen
+- [ ] Set up app signing for debug and release builds
+
+### 1.3 Dependencies Configuration
+- [ ] **State Management**
+  - [ ] Add `flutter_bloc: ^8.1.3` - BLoC pattern implementation
+  - [ ] Add `provider: ^6.1.1` - Dependency injection
+  - [ ] Add `get_it: ^7.6.4` - Service locator
+
+- [ ] **Local Database**
+  - [ ] Add `sqflite: ^2.3.0` - SQLite database
+  - [ ] Add `path: ^1.8.3` - Path manipulation
+  - [ ] Add `drift: ^2.14.1` - Type-safe database
+  - [ ] Add `drift_flutter: ^0.1.0` - Drift Flutter bindings
+
+- [ ] **Network & API**
+  - [ ] Add `dio: ^5.3.3` - HTTP client
+  - [ ] Add `connectivity_plus: ^5.0.2` - Network status
+  - [ ] Add `hive: ^2.2.3` - Local key-value storage
+  - [ ] Add `hive_flutter: ^1.1.0` - Hive Flutter bindings
+
+- [ ] **Authentication**
+  - [ ] Add `firebase_core: ^2.24.2` - Firebase initialization
+  - [ ] Add `firebase_auth: ^4.16.0` - Firebase authentication
+  - [ ] Add `google_sign_in: ^6.1.5` - Google sign-in
+  - [ ] Add `flutter_secure_storage: ^9.0.0` - Secure storage
+
+- [ ] **UI Components**
+  - [ ] Add `flutter_svg: ^2.0.9` - SVG rendering
+  - [ ] Add `cached_network_image: ^3.3.0` - Image caching
+  - [ ] Add `shimmer: ^3.0.0` - Loading effects
+  - [ ] Add `fl_chart: ^0.65.0` - Charts library
+  - [ ] Add `percent_indicator: ^4.2.3` - Progress indicators
+
+- [ ] **Utilities**
+  - [ ] Add `intl: ^0.18.1` - Internationalization
+  - [ ] Add `uuid: ^4.2.1` - UUID generation
+  - [ ] Add `equatable: ^2.0.5` - Value equality
+  - [ ] Add `dartz: ^0.10.1` - Functional programming
+  - [ ] Add `local_auth: ^2.1.7` - Biometric authentication
+  - [ ] Add `flutter_local_notifications: ^16.2.0` - Notifications
+  - [ ] Add `share_plus: ^7.2.1` - Share functionality
+  - [ ] Add `image_picker: ^1.0.4` - Image selection
+  - [ ] Add `path_provider: ^2.1.1` - File paths
+  - [ ] Add `permission_handler: ^11.1.0` - Permissions
+
+### 1.4 Project Structure Setup
+
+lib/
+├── main.dart
+├── app.dart
+├── core/
+│   ├── constants/
+│   │   ├── app_colors.dart
+│   │   ├── app_typography.dart
+│   │   ├── app_spacing.dart
+│   │   ├── app_strings.dart
+│   │   └── app_assets.dart
+│   ├── theme/
+│   │   ├── app_theme.dart
+│   │   ├── light_theme.dart
+│   │   └── dark_theme.dart
+│   ├── utils/
+│   │   ├── currency_formatter.dart
+│   │   ├── date_formatter.dart
+│   │   ├── validators.dart
+│   │   └── extensions.dart
+│   ├── errors/
+│   │   ├── failures.dart
+│   │   └── exceptions.dart
+│   └── routing/
+│       ├── app_router.dart
+│       └── route_names.dart
+├── data/
+│   ├── datasources/
+│   │   ├── local/
+│   │   └── remote/
+│   ├── models/
+│   ├── repositories/
+│   └── database/
+├── domain/
+│   ├── entities/
+│   ├── repositories/
+│   └── usecases/
+├── presentation/
+│   ├── blocs/
+│   ├── pages/
+│   ├── widgets/
+│   └── common/
+└── services/
+    ├── auth_service.dart
+    ├── storage_service.dart
+    └── notification_service.dart
+
+
+### 1.5 Asset Configuration
+- [ ] Create assets directory structure
+- [ ] Add app logo (SVG, PNG variants)
+- [ ] Add icon set for categories
+- [ ] Add placeholder images
+- [ ] Configure pubspec.yaml asset paths
+- [ ] Add custom fonts (Poppins, Inter)
+- [ ] Configure font loading in theme
+
+### 1.6 Build Configuration
+- [ ] Configure Android build.gradle settings
+- [ ] Configure iOS Podfile settings
+- [ ] Set up environment-specific configurations
+- [ ] Configure ProGuard rules for release
+- [ ] Set up code signing certificates
+- [ ] Configure build flavors (dev, staging, prod)
+
+---
+
+## 2. Core Architecture & Infrastructure
+
+### 2.1 Clean Architecture Setup
+- [ ] Implement domain layer (entities, repositories interfaces, use cases)
+- [ ] Implement data layer (models, data sources, repository implementations)
+- [ ] Implement presentation layer (blocs, pages, widgets)
+- [ ] Set up dependency injection container
+- [ ] Configure dependency injection bindings
+- [ ] Implement dependency injection module structure
+
+### 2.2 Repository Pattern Implementation
+- [ ] Define repository interfaces in domain layer
+- [ ] Implement repository concrete classes in data layer
+- [ ] Set up repository data sources (local, remote)
+- [ ] Implement repository method signatures
+- [ ] Add error handling and mapping
+
+### 2.3 Use Cases Implementation
+#### Authentication Use Cases
+- [ ] Implement `LoginWithEmailUseCase`
+- [ ] Implement `LoginWithGoogleUseCase`
+- [ ] Implement `RegisterWithEmailUseCase`
+- [ ] Implement `LogoutUseCase`
+- [ ] Implement `ResetPasswordUseCase`
+- [ ] Implement `CheckAuthStatusUseCase`
+
+#### Transaction Use Cases
+- [ ] Implement `AddTransactionUseCase`
+- [ ] Implement `UpdateTransactionUseCase`
+- [ ] Implement `DeleteTransactionUseCase`
+- [ ] Implement `GetTransactionsUseCase`
+- [ ] Implement `GetTransactionsByDateRangeUseCase`
+- [ ] Implement `GetTransactionsByCategoryUseCase`
+- [ ] Implement `GetTransactionsByAccountUseCase`
+
+#### Account Use Cases
+- [ ] Implement `AddAccountUseCase`
+- [ ] Implement `UpdateAccountUseCase`
+- [ ] Implement `DeleteAccountUseCase`
+- [ ] Implement `GetAccountsUseCase`
+- [ ] Implement `GetAccountBalanceUseCase`
+- [ ] Implement `TransferBetweenAccountsUseCase`
+
+#### Savings Target Use Cases
+- [ ] Implement `CreateSavingsTargetUseCase`
+- [ ] Implement `UpdateSavingsTargetUseCase`
+- [ ] Implement `DeleteSavingsTargetUseCase`
+- [ ] Implement `GetSavingsTargetsUseCase`
+- [ ] Implement `AddToSavingsTargetUseCase`
+- [ ] Implement `GetSavingsProgressUseCase`
+
+#### Stock Portfolio Use Cases
+- [ ] Implement `AddStockUseCase`
+- [ ] Implement `UpdateStockPositionUseCase`
+- [ ] Implement `RemoveStockUseCase`
+- [ ] Implement `GetPortfolioUseCase`
+- [ ] Implement `GetPortfolioValueUseCase`
+- [ ] Implement `CalculateProfitLossUseCase`
+- [ ] Implement `CalculateAverageBuyPriceUseCase`
+- [ ] Implement `CalculateReturnsUseCase`
+
+### 2.4 Dependency Injection Setup
+- [ ] Configure GetIt service locator
+- [ ] Register data sources
+- [ ] Register repositories
+- [ ] Register use cases
+- [ ] Register BLoCs/Cubits
+- [ ] Configure lazy singletons where appropriate
+- [ ] Set up factory registrations
+
+### 2.5 Error Handling Infrastructure
+- [ ] Implement base Failure class
+- [ ] Implement specific failure types:
+  - [ ] `ServerFailure`
+  - [ ] `CacheFailure`
+  - [ ] `NetworkFailure`
+  - [ ] `AuthFailure`
+  - [ ] `ValidationFailure`
+  - [ ] `DatabaseFailure`
+- [ ] Implement Exception classes
+- [ ] Create error mapping utilities
+- [ ] Set up global error handling
+
+### 2.6 Logging Infrastructure
+- [ ] Configure logging package
+- [ ] Set up log levels (debug, info, warning, error)
+- [ ] Implement log output destinations
+- [ ] Add user action logging
+- [ ] Implement crash reporting integration
+
+---
+
+## 3. Authentication System
+
+### 3.1 Firebase Configuration
+- [ ] Create Firebase project
+- [ ] Configure Firebase console settings
+- [ ] Add Android SHA-1 fingerprint
+- [ ] Add iOS configuration files
+- [ ] Enable authentication providers:
+  - [ ] Email/Password
+  - [ ] Google Sign-In
+- [ ] Configure sign-in methods settings
+- [ ] Set up Firebase rules
+- [ ] Download google-services.json
+- [ ] Download GoogleService-Info.plist
+
+### 3.2 Authentication Service
+- [ ] Implement `AuthService` class
+- [ ] Implement email/password registration
+- [ ] Implement email/password login
+- [ ] Implement Google sign-in
+- [ ] Implement password reset
+- [ ] Implement logout functionality
+- [ ] Implement auth state listening
+- [ ] Implement token management
+- [ ] Implement session management
+- [ ] Add error handling for auth errors
+
+### 3.3 Authentication BLoC
+- [ ] Create `AuthEvent` base class
+- [ ] Create auth events:
+  - [ ] `AuthCheckRequested`
+  - [ ] `AuthLoginRequested`
+  - [ ] `AuthRegisterRequested`
+  - [ ] `AuthGoogleLoginRequested`
+  - [ ] `AuthLogoutRequested`
+  - [ ] `AuthPasswordResetRequested`
+- [ ] Create `AuthState` base class
+- [ ] Create auth states:
+  - [ ] `AuthInitial`
+  - [ ] `AuthLoading`
+  - [ ] `AuthAuthenticated`
+  - [ ] `AuthUnauthenticated`
+  - [ ] `AuthFailure`
+- [ ] Implement `AuthBloc` class
+- [ ] Handle state transitions
+- [ ] Implement event handlers
+
+### 3.4 PIN Authentication
+- [ ] Implement PIN service
+- [ ] Create PIN setup flow
+- [ ] Implement PIN verification
+- [ ] Implement PIN change functionality
+- [ ] Implement PIN reset functionality
+- [ ] Store PIN securely (encrypted)
+- [ ] Implement PIN attempt limits
+- [ ] Create lockout mechanism
+
+### 3.5 Biometric Authentication
+- [ ] Configure biometric permissions
+- [ ] Implement biometric service
+- [ ] Check biometric availability
+- [ ] Implement fingerprint authentication
+- [ ] Implement Face ID authentication
+- [ ] Create biometric enable/disable toggle
+- [ ] Implement biometric fallback to PIN
+
+### 3.6 Auth UI Screens
+#### Splash Screen
+- [ ] Design splash screen layout
+- [ ] Implement app initialization logic
+- [ ] Check authentication status
+- [ ] Navigate based on auth state
+- [ ] Show app branding/logo
+- [ ] Implement loading indicator
+
+#### Login Screen
+- [ ] Design login screen layout
+- [ ] Implement email input field
+- [ ] Implement password input field
+- [ ] Add show/hide password toggle
+- [ ] Implement "Remember me" checkbox
+- [ ] Create "Forgot Password" link
+- [ ] Implement login button
+- [ ] Implement Google sign-in button
+- [ ] Add loading state
+- [ ] Implement form validation
+- [ ] Handle error display
+
+#### Registration Screen
+- [ ] Design registration screen layout
+- [ ] Implement name input field
+- [ ] Implement email input field
+- [ ] Implement password input field
+- [ ] Implement confirm password field
+- [ ] Add password strength indicator
+- [ ] Implement registration button
+- [ ] Add terms and conditions checkbox
+- [ ] Add link to login screen
+- [ ] Implement form validation
+
+#### Forgot Password Screen
+- [ ] Design forgot password screen layout
+- [ ] Implement email input field
+- [ ] Implement "Send Reset Link" button
+- [ ] Show success message
+- [ ] Add link back to login
+
+#### PIN Setup Screen
+- [ ] Design PIN setup screen layout
+- [ ] Implement 6-digit PIN input
+- [ ] Create PIN confirmation step
+- [ ] Implement numeric keypad
+- [ ] Add visual feedback for input
+- [ ] Implement error handling
+
+#### PIN Entry Screen
+- [ ] Design PIN entry screen layout
+- [ ] Implement PIN input
+- [ ] Create biometric button
+- [ ] Add "Forgot PIN" option
+- [ ] Implement attempt counter
+- [ ] Show lockout message
+
+---
+
+## 4. Data Models & Database Schema
+
+### 4.1 User Model
+dart
+class UserModel {
+  final String id;
+  final String email;
+  final String? displayName;
+  final String? photoUrl;
+  final DateTime createdAt;
+  final DateTime? lastLoginAt;
+  final bool isEmailVerified;
+  final bool isPinEnabled;
+  final bool isBiometricEnabled;
+  final String? defaultCurrency;
+  final String? defaultLanguage;
+}
+
+
+### 4.2 Transaction Model
+dart
+class TransactionModel {
+  final String id;
+  final String userId;
+  final double amount;
+  final TransactionType type; // income, expense
+  final String categoryId;
+  final String? accountId;
+  final String? description;
+  final DateTime date;
+  final String? receiptUrl;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+}
+
+enum TransactionType { income, expense }
+
+
+### 4.3 Category Model
+dart
+class CategoryModel {
+  final String id;
+  final String name;
+  final String icon;
+  final String color;
+  final CategoryType type; // income, expense
+  final bool isDefault;
+  final String? parentId;
+}
+
+
+### 4.4 Account Model
+dart
+class AccountModel {
+  final String id;
+  final String userId;
+  final String name;
+  final AccountType type;
+  final double balance;
+  final String? institutionName;
+  final String? accountNumber;
+  final String? icon;
+  final String? color;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+}
+
+enum AccountType { cash, bank, eWallet, savings, investment }
+
+
+### 4.5 Savings Target Model
+dart
+class SavingsTargetModel {
+  final String id;
+  final String userId;
+  final String name;
+  final double targetAmount;
+  final double currentAmount;
+  final DateTime? targetDate;
+  final String? icon;
+  final String? color;
+  final SavingsTargetStatus status;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+}
+
+enum SavingsTargetStatus { active, completed, cancelled }
+
+
+### 4.6 Stock Portfolio Model
+dart
+class StockPositionModel {
+  final String id;
+  final String userId;
+  final String symbol;
+  final String? companyName;
+  final int quantity;
+  final double averagePrice;
+  final double? currentPrice;
+  final String? exchange;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+}
+
+
+### 4.7 Stock Watchlist Model
+dart
+class WatchlistItemModel {
+  final String id;
+  final String userId;
+  final String symbol;
+  final String? companyName;
+  final double? lastPrice;
+  final double? priceChange;
+  final double? percentChange;
+  final DateTime addedAt;
+}
+
+
+### 4.8 Database Tables Setup
+- [ ] Create database migration system
+- [ ] Create `users` table schema
+- [ ] Create `accounts` table schema
+- [ ] Create `transactions` table schema
+- [ ] Create `categories` table schema
+- [ ] Create `savings_targets` table schema
+- [ ] Create `stock_positions` table schema
+- [ ] Create `watchlist` table schema
+- [ ] Create `settings` table schema
+- [ ] Set up foreign key relationships
+- [ ] Create necessary indexes
+- [ ] Add database versioning
+
+### 4.9 Database Operations
+- [ ] Implement CRUD operations for all tables
+- [ ] Implement batch operations
+- [ ] Implement transaction support
+- [ ] Implement query builders
+- [ ] Add pagination support
+- [ ] Implement data seeding for default categories
+
+---
+
+## 5. State Management Implementation
+
+### 5.1 BLoC Architecture
+- [ ] Set up BLoC base classes
+- [ ] Configure BLoC observer for debugging
+- [ ] Implement BLoC to Cubit converters where appropriate
+
+### 5.2 Authentication BLoC (detailed)
+- [ ] Define all auth events
+- [ ] Define all auth states
+- [ ] Implement auth state machine
+- [ ] Add auth repository integration
+- [ ] Implement token refresh logic
+- [ ] Add logout handling
+
+### 5.3 Dashboard BLoC
+- [ ] Create `DashboardEvent` class
+- [ ] Create `DashboardState` class
+- [ ] Implement `DashboardBloc`
+- [ ] Fetch dashboard summary data
+- [ ] Calculate total balance
+- [ ] Calculate monthly income
+- [ ] Calculate monthly expenses
+- [ ] Calculate total savings
+- [ ] Calculate portfolio value
+- [ ] Generate dashboard insights
+
+### 5.4 Transaction BLoC
+- [ ] Create `TransactionEvent` class
+- [ ] Create `TransactionState` class
+- [ ] Implement `TransactionBloc`
+- [ ] Add transaction operations
+- [ ] Implement transaction filtering
+- [ ] Implement transaction search
+- [ ] Add pagination support
+- [ ] Handle transaction loading states
+
+### 5.5 Account BLoC
+- [ ] Create `AccountEvent` class
+- [ ] Create `AccountState` class
+- [ ] Implement `AccountBloc`
+- [ ] Add account CRUD operations
+- [ ] Implement balance updates
+- [ ] Handle account switching
+
+### 5.6 Savings Target BLoC
+- [ ] Create `SavingsTargetEvent` class
+- [ ] Create `SavingsTargetState` class
+- [ ] Implement `SavingsTargetBloc`
+- [ ] Add savings target operations
+- [ ] Implement progress tracking
+- [ ] Handle target completion
+
+### 5.7 Portfolio BLoC
+- [ ] Create `PortfolioEvent` class
+- [ ] Create `PortfolioState` class
+- [ ] Implement `PortfolioBloc`
+- [ ] Add stock operations
+- [ ] Implement profit/loss calculation
+- [ ] Handle price updates
+- [ ] Implement watchlist management
+
+### 5.8 Settings BLoC
+- [ ] Create `SettingsEvent` class
+- [ ] Create `SettingsState` class
+- [ ] Implement `SettingsBloc`
+- [ ] Handle theme changes
+- [ ] Handle language changes
+- [ ] Handle notification settings
+- [ ] Handle security settings
+
+### 5.9 Navigation State Management
+- [ ] Implement navigation cubit
+- [ ] Handle bottom navigation state
+- [ ] Implement deep linking support
+- [ ] Handle back navigation
+- [ ] Manage route parameters
+
+---
+
+## Part 1 Summary
+
+Part 1 covers the foundational elements of the FinTrack application:
+
+1. **Project Setup** - Complete development environment, dependencies, and project structure
+2. **Core Architecture** - Clean Architecture implementation with dependency injection
+3. **Authentication** - Full auth system including Firebase, PIN, and biometric authentication
+4. **Data Models** - Complete data model definitions and database schema
+5. **State Management** - BLoC pattern implementation for all features
+
+### Progress Tracking
+- Total Tasks: ~180 tasks
+- Part 1 Tasks: ~180 tasks (Foundation)
+- Estimated Completion: 30% of total project
+
+---
+
+## Continue to Part 2
+[Part 2](./TASKS.md_part2.tmp) covers the main feature implementations including Dashboard, Transactions, Accounts, and Savings Targets.
+
+---

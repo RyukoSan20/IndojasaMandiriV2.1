@@ -1,0 +1,396 @@
+# FinTrack API Specification - Part 2
+
+## 3. Transaction API
+
+### 3.1 Transaction Object
+
+json
+{
+  "id": "txn_uuid",
+  "type": "income | expense",
+  "amount": 150000.00,
+  "category_id": "cat_uuid",
+  "account_id": "acc_uuid",
+  "description": "Gaji Bulanan",
+  "date": "2024-01-15",
+  "time": "08:30:00",
+  "tags": ["gaji", "bulanan"],
+  "receipt_url": "https://storage.fintrack.app/receipts/uuid.pdf",
+  "is_recurring": false,
+  "recurring_interval": null,
+  "created_at": "2024-01-15T08:30:00Z",
+  "updated_at": "2024-01-15T08:30:00Z"
+}
+
+
+### 3.2 Transaction Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/transactions` | List all transactions |
+| POST | `/api/v1/transactions` | Create new transaction |
+| GET | `/api/v1/transactions/:id` | Get transaction details |
+| PUT | `/api/v1/transactions/:id` | Update transaction |
+| DELETE | `/api/v1/transactions/:id` | Delete transaction |
+| POST | `/api/v1/transactions/bulk` | Bulk create transactions |
+| GET | `/api/v1/transactions/export` | Export transactions |
+
+### 3.3 Transaction List Parameters
+
+
+GET /api/v1/transactions?type=expense&category_id=uuid&account_id=uuid&start_date=2024-01-01&end_date=2024-01-31&page=1&limit=20&sort=date&order=desc
+
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| type | string | Filter by income or expense |
+| category_id | string | Filter by category UUID |
+| account_id | string | Filter by account UUID |
+| start_date | date | Filter start date (YYYY-MM-DD) |
+| end_date | date | Filter end date (YYYY-MM-DD) |
+| min_amount | number | Minimum transaction amount |
+| max_amount | number | Maximum transaction amount |
+| tags | string | Comma-separated tags |
+| search | string | Search in description |
+| page | integer | Page number (default: 1) |
+| limit | integer | Items per page (default: 20, max: 100) |
+| sort | string | Sort field (date, amount, created_at) |
+| order | string | Sort order (asc, desc) |
+
+### 3.4 Create Transaction Request
+
+json
+{
+  "type": "expense",
+  "amount": 75000,
+  "category_id": "cat_uuid",
+  "account_id": "acc_uuid",
+  "description": "Makan siang tim",
+  "date": "2024-01-15",
+  "time": "12:30:00",
+  "tags": ["makan", "kantor"],
+  "receipt_base64": "base64_encoded_image"
+}
+
+
+### 3.5 Category Object
+
+json
+{
+  "id": "cat_uuid",
+  "name": "Makanan & Minuman",
+  "icon": "restaurant",
+  "color": "#FF5722",
+  "type": "expense",
+  "parent_id": null,
+  "is_system": true,
+  "user_id": null,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+
+
+### 3.6 Category Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/categories` | List all categories |
+| POST | `/api/v1/categories` | Create custom category |
+| PUT | `/api/v1/categories/:id` | Update category |
+| DELETE | `/api/v1/categories/:id` | Delete custom category |
+
+---
+
+## 4. Financial Account API
+
+### 4.1 Account Object
+
+json
+{
+  "id": "acc_uuid",
+  "name": "Bank BCA",
+  "type": "bank",
+  "icon": "account_balance",
+  "color": "#1E3A5F",
+  "balance": 15000000.00,
+  "currency": "IDR",
+  "card_last_digits": "1234",
+  "is_active": true,
+  "include_in_total": true,
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-15T10:00:00Z"
+}
+
+
+### 4.2 Account Types
+
+| Type | Description | Icon |
+|------|-------------|------|
+| cash | Tunai | wallet |
+| bank | Rekening Bank | account_balance |
+| ewallet | E-Wallet | smartphone |
+| savings | Tabungan | savings |
+| investment | Rekening Investasi | trending_up |
+
+### 4.3 Account Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/accounts` | List all accounts |
+| POST | `/api/v1/accounts` | Create new account |
+| GET | `/api/v1/accounts/:id` | Get account details |
+| PUT | `/api/v1/accounts/:id` | Update account |
+| DELETE | `/api/v1/accounts/:id` | Delete account |
+| GET | `/api/v1/accounts/:id/transactions` | Get account transactions |
+| POST | `/api/v1/accounts/:id/transfer` | Transfer between accounts |
+| GET | `/api/v1/accounts/balance/summary` | Get total balance summary |
+
+### 4.4 Create Account Request
+
+json
+{
+  "name": "OVO",
+  "type": "ewallet",
+  "icon": "payment",
+  "color": "#6B3FA0",
+  "initial_balance": 500000,
+  "currency": "IDR",
+  "card_last_digits": "4321",
+  "include_in_total": true
+}
+
+
+### 4.5 Transfer Request
+
+json
+{
+  "from_account_id": "acc_uuid_1",
+  "to_account_id": "acc_uuid_2",
+  "amount": 1000000,
+  "description": "Transfer ke tabungan",
+  "date": "2024-01-15",
+  "fee": 0
+}
+
+
+---
+
+## 5. Savings Goals API
+
+### 5.1 Savings Goal Object
+
+json
+{
+  "id": "goal_uuid",
+  "name": "Dana Liburan",
+  "target_amount": 10000000,
+  "current_amount": 3500000,
+  "deadline": "2024-12-31",
+  "icon": "flight",
+  "color": "#4CAF50",
+  "priority": 1,
+  "status": "in_progress",
+  "contributions": [
+    {
+      "id": "contrib_uuid",
+      "amount": 500000,
+      "date": "2024-01-10",
+      "note": "Tabungan mingguan"
+    }
+  ],
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-15T10:00:00Z"
+}
+
+
+### 5.2 Goal Status Values
+
+| Status | Description |
+|--------|-------------|
+| in_progress | Masih dalam proses |
+| achieved | Target tercapai |
+| expired | Melewati deadline |
+| cancelled | Dibatalkan |
+
+### 5.3 Savings Goal Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/goals` | List all savings goals |
+| POST | `/api/v1/goals` | Create new goal |
+| GET | `/api/v1/goals/:id` | Get goal details |
+| PUT | `/api/v1/goals/:id` | Update goal |
+| DELETE | `/api/v1/goals/:id` | Delete goal |
+| POST | `/api/v1/goals/:id/contribute` | Add contribution |
+| DELETE | `/api/v1/goals/:id/contribute/:cid` | Remove contribution |
+| GET | `/api/v1/goals/:id/progress` | Get progress statistics |
+| PUT | `/api/v1/goals/:id/complete` | Mark goal as achieved |
+
+### 5.4 Predefined Goal Templates
+
+| Template | Target Amount | Icon |
+|----------|---------------|------|
+| Dana Darurat | 6x monthly expense | shield |
+| Liburan | 5000000 | flight |
+| Laptop | 15000000 | laptop |
+| Kendaraan | 50000000 | directions_car |
+| Rumah | 500000000 | home |
+| Investasi | 100000000 | trending_up |
+
+### 5.5 Create Goal Request
+
+json
+{
+  "name": "Dana Darurat",
+  "target_amount": 36000000,
+  "deadline": "2024-12-31",
+  "icon": "shield",
+  "color": "#2196F3",
+  "priority": 1,
+  "template": "emergency_fund",
+  "auto_contribute": true,
+  "contribution_interval": "monthly",
+  "contribution_amount": 3000000
+}
+
+
+### 5.6 Add Contribution Request
+
+json
+{
+  "amount": 500000,
+  "date": "2024-01-15",
+  "note": "Tabungan dari bonus",
+  "account_id": "acc_uuid"
+}
+
+
+---
+
+## 6. Stock Portfolio API
+
+### 6.1 Portfolio Holding Object
+
+json
+{
+  "id": "hold_uuid",
+  "symbol": "BBCA.JK",
+  "company_name": "Bank Central Asia",
+  "shares": 100,
+  "average_buy_price": 8500,
+  "current_price": 9200,
+  "total_invested": 850000,
+  "current_value": 920000,
+  "profit_loss": 70000,
+  "profit_loss_percent": 8.24,
+  "sector": "Financial Services",
+  "exchange": "IDX",
+  "last_updated": "2024-01-15T16:00:00+07:00",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+
+
+### 6.2 Portfolio Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/portfolio` | Get full portfolio |
+| GET | `/api/v1/portfolio/holdings` | List all holdings |
+| POST | `/api/v1/portfolio/holdings` | Add new holding |
+| GET | `/api/v1/portfolio/holdings/:id` | Get holding details |
+| PUT | `/api/v1/portfolio/holdings/:id` | Update holding |
+| DELETE | `/api/v1/portfolio/holdings/:id` | Remove holding |
+| POST | `/api/v1/portfolio/holdings/:id/buy` | Record buy transaction |
+| POST | `/api/v1/portfolio/holdings/:id/sell` | Record sell transaction |
+| GET | `/api/v1/portfolio/summary` | Portfolio summary |
+| GET | `/api/v1/portfolio/performance` | Performance charts |
+
+### 6.3 Portfolio Summary Response
+
+json
+{
+  "total_invested": 50000000,
+  "current_value": 54500000,
+  "total_profit_loss": 4500000,
+  "total_profit_loss_percent": 9.0,
+  "day_change": 250000,
+  "day_change_percent": 0.46,
+  "best_performer": {
+    "symbol": "AMMN.JK",
+    "profit_loss_percent": 15.5
+  },
+  "worst_performer": {
+    "symbol": "TLKM.JK",
+    "profit_loss_percent": -2.3
+  },
+  "sector_allocation": [
+    {"sector": "Financial", "percentage": 45, "value": 24525000},
+    {"sector": "Technology", "percentage": 25, "value": 13625000},
+    {"sector": "Consumer", "percentage": 30, "value": 16350000}
+  ]
+}
+
+
+### 6.4 Add Holding Request
+
+json
+{
+  "symbol": "BBCA.JK",
+  "shares": 100,
+  "buy_price": 8500,
+  "buy_date": "2024-01-10",
+  "broker": "Stockbit",
+  "fees": 25000
+}
+
+
+### 6.5 Record Buy Request
+
+json
+{
+  "shares": 50,
+  "price": 8800,
+  "date": "2024-01-15",
+  "fees": 20000,
+  "broker": "Ajaib"
+}
+
+
+### 6.6 Record Sell Request
+
+json
+{
+  "shares": 25,
+  "price": 9500,
+  "date": "2024-01-15",
+  "fees": 20000,
+  "broker": "Ajaib"
+}
+
+
+### 6.7 Watchlist Object
+
+json
+{
+  "id": "watch_uuid",
+  "symbol": "AMMN.JK",
+  "company_name": "Ammann Mineral Internasional",
+  "last_price": 12500,
+  "change": 450,
+  "change_percent": 3.74,
+  "volume": 1500000,
+  "market_cap": "250T",
+  "add_alert": true,
+  "target_price": 15000,
+  "created_at": "2024-01-01T00:00:00Z"
+}
+
+
+### 6.8 Watchlist Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/watchlist` | List watchlist |
+| POST | `/api/v1/watchlist` | Add to watchlist |
+| DELETE | `/api/v1/watchlist/:symbol` | Remove from watchlist |
+| PUT | `/api/v1/watchlist/:symbol/alert` | Set price alert |
+| GET | `/api/v1/watchlist/search` | Search symbols |
