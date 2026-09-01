@@ -1,659 +1,756 @@
 import 'package:flutter/material.dart';
-import 'package:fintrack/theme/app_colors.dart';
 
+/// A customizable card widget for the FinTrack application.
+/// 
+/// This widget provides a flexible card design that can be used for various
+/// purposes including transaction items, account summaries, stock cards,
+/// and savings goal displays.
+/// 
+/// Example usage:
+/// dart
+/// CustomCard(
+///   title: 'Checking Account',
+///   subtitle: '\$5,234.56',
+///   icon: Icons.account_balance_wallet,
+///   onTap: () => print('Card tapped'),
+///   type: CardType.elevated,
+/// )
+/// 
 enum CardType {
-  defaultCard,
-  transactionCard,
-  accountCard,
-  goalCard,
-  stockCard,
-  summaryCard,
+  /// Elevated card with shadow
+  elevated,
+  
+  /// Outlined card with border
+  outlined,
+  
+  /// Filled card with background color
+  filled,
+  
+  /// Compact card for list items
+  compact,
 }
 
-class CustomCard extends StatelessWidget {
-  final Widget child;
-  final CardType cardType;
-  final EdgeInsetsGeometry? padding;
-  final EdgeInsetsGeometry? margin;
-  final VoidCallback? onTap;
-  final Color? backgroundColor;
-  final Color? borderColor;
-  final double? elevation;
-  final BorderRadius? borderRadius;
+enum CardVariant {
+  /// Default card variant
+  defaultVariant,
+  
+  /// Success variant with green accent
+  success,
+  
+  /// Warning variant with orange accent
+  warning,
+  
+  /// Error variant with red accent
+  error,
+  
+  /// Info variant with blue accent
+  info,
+}
 
+/// Custom card widget for FinTrack application
+class CustomCard extends StatelessWidget {
+  /// Creates a custom card widget
   const CustomCard({
     super.key,
-    required this.child,
-    this.cardType = CardType.defaultCard,
+    this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.icon,
+    this.iconColor,
+    this.type = CardType.elevated,
+    this.variant = CardVariant.defaultVariant,
+    this.onTap,
     this.padding,
     this.margin,
-    this.onTap,
-    this.backgroundColor,
-    this.borderColor,
-    this.elevation,
     this.borderRadius,
+    this.backgroundColor,
+    this.elevation,
+    this.child,
+    this.showDivider = false,
+    this.dividerColor,
+    this.dividerThickness,
+    this.gradient,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+  /// The main title text displayed on the card
+  final String? title;
 
-    return Container(
-      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: backgroundColor ?? _getBackgroundColor(isDark),
-        borderRadius: borderRadius ?? BorderRadius.circular(16),
-        border: Border.all(
-          color: borderColor ?? _getBorderColor(isDark),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.grey.withValues(alpha: 0.1),
-            blurRadius: elevation ?? 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: borderRadius ?? BorderRadius.circular(16),
-          child: Padding(
-            padding: padding ?? _getPadding(),
-            child: child,
-          ),
-        ),
-      ),
+  /// The subtitle text displayed below the title
+  final String? subtitle;
+
+  /// A widget displayed before the title/subtitle
+  final Widget? leading;
+
+  /// A widget displayed at the end of the card
+  final Widget? trailing;
+
+  /// An icon to display on the card
+  final IconData? icon;
+
+  /// The color of the icon
+  final Color? iconColor;
+
+  /// The type of card styling to apply
+  final CardType type;
+
+  /// The color variant of the card
+  final CardVariant variant;
+
+  /// Callback when the card is tapped
+  final VoidCallback? onTap;
+
+  /// Internal padding of the card content
+  final EdgeInsetsGeometry? padding;
+
+  /// External margin around the card
+  final EdgeInsetsGeometry? margin;
+
+  /// Custom border radius
+  final double? borderRadius;
+
+  /// Custom background color
+  final Color? backgroundColor;
+
+  /// Custom elevation for elevated cards
+  final double? elevation;
+
+  /// Custom child widget to display instead of title/subtitle
+  final Widget? child;
+
+  /// Whether to show a divider between header and content
+  final bool showDivider;
+
+  /// Color of the divider
+  final Color? dividerColor;
+
+  /// Thickness of the divider
+  final double? dividerThickness;
+
+  /// Gradient to apply to the card background
+  final Gradient? gradient;
+
+  /// Returns the appropriate border radius based on card type
+  double get _borderRadiusValue {
+    if (borderRadius != null) return borderRadius!;
+    switch (type) {
+      case CardType.compact:
+        return 8.0;
+      case CardType.elevated:
+      case CardType.outlined:
+      case CardType.filled:
+        return 16.0;
+    }
+  }
+
+  /// Returns the appropriate padding based on card type
+  EdgeInsetsGeometry get _paddingValue {
+    if (padding != null) return padding!;
+    switch (type) {
+      case CardType.compact:
+        return const EdgeInsets.symmetric(horizontal: 12, vertical: 8);
+      case CardType.elevated:
+      case CardType.outlined:
+      case CardType.filled:
+        return const EdgeInsets.all(16);
+    }
+  }
+
+  /// Returns the appropriate elevation based on card type
+  double get _elevationValue {
+    if (elevation != null) return elevation!;
+    switch (type) {
+      case CardType.elevated:
+        return 2.0;
+      case CardType.outlined:
+        return 0.0;
+      case CardType.filled:
+        return 0.0;
+      case CardType.compact:
+        return 1.0;
+    }
+  }
+
+  /// Returns the variant color based on card variant
+  Color _getVariantColor(BuildContext context) {
+    switch (variant) {
+      case CardVariant.success:
+        return const Color(0xFF4CAF50);
+      case CardVariant.warning:
+        return const Color(0xFFFF9800);
+      case CardVariant.error:
+        return const Color(0xFFF44336);
+      case CardVariant.info:
+        return const Color(0xFF2196F3);
+      case CardVariant.defaultVariant:
+        return Colors.transparent;
+    }
+  }
+
+  /// Returns the appropriate background color
+  Color? _getBackgroundColor(BuildContext context) {
+    if (backgroundColor != null) return backgroundColor;
+    if (gradient != null) return null;
+    switch (type) {
+      case CardType.elevated:
+        return Theme.of(context).cardColor;
+      case CardType.outlined:
+        return Theme.of(context).cardColor;
+      case CardType.filled:
+        return Theme.of(context).cardColor.withOpacity(0.9);
+      case CardType.compact:
+        return Theme.of(context).cardColor.withOpacity(0.7);
+    }
+  }
+
+  /// Builds the card decoration based on type and variant
+  BoxDecoration _buildDecoration(BuildContext context) {
+    final variantColor = _getVariantColor(context);
+    final bgColor = _getBackgroundColor(context);
+    
+    return BoxDecoration(
+      color: bgColor,
+      gradient: gradient,
+      borderRadius: BorderRadius.circular(_borderRadiusValue),
+      border: type == CardType.outlined
+          ? Border.all(
+              color: variant != CardVariant.defaultVariant
+                  ? variantColor.withOpacity(0.5)
+                  : Theme.of(context).dividerColor,
+              width: 1,
+            )
+          : null,
+      boxShadow: type == CardType.elevated
+          ? [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ]
+          : null,
     );
   }
 
-  Color _getBackgroundColor(bool isDark) {
-    switch (cardType) {
-      case CardType.transactionCard:
-        return isDark ? AppColors.cardDark : AppColors.cardLight;
-      case CardType.accountCard:
-        return isDark
-            ? AppColors.accountCardDark
-            : AppColors.accountCardLight;
-      case CardType.goalCard:
-        return isDark ? AppColors.goalCardDark : AppColors.goalCardLight;
-      case CardType.stockCard:
-        return isDark ? AppColors.stockCardDark : AppColors.stockCardLight;
-      case CardType.summaryCard:
-        return isDark
-            ? AppColors.summaryCardDark
-            : AppColors.summaryCardLight;
-      case CardType.defaultCard:
-      default:
-        return isDark ? AppColors.cardDark : AppColors.cardLight;
+  /// Builds the leading widget
+  Widget? _buildLeading(BuildContext context) {
+    if (leading != null) return leading;
+    if (icon != null) {
+      return Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: (iconColor ?? Theme.of(context).primaryColor).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: iconColor ?? Theme.of(context).primaryColor,
+          size: 24,
+        ),
+      );
     }
+    return null;
   }
 
-  Color _getBorderColor(bool isDark) {
-    switch (cardType) {
-      case CardType.stockCard:
-        return isDark ? AppColors.primaryDark : AppColors.primaryLight;
-      case CardType.goalCard:
-        return isDark ? AppColors.successDark : AppColors.successLight;
-      case CardType.summaryCard:
-        return Colors.transparent;
-      default:
-        return Colors.transparent;
+  /// Builds the trailing widget
+  Widget? _buildTrailing(BuildContext context) {
+    if (trailing != null) return trailing;
+    
+    // If there's a variant accent, show a small indicator
+    if (variant != CardVariant.defaultVariant) {
+      return Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: _getVariantColor(context),
+          shape: BoxShape.circle,
+        ),
+      );
     }
+    
+    return null;
   }
 
-  EdgeInsetsGeometry _getPadding() {
-    switch (cardType) {
-      case CardType.summaryCard:
-        return const EdgeInsets.all(20);
-      case CardType.stockCard:
-        return const EdgeInsets.all(16);
-      default:
-        return const EdgeInsets.all(16);
-    }
-  }
-}
-
-class TransactionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final double amount;
-  final bool isExpense;
-  final IconData? icon;
-  final DateTime? date;
-  final VoidCallback? onTap;
-
-  const TransactionCard({
-    super.key,
-    required this.title,
-    required this.subtitle,
-    required this.amount,
-    required this.isExpense,
-    this.icon,
-    this.date,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return CustomCard(
-      cardType: CardType.transactionCard,
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: isExpense
-                  ? AppColors.errorLight.withValues(alpha: 0.1)
-                  : AppColors.successLight.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon ?? (isExpense ? Icons.arrow_upward : Icons.arrow_downward),
-              color: isExpense ? AppColors.errorLight : AppColors.successLight,
-              size: 24,
-            ),
-          ),
+  /// Builds the default card content
+  Widget _buildContent(BuildContext context) {
+    if (child != null) return child!;
+    
+    return Row(
+      children: [
+        if (_buildLeading(context) != null) ...[
+          _buildLeading(context)!,
           const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title != null)
                 Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
+                  title!,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
                 Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                  subtitle!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
+            ],
           ),
+        ),
+        if (_buildTrailing(context) != null) ...[
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isExpense ? '-' : '+'}\$${amount.abs().toStringAsFixed(2)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isExpense ? AppColors.errorLight : AppColors.successLight,
-                ),
-              ),
-              if (date != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  _formatDate(date!),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ],
-          ),
+          _buildTrailing(context)!,
         ],
-      ),
+      ],
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} days ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
-  }
-}
-
-class AccountCard extends StatelessWidget {
-  final String accountName;
-  final String accountType;
-  final double balance;
-  final IconData? icon;
-  final Color? accentColor;
-  final VoidCallback? onTap;
-
-  const AccountCard({
-    super.key,
-    required this.accountName,
-    required this.accountType,
-    required this.balance,
-    this.icon,
-    this.accentColor,
-    this.onTap,
-  });
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final color = accentColor ?? AppColors.primaryLight;
-
-    return CustomCard(
-      cardType: CardType.accountCard,
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon ?? Icons.account_balance_wallet,
-                  color: color,
-                  size: 22,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  accountType,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            accountName,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '\$${balance.toStringAsFixed(2)}',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
+    Widget cardContent = Padding(
+      padding: _paddingValue,
+      child: _buildContent(context),
     );
-  }
-}
 
-class GoalCard extends StatelessWidget {
-  final String goalName;
-  final double targetAmount;
-  final double currentAmount;
-  final IconData? icon;
-  final Color? progressColor;
-  final DateTime? deadline;
-  final VoidCallback? onTap;
-
-  const GoalCard({
-    super.key,
-    required this.goalName,
-    required this.targetAmount,
-    required this.currentAmount,
-    this.icon,
-    this.progressColor,
-    this.deadline,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final progress = (currentAmount / targetAmount).clamp(0.0, 1.0);
-    final progressPercent = (progress * 100).toStringAsFixed(0);
-    final color = progressColor ?? AppColors.successLight;
-
-    return CustomCard(
-      cardType: CardType.goalCard,
-      onTap: onTap,
-      borderColor: color.withValues(alpha: 0.3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon ?? Icons.flag,
-                  color: color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      goalName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (deadline != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Due ${_formatDeadline(deadline!)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Text(
-                '$progressPercent%',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: color.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '\$${currentAmount.toStringAsFixed(2)}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-              Text(
-                'of \$${targetAmount.toStringAsFixed(2)}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDeadline(DateTime deadline) {
-    final now = DateTime.now();
-    final difference = deadline.difference(now);
-
-    if (difference.isNegative) {
-      return 'Overdue';
-    } else if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Tomorrow';
-    } else if (difference.inDays < 30) {
-      return 'in ${difference.inDays} days';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return 'in $months month${months > 1 ? 's' : ''}';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return 'in $years year${years > 1 ? 's' : ''}';
-    }
-  }
-}
-
-class StockCard extends StatelessWidget {
-  final String stockSymbol;
-  final String companyName;
-  final double currentPrice;
-  final double priceChange;
-  final double priceChangePercent;
-  final VoidCallback? onTap;
-
-  const StockCard({
-    super.key,
-    required this.stockSymbol,
-    required this.companyName,
-    required this.currentPrice,
-    required this.priceChange,
-    required this.priceChangePercent,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isPositive = priceChange >= 0;
-    final changeColor = isPositive ? AppColors.successLight : AppColors.errorLight;
-
-    return CustomCard(
-      cardType: CardType.stockCard,
-      onTap: onTap,
-      borderColor: changeColor.withValues(alpha: 0.3),
-      child: Row(
+    // Add variant accent stripe for non-default variants
+    if (variant != CardVariant.defaultVariant && type != CardType.compact) {
+      cardContent = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            width: 50,
-            height: 50,
+            height: 4,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  changeColor.withValues(alpha: 0.8),
-                  changeColor.withValues(alpha: 0.4),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              color: _getVariantColor(context),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(_borderRadiusValue),
+                topRight: Radius.circular(_borderRadiusValue),
               ),
-              borderRadius: BorderRadius.circular(14),
             ),
-            child: Center(
-              child: Text(
-                stockSymbol.substring(0, stockSymbol.length.clamp(0, 2)),
+          ),
+          Expanded(child: cardContent),
+        ],
+      );
+    }
+
+    Widget card;
+    
+    switch (type) {
+      case CardType.elevated:
+        card = Material(
+          color: Colors.transparent,
+          elevation: _elevationValue,
+          borderRadius: BorderRadius.circular(_borderRadiusValue),
+          child: cardContent,
+        );
+        break;
+      case CardType.outlined:
+      case CardType.filled:
+      case CardType.compact:
+        card = Container(
+          decoration: _buildDecoration(context),
+          child: cardContent,
+        );
+        break;
+    }
+
+    // Wrap with divider if needed
+    if (showDivider && type != CardType.compact) {
+      card = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          card,
+          Divider(
+            height: 1,
+            thickness: dividerThickness ?? 1,
+            color: dividerColor ?? Theme.of(context).dividerColor,
+          ),
+        ],
+      );
+    }
+
+    // Wrap with margin and tap handling
+    return Padding(
+      padding: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: onTap != null
+          ? Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(_borderRadiusValue),
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(_borderRadiusValue),
+                child: card,
+              ),
+            )
+          : card,
+    );
+  }
+}
+
+/// A more compact version of CustomCard for list items
+class CompactCard extends StatelessWidget {
+  /// Creates a compact card for list items
+  const CompactCard({
+    super.key,
+    this.title,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.onTap,
+    this.padding,
+    this.margin,
+    this.variant = CardVariant.defaultVariant,
+    this.iconColor,
+  });
+
+  /// The main title text
+  final String? title;
+
+  /// The subtitle text
+  final String? subtitle;
+
+  /// A widget displayed before the title
+  final Widget? leading;
+
+  /// A widget displayed at the end
+  final Widget? trailing;
+
+  /// Callback when tapped
+  final VoidCallback? onTap;
+
+  /// Internal padding
+  final EdgeInsetsGeometry? padding;
+
+  /// External margin
+  final EdgeInsetsGeometry? margin;
+
+  /// The color variant
+  final CardVariant variant;
+
+  /// The color of the leading icon
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomCard(
+      title: title,
+      subtitle: subtitle,
+      leading: leading,
+      trailing: trailing,
+      onTap: onTap,
+      padding: padding,
+      margin: margin,
+      variant: variant,
+      type: CardType.compact,
+      iconColor: iconColor,
+    );
+  }
+}
+
+/// A card specifically designed for displaying amounts
+class AmountCard extends StatelessWidget {
+  /// Creates an amount display card
+  const AmountCard({
+    super.key,
+    required this.amount,
+    this.label,
+    this.currency = '\$',
+    this.isPositive = true,
+    this.showSign = true,
+    this.icon,
+    this.iconColor,
+    this.onTap,
+    this.padding,
+    this.margin,
+    this.compact = false,
+  });
+
+  /// The amount to display
+  final String amount;
+
+  /// Label for the amount
+  final String? label;
+
+  /// Currency symbol
+  final String currency;
+
+  /// Whether the amount is positive
+  final bool isPositive;
+
+  /// Whether to show the +/- sign
+  final bool showSign;
+
+  /// Icon to display
+  final IconData? icon;
+
+  /// Color of the icon
+  final Color? iconColor;
+
+  /// Callback when tapped
+  final VoidCallback? onTap;
+
+  /// Internal padding
+  final EdgeInsetsGeometry? padding;
+
+  /// External margin
+  final EdgeInsetsGeometry? margin;
+
+  /// Whether to use compact styling
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final amountColor = isPositive
+        ? const Color(0xFF4CAF50)
+        : const Color(0xFFF44336);
+    
+    final formattedAmount = showSign
+        ? '${isPositive ? '+' : '-'}$currency$amount'
+        : '$currency$amount';
+
+    return CustomCard(
+      title: formattedAmount,
+      subtitle: label,
+      icon: icon,
+      iconColor: iconColor ?? amountColor,
+      onTap: onTap,
+      padding: padding,
+      margin: margin,
+      type: compact ? CardType.compact : CardType.elevated,
+      titleStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.bold,
+        color: amountColor,
+      ),
+    );
+  }
+}
+
+/// Extension to add custom styling to CustomCard
+extension CustomCardExtensions on CustomCard {
+  /// Creates a copy with optional new values
+  CustomCard copyWith({
+    String? title,
+    String? subtitle,
+    Widget? leading,
+    Widget? trailing,
+    IconData? icon,
+    Color? iconColor,
+    CardType? type,
+    CardVariant? variant,
+    VoidCallback? onTap,
+    EdgeInsetsGeometry? padding,
+    EdgeInsetsGeometry? margin,
+    double? borderRadius,
+    Color? backgroundColor,
+    double? elevation,
+    Widget? child,
+    bool? showDivider,
+    Color? dividerColor,
+    double? dividerThickness,
+    Gradient? gradient,
+  }) {
+    return CustomCard(
+      key: key,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      leading: leading ?? this.leading,
+      trailing: trailing ?? this.trailing,
+      icon: icon ?? this.icon,
+      iconColor: iconColor ?? this.iconColor,
+      type: type ?? this.type,
+      variant: variant ?? this.variant,
+      onTap: onTap ?? this.onTap,
+      padding: padding ?? this.padding,
+      margin: margin ?? this.margin,
+      borderRadius: borderRadius ?? this.borderRadius,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
+      elevation: elevation ?? this.elevation,
+      child: child ?? this.child,
+      showDivider: showDivider ?? this.showDivider,
+      dividerColor: dividerColor ?? this.dividerDividerColor,
+      dividerThickness: dividerThickness ?? this.dividerThickness,
+      gradient: gradient ?? this.gradient,
+    );
+  }
+}
+
+/// Text style property added to CustomCard
+extension CustomCardTextStyle on CustomCard {
+  /// Custom title text style
+  TextStyle? get titleStyle => null;
+}
+
+/// Helper class for building common card patterns
+class CardBuilder {
+  /// Builds a transaction card
+  static Widget transaction({
+    required String title,
+    required String amount,
+    required String date,
+    required IconData icon,
+    Color? iconColor,
+    bool isExpense = true,
+    VoidCallback? onTap,
+  }) {
+    return CustomCard(
+      title: title,
+      subtitle: date,
+      icon: icon,
+      iconColor: iconColor,
+      onTap: onTap,
+      trailing: Text(
+        '${isExpense ? '-' : '+'}\$$amount',
+        style: TextStyle(
+          color: isExpense
+              ? const Color(0xFFF44336)
+              : const Color(0xFF4CAF50),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Builds an account summary card
+  static Widget account({
+    required String accountName,
+    required String balance,
+    required IconData icon,
+    Color? iconColor,
+    String? accountNumber,
+    VoidCallback? onTap,
+  }) {
+    return CustomCard(
+      title: accountName,
+      subtitle: accountNumber ?? 'Account',
+      icon: icon,
+      iconColor: iconColor,
+      onTap: onTap,
+      trailing: Text(
+        '\$$balance',
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
+        ),
+      ),
+    );
+  }
+
+  /// Builds a savings goal card
+  static Widget savingsGoal({
+    required String goalName,
+    required double current,
+    required double target,
+    required IconData icon,
+    Color? iconColor,
+    VoidCallback? onTap,
+  }) {
+    final progress = (current / target).clamp(0.0, 1.0);
+    final percentage = (progress * 100).toStringAsFixed(0);
+    
+    return CustomCard(
+      title: goalName,
+      subtitle: '$percentage% saved',
+      icon: icon,
+      iconColor: iconColor,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '\$${current.toStringAsFixed(2)}',
                 style: const TextStyle(
-                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  stockSymbol,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  companyName,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
               Text(
-                '\$${currentPrice.toStringAsFixed(2)}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: changeColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                      size: 12,
-                      color: changeColor,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      '${isPositive ? '+' : ''}${priceChangePercent.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                        color: changeColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                '\$${target.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                iconColor ?? const Color(0xFF4CAF50),
+              ),
+              minHeight: 6,
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-class SummaryCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData? icon;
-  final Color? iconColor;
-  final Color? valueColor;
-  final String? subtitle;
-  final VoidCallback? onTap;
-
-  const SummaryCard({
-    super.key,
-    required this.title,
-    required this.value,
-    this.icon,
-    this.iconColor,
-    this.valueColor,
-    this.subtitle,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+  /// Builds a stock holding card
+  static Widget stockHolding({
+    required String symbol,
+    required String companyName,
+    required double shares,
+    required double currentPrice,
+    required double purchasePrice,
+    VoidCallback? onTap,
+  }) {
+    final change = ((currentPrice - purchasePrice) / purchasePrice) * 100;
+    final isPositive = change >= 0;
+    
     return CustomCard(
-      cardType: CardType.summaryCard,
+      title: symbol,
+      subtitle: '$shares shares • $companyName',
+      icon: Icons.show_chart,
+      iconColor: isPositive
+          ? const Color(0xFF4CAF50)
+          : const Color(0xFFF44336),
       onTap: onTap,
-      padding: const EdgeInsets.all(20),
-      margin: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: (iconColor ?? AppColors.primaryLight).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: iconColor ?? AppColors.primaryLight,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
           Text(
-            value,
-            style: theme.textTheme.headlineMedium?.copyWith(
+            '\$${currentPrice.toStringAsFixed(2)}',
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
-              color: valueColor,
+              fontSize: 16,
             ),
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
-              ),
+          Text(
+            '${isPositive ? '+' : ''}${change.toStringAsFixed(2)}%',
+            style: TextStyle(
+              color: isPositive
+                  ? const Color(0xFF4CAF50)
+                  : const Color(0xFFF44336),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
-          ],
+          ),
         ],
       ),
     );

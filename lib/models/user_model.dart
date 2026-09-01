@@ -1,464 +1,484 @@
-import 'dart:convert';
-
+/// User model representing a FinTrack user account
+/// 
+/// This model contains all user-related data including authentication,
+/// profile information, preferences, and account status for the
+/// personal finance and stock portfolio tracking application.
 class UserModel {
+  /// Unique identifier for the user
   final String id;
-  final String email;
-  final String firstName;
-  final String lastName;
-  final String? phoneNumber;
-  final String? avatarUrl;
-  final UserProfile profile;
-  final UserFinancialSettings financialSettings;
-  final UserSecuritySettings securitySettings;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? lastLoginAt;
-  final bool isEmailVerified;
-  final bool isPhoneVerified;
-  final bool isActive;
-  final String? referralCode;
-  final String? referredBy;
 
+  /// User's email address (used for authentication and notifications)
+  final String email;
+
+  /// User's display name shown throughout the application
+  final String displayName;
+
+  /// URL to user's profile picture (nullable if not set)
+  final String? profilePictureUrl;
+
+  /// User's first name
+  final String firstName;
+
+  /// User's last name
+  final String lastName;
+
+  /// User's phone number (nullable, used for 2FA and notifications)
+  final String? phoneNumber;
+
+  /// Date of birth for age verification and financial planning
+  final DateTime? dateOfBirth;
+
+  /// Two-factor authentication enabled status
+  final bool isTwoFactorEnabled;
+
+  /// User's preferred currency code (e.g., 'USD', 'EUR', 'GBP')
+  final String preferredCurrency;
+
+  /// User's locale for internationalization (e.g., 'en_US', 'es_ES')
+  final String locale;
+
+  /// User's timezone identifier (e.g., 'America/New_York')
+  final String timezone;
+
+  /// Account verification status
+  final bool isEmailVerified;
+
+  /// Account status (active, suspended, pending_verification, etc.)
+  final AccountStatus accountStatus;
+
+  /// User's current subscription tier
+  final SubscriptionTier subscriptionTier;
+
+  /// Date when the subscription expires
+  final DateTime? subscriptionExpiresAt;
+
+  /// User preferences stored as a map for flexibility
+  final Map<String, dynamic> preferences;
+
+  /// List of connected accounts (bank accounts, investment accounts)
+  final List<String> connectedAccountIds;
+
+  /// List of enabled notification types
+  final List<NotificationType> enabledNotifications;
+
+  /// User's risk tolerance level for investment recommendations
+  final RiskTolerance riskTolerance;
+
+  /// Emergency contact information
+  final EmergencyContact? emergencyContact;
+
+  /// User's security questions for account recovery
+  final List<SecurityQuestion> securityQuestions;
+
+  /// Last login timestamp
+  final DateTime lastLoginAt;
+
+  /// Account creation timestamp
+  final DateTime createdAt;
+
+  /// Last update timestamp
+  final DateTime updatedAt;
+
+  /// Constructor for UserModel
   UserModel({
     required this.id,
     required this.email,
+    required this.displayName,
+    this.profilePictureUrl,
     required this.firstName,
     required this.lastName,
     this.phoneNumber,
-    this.avatarUrl,
-    required this.profile,
-    required this.financialSettings,
-    required this.securitySettings,
+    this.dateOfBirth,
+    this.isTwoFactorEnabled = false,
+    this.preferredCurrency = 'USD',
+    this.locale = 'en_US',
+    this.timezone = 'UTC',
+    this.isEmailVerified = false,
+    this.accountStatus = AccountStatus.pendingVerification,
+    this.subscriptionTier = SubscriptionTier.free,
+    this.subscriptionExpiresAt,
+    Map<String, dynamic>? preferences,
+    List<String>? connectedAccountIds,
+    List<NotificationType>? enabledNotifications,
+    this.riskTolerance = RiskTolerance.moderate,
+    this.emergencyContact,
+    List<SecurityQuestion>? securityQuestions,
+    required this.lastLoginAt,
     required this.createdAt,
     required this.updatedAt,
-    this.lastLoginAt,
-    this.isEmailVerified = false,
-    this.isPhoneVerified = false,
-    this.isActive = true,
-    this.referralCode,
-    this.referredBy,
-  });
+  })  : preferences = preferences ?? {},
+        connectedAccountIds = connectedAccountIds ?? [],
+        enabledNotifications = enabledNotifications ?? [],
+        securityQuestions = securityQuestions ?? [];
 
-  String get fullName => '$firstName $lastName';
-
-  String get initials {
-    final first = firstName.isNotEmpty ? firstName[0].toUpperCase() : '';
-    final last = lastName.isNotEmpty ? lastName[0].toUpperCase() : '';
-    return '$first$last';
+  /// Creates a UserModel from a JSON map
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      displayName: json['display_name'] as String,
+      profilePictureUrl: json['profile_picture_url'] as String?,
+      firstName: json['first_name'] as String,
+      lastName: json['last_name'] as String,
+      phoneNumber: json['phone_number'] as String?,
+      dateOfBirth: json['date_of_birth'] != null
+          ? DateTime.parse(json['date_of_birth'] as String)
+          : null,
+      isTwoFactorEnabled: json['is_two_factor_enabled'] as bool? ?? false,
+      preferredCurrency: json['preferred_currency'] as String? ?? 'USD',
+      locale: json['locale'] as String? ?? 'en_US',
+      timezone: json['timezone'] as String? ?? 'UTC',
+      isEmailVerified: json['is_email_verified'] as bool? ?? false,
+      accountStatus: AccountStatus.values.firstWhere(
+        (e) => e.name == json['account_status'],
+        orElse: () => AccountStatus.pendingVerification,
+      ),
+      subscriptionTier: SubscriptionTier.values.firstWhere(
+        (e) => e.name == json['subscription_tier'],
+        orElse: () => SubscriptionTier.free,
+      ),
+      subscriptionExpiresAt: json['subscription_expires_at'] != null
+          ? DateTime.parse(json['subscription_expires_at'] as String)
+          : null,
+      preferences: json['preferences'] as Map<String, dynamic>? ?? {},
+      connectedAccountIds:
+          (json['connected_account_ids'] as List<dynamic>?)?.cast<String>() ??
+              [],
+      enabledNotifications:
+          (json['enabled_notifications'] as List<dynamic>?)
+                  ?.map((e) => NotificationType.values.firstWhere(
+                        (n) => n.name == e,
+                        orElse: () => NotificationType.transactionAlerts,
+                      ))
+                  .toList() ??
+              [],
+      riskTolerance: RiskTolerance.values.firstWhere(
+        (e) => e.name == json['risk_tolerance'],
+        orElse: () => RiskTolerance.moderate,
+      ),
+      emergencyContact: json['emergency_contact'] != null
+          ? EmergencyContact.fromJson(
+              json['emergency_contact'] as Map<String, dynamic>)
+          : null,
+      securityQuestions:
+          (json['security_questions'] as List<dynamic>?)
+              ?.map((e) => SecurityQuestion.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      lastLoginAt: json['last_login_at'] != null
+          ? DateTime.parse(json['last_login_at'] as String)
+          : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
+    );
   }
 
+  /// Converts the UserModel to a JSON map
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'display_name': displayName,
+      'profile_picture_url': profilePictureUrl,
+      'first_name': firstName,
+      'last_name': lastName,
+      'phone_number': phoneNumber,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'is_two_factor_enabled': isTwoFactorEnabled,
+      'preferred_currency': preferredCurrency,
+      'locale': locale,
+      'timezone': timezone,
+      'is_email_verified': isEmailVerified,
+      'account_status': accountStatus.name,
+      'subscription_tier': subscriptionTier.name,
+      'subscription_expires_at': subscriptionExpiresAt?.toIso8601String(),
+      'preferences': preferences,
+      'connected_account_ids': connectedAccountIds,
+      'enabled_notifications': enabledNotifications.map((e) => e.name).toList(),
+      'risk_tolerance': riskTolerance.name,
+      'emergency_contact': emergencyContact?.toJson(),
+      'security_questions': securityQuestions.map((e) => e.toJson()).toList(),
+      'last_login_at': lastLoginAt.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
+
+  /// Creates a copy of UserModel with updated fields
   UserModel copyWith({
     String? id,
     String? email,
+    String? displayName,
+    String? profilePictureUrl,
     String? firstName,
     String? lastName,
     String? phoneNumber,
-    String? avatarUrl,
-    UserProfile? profile,
-    UserFinancialSettings? financialSettings,
-    UserSecuritySettings? securitySettings,
+    DateTime? dateOfBirth,
+    bool? isTwoFactorEnabled,
+    String? preferredCurrency,
+    String? locale,
+    String? timezone,
+    bool? isEmailVerified,
+    AccountStatus? accountStatus,
+    SubscriptionTier? subscriptionTier,
+    DateTime? subscriptionExpiresAt,
+    Map<String, dynamic>? preferences,
+    List<String>? connectedAccountIds,
+    List<NotificationType>? enabledNotifications,
+    RiskTolerance? riskTolerance,
+    EmergencyContact? emergencyContact,
+    List<SecurityQuestion>? securityQuestions,
+    DateTime? lastLoginAt,
     DateTime? createdAt,
     DateTime? updatedAt,
-    DateTime? lastLoginAt,
-    bool? isEmailVerified,
-    bool? isPhoneVerified,
-    bool? isActive,
-    String? referralCode,
-    String? referredBy,
   }) {
     return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       phoneNumber: phoneNumber ?? this.phoneNumber,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-      profile: profile ?? this.profile,
-      financialSettings: financialSettings ?? this.financialSettings,
-      securitySettings: securitySettings ?? this.securitySettings,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      isTwoFactorEnabled: isTwoFactorEnabled ?? this.isTwoFactorEnabled,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      locale: locale ?? this.locale,
+      timezone: timezone ?? this.timezone,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+      accountStatus: accountStatus ?? this.accountStatus,
+      subscriptionTier: subscriptionTier ?? this.subscriptionTier,
+      subscriptionExpiresAt: subscriptionExpiresAt ?? this.subscriptionExpiresAt,
+      preferences: preferences ?? this.preferences,
+      connectedAccountIds: connectedAccountIds ?? this.connectedAccountIds,
+      enabledNotifications: enabledNotifications ?? this.enabledNotifications,
+      riskTolerance: riskTolerance ?? this.riskTolerance,
+      emergencyContact: emergencyContact ?? this.emergencyContact,
+      securityQuestions: securityQuestions ?? this.securityQuestions,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
-      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
-      isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
-      isActive: isActive ?? this.isActive,
-      referralCode: referralCode ?? this.referralCode,
-      referredBy: referredBy ?? this.referredBy,
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'email': email,
-      'firstName': firstName,
-      'lastName': lastName,
-      'phoneNumber': phoneNumber,
-      'avatarUrl': avatarUrl,
-      'profile': profile.toMap(),
-      'financialSettings': financialSettings.toMap(),
-      'securitySettings': securitySettings.toMap(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'lastLoginAt': lastLoginAt?.toIso8601String(),
-      'isEmailVerified': isEmailVerified,
-      'isPhoneVerified': isPhoneVerified,
-      'isActive': isActive,
-      'referralCode': referralCode,
-      'referredBy': referredBy,
-    };
+  /// Returns the user's full name
+  String get fullName => '$firstName $lastName';
+
+  /// Returns true if the user has an active subscription
+  bool get hasActiveSubscription {
+    if (subscriptionTier == SubscriptionTier.free) return false;
+    if (subscriptionExpiresAt == null) return false;
+    return subscriptionExpiresAt!.isAfter(DateTime.now());
   }
 
-  factory UserModel.fromMap(Map<String, dynamic> map) {
-    return UserModel(
-      id: map['id'] as String,
-      email: map['email'] as String,
-      firstName: map['firstName'] as String,
-      lastName: map['lastName'] as String,
-      phoneNumber: map['phoneNumber'] as String?,
-      avatarUrl: map['avatarUrl'] as String?,
-      profile: UserProfile.fromMap(map['profile'] as Map<String, dynamic>),
-      financialSettings: UserFinancialSettings.fromMap(
-        map['financialSettings'] as Map<String, dynamic>,
-      ),
-      securitySettings: UserSecuritySettings.fromMap(
-        map['securitySettings'] as Map<String, dynamic>,
-      ),
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
-      lastLoginAt: map['lastLoginAt'] != null
-          ? DateTime.parse(map['lastLoginAt'] as String)
-          : null,
-      isEmailVerified: map['isEmailVerified'] as bool? ?? false,
-      isPhoneVerified: map['isPhoneVerified'] as bool? ?? false,
-      isActive: map['isActive'] as bool? ?? true,
-      referralCode: map['referralCode'] as String?,
-      referredBy: map['referredBy'] as String?,
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory UserModel.fromJson(String source) =>
-      UserModel.fromMap(json.decode(source) as Map<String, dynamic>);
-
-  @override
-  String toString() {
-    return 'UserModel(id: $id, email: $email, firstName: $firstName, lastName: $lastName)';
-  }
+  /// Returns true if the user's account is active
+  bool get isAccountActive => accountStatus == AccountStatus.active;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is UserModel && other.id == id && other.email == email;
+    return other is UserModel && other.id == id;
   }
 
   @override
-  int get hashCode => id.hashCode ^ email.hashCode;
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() {
+    return 'UserModel(id: $id, email: $email, displayName: $displayName, '
+        'accountStatus: $accountStatus, subscriptionTier: $subscriptionTier)';
+  }
 }
 
-class UserProfile {
-  final String? dateOfBirth;
-  final String? gender;
-  final String? address;
-  final String? city;
-  final String? state;
-  final String? country;
-  final String? postalCode;
-  final String? timezone;
-  final String? language;
-  final String? currency;
-  final String? occupation;
-  final double? annualIncome;
-  final String? employerName;
+/// Enum representing possible account statuses
+enum AccountStatus {
+  /// Account is active and fully functional
+  active,
 
-  UserProfile({
-    this.dateOfBirth,
-    this.gender,
-    this.address,
-    this.city,
-    this.state,
-    this.country,
-    this.postalCode,
-    this.timezone,
-    this.language,
-    this.currency,
-    this.occupation,
-    this.annualIncome,
-    this.employerName,
+  /// Account is pending email verification
+  pendingVerification,
+
+  /// Account is temporarily suspended
+  suspended,
+
+  /// Account has been permanently deactivated
+  deactivated,
+
+  /// Account is locked due to security concerns
+  locked,
+
+  /// Account is in the process of being deleted
+  pendingDeletion,
+}
+
+/// Enum representing subscription tiers
+enum SubscriptionTier {
+  /// Free tier with basic features
+  free,
+
+  /// Premium tier with advanced features
+  premium,
+
+  /// Professional tier for power users
+  professional,
+
+  /// Enterprise tier for business accounts
+  enterprise,
+}
+
+/// Enum representing notification types
+enum NotificationType {
+  /// Alert for new transactions
+  transactionAlerts,
+
+  /// Reminder for upcoming bill payments
+  billReminders,
+
+  /// Notification for savings goal milestones
+  savingsGoalMilestones,
+
+  /// Alert for unusual spending patterns
+  spendingAlerts,
+
+  /// Notification for portfolio performance updates
+  portfolioUpdates,
+
+  /// Reminder for investment opportunities
+  investmentRecommendations,
+
+  /// Security-related notifications
+  securityAlerts,
+
+  /// Marketing and promotional emails
+  marketingEmails,
+
+  /// Weekly and monthly financial summaries
+  financialSummaries,
+}
+
+/// Enum representing risk tolerance levels for investment recommendations
+enum RiskTolerance {
+  /// Conservative investor - prefers stability over high returns
+  conservative,
+
+  /// Moderate investor - balanced approach
+  moderate,
+
+  /// Aggressive investor - willing to take risks for higher returns
+  aggressive,
+
+  /// Very aggressive investor - maximum risk tolerance
+  veryAggressive,
+}
+
+/// Model for emergency contact information
+class EmergencyContact {
+  /// Contact's full name
+  final String name;
+
+  /// Contact's relationship to the user
+  final String relationship;
+
+  /// Contact's phone number
+  final String phoneNumber;
+
+  /// Contact's email address (optional)
+  final String? email;
+
+  /// Constructor for EmergencyContact
+  EmergencyContact({
+    required this.name,
+    required this.relationship,
+    required this.phoneNumber,
+    this.email,
   });
 
-  UserProfile copyWith({
-    String? dateOfBirth,
-    String? gender,
-    String? address,
-    String? city,
-    String? state,
-    String? country,
-    String? postalCode,
-    String? timezone,
-    String? language,
-    String? currency,
-    String? occupation,
-    double? annualIncome,
-    String? employerName,
-  }) {
-    return UserProfile(
-      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      gender: gender ?? this.gender,
-      address: address ?? this.address,
-      city: city ?? this.city,
-      state: state ?? this.state,
-      country: country ?? this.country,
-      postalCode: postalCode ?? this.postalCode,
-      timezone: timezone ?? this.timezone,
-      language: language ?? this.language,
-      currency: currency ?? this.currency,
-      occupation: occupation ?? this.occupation,
-      annualIncome: annualIncome ?? this.annualIncome,
-      employerName: employerName ?? this.employerName,
+  /// Creates an EmergencyContact from a JSON map
+  factory EmergencyContact.fromJson(Map<String, dynamic> json) {
+    return EmergencyContact(
+      name: json['name'] as String,
+      relationship: json['relationship'] as String,
+      phoneNumber: json['phone_number'] as String,
+      email: json['email'] as String?,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// Converts the EmergencyContact to a JSON map
+  Map<String, dynamic> toJson() {
     return {
-      'dateOfBirth': dateOfBirth,
-      'gender': gender,
-      'address': address,
-      'city': city,
-      'state': state,
-      'country': country,
-      'postalCode': postalCode,
-      'timezone': timezone,
-      'language': language,
-      'currency': currency,
-      'occupation': occupation,
-      'annualIncome': annualIncome,
-      'employerName': employerName,
+      'name': name,
+      'relationship': relationship,
+      'phone_number': phoneNumber,
+      'email': email,
     };
   }
 
-  factory UserProfile.fromMap(Map<String, dynamic> map) {
-    return UserProfile(
-      dateOfBirth: map['dateOfBirth'] as String?,
-      gender: map['gender'] as String?,
-      address: map['address'] as String?,
-      city: map['city'] as String?,
-      state: map['state'] as String?,
-      country: map['country'] as String?,
-      postalCode: map['postalCode'] as String?,
-      timezone: map['timezone'] as String?,
-      language: map['language'] as String?,
-      currency: map['currency'] as String?,
-      occupation: map['occupation'] as String?,
-      annualIncome: (map['annualIncome'] as num?)?.toDouble(),
-      employerName: map['employerName'] as String?,
+  /// Creates a copy of EmergencyContact with updated fields
+  EmergencyContact copyWith({
+    String? name,
+    String? relationship,
+    String? phoneNumber,
+    String? email,
+  }) {
+    return EmergencyContact(
+      name: name ?? this.name,
+      relationship: relationship ?? this.relationship,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      email: email ?? this.email,
     );
   }
-
-  String toJson() => json.encode(toMap());
-
-  factory UserProfile.fromJson(String source) =>
-      UserProfile.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
-class UserFinancialSettings {
-  final String defaultCurrency;
-  final String dateFormat;
-  final String numberFormat;
-  final bool enableNotifications;
-  final bool enableEmailReports;
-  final bool enableSmsAlerts;
-  final bool enablePushNotifications;
-  final double? monthlyBudgetLimit;
-  final List<String> enabledCategories;
-  final bool autoCategorizeTransactions;
-  final bool roundUpSavings;
-  final double? roundUpAmount;
+/// Model for security questions
+class SecurityQuestion {
+  /// Unique identifier for the question
+  final String id;
 
-  UserFinancialSettings({
-    this.defaultCurrency = 'USD',
-    this.dateFormat = 'yyyy-MM-dd',
-    this.numberFormat = 'en_US',
-    this.enableNotifications = true,
-    this.enableEmailReports = true,
-    this.enableSmsAlerts = false,
-    this.enablePushNotifications = true,
-    this.monthlyBudgetLimit,
-    this.enabledCategories = const [],
-    this.autoCategorizeTransactions = true,
-    this.roundUpSavings = false,
-    this.roundUpAmount,
+  /// The question text
+  final String question;
+
+  /// The user's answer (stored hashed)
+  final String hashedAnswer;
+
+  /// Constructor for SecurityQuestion
+  SecurityQuestion({
+    required this.id,
+    required this.question,
+    required this.hashedAnswer,
   });
 
-  UserFinancialSettings copyWith({
-    String? defaultCurrency,
-    String? dateFormat,
-    String? numberFormat,
-    bool? enableNotifications,
-    bool? enableEmailReports,
-    bool? enableSmsAlerts,
-    bool? enablePushNotifications,
-    double? monthlyBudgetLimit,
-    List<String>? enabledCategories,
-    bool? autoCategorizeTransactions,
-    bool? roundUpSavings,
-    double? roundUpAmount,
-  }) {
-    return UserFinancialSettings(
-      defaultCurrency: defaultCurrency ?? this.defaultCurrency,
-      dateFormat: dateFormat ?? this.dateFormat,
-      numberFormat: numberFormat ?? this.numberFormat,
-      enableNotifications: enableNotifications ?? this.enableNotifications,
-      enableEmailReports: enableEmailReports ?? this.enableEmailReports,
-      enableSmsAlerts: enableSmsAlerts ?? this.enableSmsAlerts,
-      enablePushNotifications:
-          enablePushNotifications ?? this.enablePushNotifications,
-      monthlyBudgetLimit: monthlyBudgetLimit ?? this.monthlyBudgetLimit,
-      enabledCategories: enabledCategories ?? this.enabledCategories,
-      autoCategorizeTransactions:
-          autoCategorizeTransactions ?? this.autoCategorizeTransactions,
-      roundUpSavings: roundUpSavings ?? this.roundUpSavings,
-      roundUpAmount: roundUpAmount ?? this.roundUpAmount,
+  /// Creates a SecurityQuestion from a JSON map
+  factory SecurityQuestion.fromJson(Map<String, dynamic> json) {
+    return SecurityQuestion(
+      id: json['id'] as String,
+      question: json['question'] as String,
+      hashedAnswer: json['hashed_answer'] as String,
     );
   }
 
-  Map<String, dynamic> toMap() {
+  /// Converts the SecurityQuestion to a JSON map
+  Map<String, dynamic> toJson() {
     return {
-      'defaultCurrency': defaultCurrency,
-      'dateFormat': dateFormat,
-      'numberFormat': numberFormat,
-      'enableNotifications': enableNotifications,
-      'enableEmailReports': enableEmailReports,
-      'enableSmsAlerts': enableSmsAlerts,
-      'enablePushNotifications': enablePushNotifications,
-      'monthlyBudgetLimit': monthlyBudgetLimit,
-      'enabledCategories': enabledCategories,
-      'autoCategorizeTransactions': autoCategorizeTransactions,
-      'roundUpSavings': roundUpSavings,
-      'roundUpAmount': roundUpAmount,
+      'id': id,
+      'question': question,
+      'hashed_answer': hashedAnswer,
     };
   }
 
-  factory UserFinancialSettings.fromMap(Map<String, dynamic> map) {
-    return UserFinancialSettings(
-      defaultCurrency: map['defaultCurrency'] as String? ?? 'USD',
-      dateFormat: map['dateFormat'] as String? ?? 'yyyy-MM-dd',
-      numberFormat: map['numberFormat'] as String? ?? 'en_US',
-      enableNotifications: map['enableNotifications'] as bool? ?? true,
-      enableEmailReports: map['enableEmailReports'] as bool? ?? true,
-      enableSmsAlerts: map['enableSmsAlerts'] as bool? ?? false,
-      enablePushNotifications: map['enablePushNotifications'] as bool? ?? true,
-      monthlyBudgetLimit: (map['monthlyBudgetLimit'] as num?)?.toDouble(),
-      enabledCategories: (map['enabledCategories'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
-      autoCategorizeTransactions:
-          map['autoCategorizeTransactions'] as bool? ?? true,
-      roundUpSavings: map['roundUpSavings'] as bool? ?? false,
-      roundUpAmount: (map['roundUpAmount'] as num?)?.toDouble(),
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory UserFinancialSettings.fromJson(String source) =>
-      UserFinancialSettings.fromMap(
-          json.decode(source) as Map<String, dynamic>);
-}
-
-class UserSecuritySettings {
-  final bool twoFactorEnabled;
-  final String? twoFactorMethod;
-  final bool biometricLoginEnabled;
-  final bool loginNotifications;
-  final bool deviceTracking;
-  final int sessionTimeoutMinutes;
-  final int maxLoginAttempts;
-  final String? lastKnownIp;
-  final DateTime? lastSecurityAlertAt;
-  final List<String> trustedDevices;
-
-  UserSecuritySettings({
-    this.twoFactorEnabled = false,
-    this.twoFactorMethod,
-    this.biometricLoginEnabled = false,
-    this.loginNotifications = true,
-    this.deviceTracking = true,
-    this.sessionTimeoutMinutes = 30,
-    this.maxLoginAttempts = 5,
-    this.lastKnownIp,
-    this.lastSecurityAlertAt,
-    this.trustedDevices = const [],
-  });
-
-  UserSecuritySettings copyWith({
-    bool? twoFactorEnabled,
-    String? twoFactorMethod,
-    bool? biometricLoginEnabled,
-    bool? loginNotifications,
-    bool? deviceTracking,
-    int? sessionTimeoutMinutes,
-    int? maxLoginAttempts,
-    String? lastKnownIp,
-    DateTime? lastSecurityAlertAt,
-    List<String>? trustedDevices,
+  /// Creates a copy of SecurityQuestion with updated fields
+  SecurityQuestion copyWith({
+    String? id,
+    String? question,
+    String? hashedAnswer,
   }) {
-    return UserSecuritySettings(
-      twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
-      twoFactorMethod: twoFactorMethod ?? this.twoFactorMethod,
-      biometricLoginEnabled:
-          biometricLoginEnabled ?? this.biometricLoginEnabled,
-      loginNotifications: loginNotifications ?? this.loginNotifications,
-      deviceTracking: deviceTracking ?? this.deviceTracking,
-      sessionTimeoutMinutes:
-          sessionTimeoutMinutes ?? this.sessionTimeoutMinutes,
-      maxLoginAttempts: maxLoginAttempts ?? this.maxLoginAttempts,
-      lastKnownIp: lastKnownIp ?? this.lastKnownIp,
-      lastSecurityAlertAt: lastSecurityAlertAt ?? this.lastSecurityAlertAt,
-      trustedDevices: trustedDevices ?? this.trustedDevices,
+    return SecurityQuestion(
+      id: id ?? this.id,
+      question: question ?? this.question,
+      hashedAnswer: hashedAnswer ?? this.hashedAnswer,
     );
   }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'twoFactorEnabled': twoFactorEnabled,
-      'twoFactorMethod': twoFactorMethod,
-      'biometricLoginEnabled': biometricLoginEnabled,
-      'loginNotifications': loginNotifications,
-      'deviceTracking': deviceTracking,
-      'sessionTimeoutMinutes': sessionTimeoutMinutes,
-      'maxLoginAttempts': maxLoginAttempts,
-      'lastKnownIp': lastKnownIp,
-      'lastSecurityAlertAt': lastSecurityAlertAt?.toIso8601String(),
-      'trustedDevices': trustedDevices,
-    };
-  }
-
-  factory UserSecuritySettings.fromMap(Map<String, dynamic> map) {
-    return UserSecuritySettings(
-      twoFactorEnabled: map['twoFactorEnabled'] as bool? ?? false,
-      twoFactorMethod: map['twoFactorMethod'] as String?,
-      biometricLoginEnabled: map['biometricLoginEnabled'] as bool? ?? false,
-      loginNotifications: map['loginNotifications'] as bool? ?? true,
-      deviceTracking: map['deviceTracking'] as bool? ?? true,
-      sessionTimeoutMinutes: map['sessionTimeoutMinutes'] as int? ?? 30,
-      maxLoginAttempts: map['maxLoginAttempts'] as int? ?? 5,
-      lastKnownIp: map['lastKnownIp'] as String?,
-      lastSecurityAlertAt: map['lastSecurityAlertAt'] != null
-          ? DateTime.parse(map['lastSecurityAlertAt'] as String)
-          : null,
-      trustedDevices: (map['trustedDevices'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
-    );
-  }
-
-  String toJson() => json.encode(toMap());
-
-  factory UserSecuritySettings.fromJson(String source) =>
-      UserSecuritySettings.fromMap(
-          json.decode(source) as Map<String, dynamic>);
 }
