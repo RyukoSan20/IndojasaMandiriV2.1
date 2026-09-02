@@ -2,37 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
-void main() {
-  runApp(const FinTrackApp());
-}
-
-class FinTrackApp extends StatelessWidget {
-  const FinTrackApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FinTrack',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2563EB),
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2563EB),
-          brightness: Brightness.dark,
-        ),
-      ),
-      themeMode: ThemeMode.system,
-      home: const DashboardScreen(),
-    );
-  }
-}
-
 // Color Constants
 class AppColors {
   static const Color primaryBlue = Color(0xFF2563EB);
@@ -100,6 +69,9 @@ class Transaction {
     required this.icon,
     required this.categoryColor,
   });
+
+  bool get isIncome => type == 'income';
+  bool get isExpense => type == 'expense';
 }
 
 // Account Model
@@ -143,6 +115,7 @@ class SavingsGoal {
 
   double get progress => (currentAmount / targetAmount).clamp(0.0, 1.0);
   double get remaining => targetAmount - currentAmount;
+  int get daysRemaining => deadline != null ? deadline!.difference(DateTime.now()).inDays : 0;
 }
 
 // Stock Holding Model
@@ -200,6 +173,10 @@ class DashboardData {
     required this.expenseByCategory,
     required this.cashflowHistory,
   });
+
+  double get cashBalance => totalBalance - portfolioValue;
+  double get monthlyNetFlow => monthlyIncome - monthlyExpense;
+  double get savingsProgress => totalSavings > 0 ? totalSavings / totalBalance : 0;
 
   factory DashboardData.empty() => DashboardData(
         totalBalance: 0,
@@ -430,6 +407,44 @@ String formatDate(DateTime date) {
   }
 }
 
+// Main App Entry Point
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  runApp(const FinTrackApp());
+}
+
+class FinTrackApp extends StatelessWidget {
+  const FinTrackApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'FinTrack',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primaryBlue,
+          brightness: Brightness.light,
+        ),
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.primaryBlue,
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: ThemeMode.system,
+      home: const DashboardScreen(),
+    );
+  }
+}
+
 // Dashboard Screen
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -496,7 +511,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Text(
                       'Selamat Pagi',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
                       ),
                     ),
                     Text(
@@ -662,17 +679,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.trending_up_rounded,
                       color: AppColors.success,
                       size: 16,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Text(
                       '+5.2%',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -689,8 +706,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               _buildBalanceItem(
                 icon: Icons.account_balance_wallet_rounded,
                 label: 'Tunai & Bank',
-                value: formatCurrency(
-                    _dashboardData.totalBalance - _dashboardData.portfolioValue),
+                value: formatCurrency(_dashboardData.cashBalance),
                 color: Colors.white,
               ),
               const SizedBox(width: 16),
@@ -980,7 +996,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '+${formatCurrency(_dashboardData.monthlyIncome - _dashboardData.monthlyExpense)}',
+                  '+${formatCurrency(_dashboardData.monthlyNetFlow)}',
                   style: const TextStyle(
                     color: AppColors.income,
                     fontWeight: FontWeight.bold,
@@ -1136,7 +1152,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       itemCount: _dashboardData.recentTransactions.length,
       itemBuilder: (context, index) {
         final transaction = _dashboardData.recentTransactions[index];
-        final isIncome = transaction.type == 'income';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1195,9 +1210,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
               Text(
-                '${isIncome ? '+' : '-'}${formatCurrency(transaction.amount)}',
+                '${transaction.isIncome ? '+' : '-'}${formatCurrency(transaction.amount)}',
                 style: TextStyle(
-                  color: isIncome ? AppColors.income : AppColors.expense,
+                  color: transaction.isIncome ? AppColors.income : AppColors.expense,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -1443,7 +1458,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Total Nilai',
                       style: TextStyle(
                         color: AppColors.textSecondary,
@@ -1517,7 +1532,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     child: Center(
                       child: Text(
-                        holding.symbol.substring(0, 2),
+                        holding.symbol.substring(0, 2.clamp(0, holding.symbol.length)),
                         style: const TextStyle(
                           color: AppColors.primaryBlue,
                           fontWeight: FontWeight.bold,
@@ -1665,7 +1680,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               if (goal.deadline != null)
                                 Text(
-                                  '${goal.deadline!.difference(DateTime.now()).inDays} hari lagi',
+                                  '${goal.daysRemaining} hari lagi',
                                   style: const TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 12,
@@ -1763,10 +1778,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 'Wawasan Finansial',
                 style: TextStyle(
-                  color: AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -2292,10 +2309,12 @@ class CashFlowChartPainter extends CustomPainter {
     final chartHeight = size.height - padding * 2;
 
     final maxValue = data.fold<double>(
-        0, (max, item) => math.max(max, item['income'] as double));
+        0, (max, item) => math.max(max, (item['income'] as double?) ?? 0));
     final maxExpense = data.fold<double>(
-        0, (max, item) => math.max(max, item['expense'] as double));
+        0, (max, item) => math.max(max, (item['expense'] as double?) ?? 0));
     final globalMax = math.max(maxValue, maxExpense);
+
+    if (globalMax == 0) return;
 
     final incomePaint = Paint()
       ..color = AppColors.income
@@ -2329,13 +2348,13 @@ class CashFlowChartPainter extends CustomPainter {
     final expensePath = Path();
 
     for (var i = 0; i < data.length; i++) {
-      final x = padding + (chartWidth / (data.length - 1)) * i;
+      final x = padding + (chartWidth / (data.length - 1).clamp(1, data.length)) * i;
       final incomeY = padding +
           chartHeight -
-          (data[i]['income'] as double) / globalMax * chartHeight;
+          ((data[i]['income'] as double?) ?? 0) / globalMax * chartHeight;
       final expenseY = padding +
           chartHeight -
-          (data[i]['expense'] as double) / globalMax * chartHeight;
+          ((data[i]['expense'] as double?) ?? 0) / globalMax * chartHeight;
 
       if (i == 0) {
         incomePath.moveTo(x, incomeY);
@@ -2368,5 +2387,6 @@ class CashFlowChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant CashFlowChartPainter oldDelegate) =>
+      oldDelegate.data != data || oldDelegate.isDark != isDark;
 }
