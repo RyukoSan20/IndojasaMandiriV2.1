@@ -2046,6 +2046,8 @@ class AppProvider extends ChangeNotifier {
         return 'savings';
       case AccountType.investment:
         return 'trending_up';
+      default:
+        return 'account_balance_wallet';
     }
   }
 
@@ -2061,6 +2063,8 @@ class AppProvider extends ChangeNotifier {
         return '#F59E0B';
       case AccountType.investment:
         return '#EC4899';
+      default:
+        return '#6366F1';
     }
   }
 
