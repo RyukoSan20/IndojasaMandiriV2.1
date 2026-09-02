@@ -1,654 +1,915 @@
+import 'dart:convert';
 
+/// User model representing a FinTrack user account
+/// 
+/// This model contains all user-related data including authentication,
+/// profile information, security settings, and preferences.
 class UserModel {
+  /// Unique identifier for the user
   final String id;
-  final String email;
-  final String firstName;
-  final String lastName;
-  final String? phoneNumber;
-  final String? profileImageUrl;
-  final UserProfile profile;
-  final UserPreferences preferences;
-  final UserSecurity security;
-  final List<String> linkedAccounts;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime? lastLoginAt;
-  final bool isEmailVerified;
-  final bool isPhoneVerified;
-  final bool isActive;
-  final String? referralCode;
-  final String? referredBy;
-  final UserSubscription subscription;
-  final List<NotificationSettings> notificationSettings;
 
-  UserModel({
+  /// User's email address (unique)
+  final String email;
+
+  /// User's full name
+  final String fullName;
+
+  /// URL to user's avatar image
+  final String? avatarUrl;
+
+  /// User's phone number
+  final String? phoneNumber;
+
+  /// User's date of birth
+  final DateTime? dateOfBirth;
+
+  /// Whether biometric authentication is enabled
+  final bool biometricEnabled;
+
+  /// User's timezone preference (IANA format, e.g., 'Asia/Jakarta')
+  final String timezone;
+
+  /// User's locale preference (e.g., 'id_ID', 'en_US')
+  final String locale;
+
+  /// User's theme preference ('light', 'dark', 'system')
+  final String theme;
+
+  /// Whether email has been verified
+  final bool emailVerified;
+
+  /// Timestamp when email was verified
+  final DateTime? emailVerifiedAt;
+
+  /// Whether the user account is active
+  final bool isActive;
+
+  /// Whether the user has premium subscription
+  final bool isPremium;
+
+  /// Premium subscription expiration date
+  final DateTime? premiumExpiresAt;
+
+  /// Last login timestamp
+  final DateTime? lastLoginAt;
+
+  /// Account creation timestamp
+  final DateTime createdAt;
+
+  /// Last update timestamp
+  final DateTime updatedAt;
+
+  /// Soft delete timestamp (null if not deleted)
+  final DateTime? deletedAt;
+
+  /// List of authentication providers linked to this user
+  final List<AuthProviderModel> authProviders;
+
+  /// User's application settings
+  final UserSettingsModel settings;
+
+  const UserModel({
     required this.id,
     required this.email,
-    required this.firstName,
-    required this.lastName,
+    required this.fullName,
+    this.avatarUrl,
     this.phoneNumber,
-    this.profileImageUrl,
-    required this.profile,
-    required this.preferences,
-    required this.security,
-    required this.linkedAccounts,
+    this.dateOfBirth,
+    this.biometricEnabled = false,
+    this.timezone = 'Asia/Jakarta',
+    this.locale = 'id_ID',
+    this.theme = 'light',
+    this.emailVerified = false,
+    this.emailVerifiedAt,
+    this.isActive = true,
+    this.isPremium = false,
+    this.premiumExpiresAt,
+    this.lastLoginAt,
     required this.createdAt,
     required this.updatedAt,
-    this.lastLoginAt,
-    this.isEmailVerified = false,
-    this.isPhoneVerified = false,
-    this.isActive = true,
-    this.referralCode,
-    this.referredBy,
-    required this.subscription,
-    required this.notificationSettings,
+    this.deletedAt,
+    this.authProviders = const [],
+    required this.settings,
   });
 
-  String get fullName => '$firstName $lastName';
-
-  String get displayName => profile.displayName ?? fullName;
-
-  bool get hasCompletedOnboarding => profile.onboardingCompleted;
-
-  UserModel copyWith({
-    String? id,
-    String? email,
-    String? firstName,
-    String? lastName,
-    String? phoneNumber,
-    String? profileImageUrl,
-    UserProfile? profile,
-    UserPreferences? preferences,
-    UserSecurity? security,
-    List<String>? linkedAccounts,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    DateTime? lastLoginAt,
-    bool? isEmailVerified,
-    bool? isPhoneVerified,
-    bool? isActive,
-    String? referralCode,
-    String? referredBy,
-    UserSubscription? subscription,
-    List<NotificationSettings>? notificationSettings,
-  }) {
-    return UserModel(
-      id: id ?? this.id,
-      email: email ?? this.email,
-      firstName: firstName ?? this.firstName,
-      lastName: lastName ?? this.lastName,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
-      profile: profile ?? this.profile,
-      preferences: preferences ?? this.preferences,
-      security: security ?? this.security,
-      linkedAccounts: linkedAccounts ?? this.linkedAccounts,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
-      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
-      isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
-      isActive: isActive ?? this.isActive,
-      referralCode: referralCode ?? this.referralCode,
-      referredBy: referredBy ?? this.referredBy,
-      subscription: subscription ?? this.subscription,
-      notificationSettings: notificationSettings ?? this.notificationSettings,
-    );
-  }
-
+  /// Creates a UserModel from a JSON map
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
       email: json['email'] as String,
-      firstName: json['firstName'] as String,
-      lastName: json['lastName'] as String,
-      phoneNumber: json['phoneNumber'] as String?,
-      profileImageUrl: json['profileImageUrl'] as String?,
-      profile: UserProfile.fromJson(json['profile'] as Map<String, dynamic>),
-      preferences: UserPreferences.fromJson(json['preferences'] as Map<String, dynamic>),
-      security: UserSecurity.fromJson(json['security'] as Map<String, dynamic>),
-      linkedAccounts: List<String>.from(json['linkedAccounts'] ?? []),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      lastLoginAt: json['lastLoginAt'] != null
-          ? DateTime.parse(json['lastLoginAt'] as String)
-          : null,
-      isEmailVerified: json['isEmailVerified'] as bool? ?? false,
-      isPhoneVerified: json['isPhoneVerified'] as bool? ?? false,
-      isActive: json['isActive'] as bool? ?? true,
-      referralCode: json['referralCode'] as String?,
-      referredBy: json['referredBy'] as String?,
-      subscription: UserSubscription.fromJson(json['subscription'] as Map<String, dynamic>),
-      notificationSettings: (json['notificationSettings'] as List<dynamic>?)
-              ?.map((e) => NotificationSettings.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      fullName: json['full_name'] as String? ?? json['fullName'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String? ?? json['avatarUrl'] as String?,
+      phoneNumber: json['phone_number'] as String? ?? json['phoneNumber'] as String?,
+      dateOfBirth: json['date_of_birth'] != null
+          ? DateTime.parse(json['date_of_birth'] as String)
+          : json['dateOfBirth'] != null
+              ? DateTime.parse(json['dateOfBirth'] as String)
+              : null,
+      biometricEnabled: json['biometric_enabled'] as bool? ??
+          json['biometricEnabled'] as bool? ??
+          false,
+      timezone: json['timezone'] as String? ?? 'Asia/Jakarta',
+      locale: json['locale'] as String? ?? 'id_ID',
+      theme: json['theme'] as String? ?? 'light',
+      emailVerified: json['email_verified'] as bool? ??
+          json['emailVerified'] as bool? ??
+          false,
+      emailVerifiedAt: json['email_verified_at'] != null
+          ? DateTime.parse(json['email_verified_at'] as String)
+          : json['emailVerifiedAt'] != null
+              ? DateTime.parse(json['emailVerifiedAt'] as String)
+              : null,
+      isActive: json['is_active'] as bool? ?? json['isActive'] as bool? ?? true,
+      isPremium: json['is_premium'] as bool? ?? json['isPremium'] as bool? ?? false,
+      premiumExpiresAt: json['premium_expires_at'] != null
+          ? DateTime.parse(json['premium_expires_at'] as String)
+          : json['premiumExpiresAt'] != null
+              ? DateTime.parse(json['premiumExpiresAt'] as String)
+              : null,
+      lastLoginAt: json['last_login_at'] != null
+          ? DateTime.parse(json['last_login_at'] as String)
+          : json['lastLoginAt'] != null
+              ? DateTime.parse(json['lastLoginAt'] as String)
+              : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'] as String)
+              : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'] as String)
+              : DateTime.now(),
+      deletedAt: json['deleted_at'] != null
+          ? DateTime.parse(json['deleted_at'] as String)
+          : json['deletedAt'] != null
+              ? DateTime.parse(json['deletedAt'] as String)
+              : null,
+      authProviders: json['auth_providers'] != null
+          ? (json['auth_providers'] as List<dynamic>)
+              .map((e) => AuthProviderModel.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : json['authProviders'] != null
+              ? (json['authProviders'] as List<dynamic>)
+                  .map((e) => AuthProviderModel.fromJson(e as Map<String, dynamic>))
+                  .toList()
+              : const [],
+      settings: json['settings'] != null
+          ? UserSettingsModel.fromJson(
+              json['settings'] is String
+                  ? jsonDecode(json['settings'] as String) as Map<String, dynamic>
+                  : json['settings'] as Map<String, dynamic>,
+            )
+          : const UserSettingsModel(),
+    );
+  }
+
+  /// Creates a UserModel from JSON string
+  factory UserModel.fromJsonString(String jsonString) {
+    return UserModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+  }
+
+  /// Converts this UserModel to a JSON map
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'full_name': fullName,
+      'avatar_url': avatarUrl,
+      'phone_number': phoneNumber,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'biometric_enabled': biometricEnabled,
+      'timezone': timezone,
+      'locale': locale,
+      'theme': theme,
+      'email_verified': emailVerified,
+      'email_verified_at': emailVerifiedAt?.toIso8601String(),
+      'is_active': isActive,
+      'is_premium': isPremium,
+      'premium_expires_at': premiumExpiresAt?.toIso8601String(),
+      'last_login_at': lastLoginAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
+      'auth_providers': authProviders.map((e) => e.toJson()).toList(),
+      'settings': settings.toJson(),
+    };
+  }
+
+  /// Converts this UserModel to a JSON string
+  String toJsonString() {
+    return jsonEncode(toJson());
+  }
+
+  /// Creates a copy of this UserModel with the given fields replaced
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? fullName,
+    String? avatarUrl,
+    String? phoneNumber,
+    DateTime? dateOfBirth,
+    bool? biometricEnabled,
+    String? timezone,
+    String? locale,
+    String? theme,
+    bool? emailVerified,
+    DateTime? emailVerifiedAt,
+    bool? isActive,
+    bool? isPremium,
+    DateTime? premiumExpiresAt,
+    DateTime? lastLoginAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
+    List<AuthProviderModel>? authProviders,
+    UserSettingsModel? settings,
+    bool clearAvatarUrl = false,
+    bool clearPhoneNumber = false,
+    bool clearDateOfBirth = false,
+    bool clearEmailVerifiedAt = false,
+    bool clearPremiumExpiresAt = false,
+    bool clearLastLoginAt = false,
+    bool clearDeletedAt = false,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      fullName: fullName ?? this.fullName,
+      avatarUrl: clearAvatarUrl ? null : (avatarUrl ?? this.avatarUrl),
+      phoneNumber: clearPhoneNumber ? null : (phoneNumber ?? this.phoneNumber),
+      dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      timezone: timezone ?? this.timezone,
+      locale: locale ?? this.locale,
+      theme: theme ?? this.theme,
+      emailVerified: emailVerified ?? this.emailVerified,
+      emailVerifiedAt:
+          clearEmailVerifiedAt ? null : (emailVerifiedAt ?? this.emailVerifiedAt),
+      isActive: isActive ?? this.isActive,
+      isPremium: isPremium ?? this.isPremium,
+      premiumExpiresAt:
+          clearPremiumExpiresAt ? null : (premiumExpiresAt ?? this.premiumExpiresAt),
+      lastLoginAt: clearLastLoginAt ? null : (lastLoginAt ?? this.lastLoginAt),
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      authProviders: authProviders ?? this.authProviders,
+      settings: settings ?? this.settings,
+    );
+  }
+
+  /// Returns the user's display name (full name or email prefix)
+  String get displayName {
+    if (fullName.isNotEmpty) return fullName;
+    return email.split('@').first;
+  }
+
+  /// Returns initials from the user's full name
+  String get initials {
+    final parts = fullName.trim().split(' ');
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
+  }
+
+  /// Checks if the user has a premium subscription that's still valid
+  bool get hasActivePremium {
+    if (!isPremium) return false;
+    if (premiumExpiresAt == null) return true;
+    return premiumExpiresAt!.isAfter(DateTime.now());
+  }
+
+  /// Checks if the user has set up biometric authentication
+  bool get hasBiometricSetup => biometricEnabled;
+
+  /// Checks if the user has verified their email
+  bool get hasVerifiedEmail => emailVerified;
+
+  /// Returns the primary auth provider for this user
+  AuthProviderModel? get primaryAuthProvider {
+    if (authProviders.isEmpty) return null;
+    return authProviders.first;
+  }
+
+  /// Checks if the user is registered with Google
+  bool get hasGoogleAuth {
+    return authProviders.any((p) => p.provider == AuthProviderType.google);
+  }
+
+  /// Checks if the user is using email/password authentication
+  bool get hasEmailAuth {
+    return authProviders.any((p) => p.provider == AuthProviderType.email);
+  }
+
+  /// Checks if the user account is deleted (soft delete)
+  bool get isDeleted => deletedAt != null;
+
+  /// Checks if the user account is suspended
+  bool get isSuspended => !isActive && deletedAt == null;
+
+  /// Returns a safe version of the user model for client-side use
+  /// (excludes sensitive fields like password hashes)
+  UserModel toSafeModel() {
+    return copyWith();
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UserModel && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() {
+    return 'UserModel(id: $id, email: $email, fullName: $fullName, '
+        'isPremium: $isPremium, isActive: $isActive)';
+  }
+}
+
+/// Authentication provider types
+class AuthProviderType {
+  static const String email = 'email';
+  static const String google = 'google';
+  static const String apple = 'apple';
+}
+
+/// Model representing an authentication provider linked to a user
+class AuthProviderModel {
+  final String id;
+  final String userId;
+  final String provider;
+  final String providerUserId;
+  final String? providerAccessToken;
+  final String? providerRefreshToken;
+  final DateTime? providerTokenExpiresAt;
+  final Map<String, dynamic> metadata;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const AuthProviderModel({
+    required this.id,
+    required this.userId,
+    required this.provider,
+    required this.providerUserId,
+    this.providerAccessToken,
+    this.providerRefreshToken,
+    this.providerTokenExpiresAt,
+    this.metadata = const {},
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory AuthProviderModel.fromJson(Map<String, dynamic> json) {
+    return AuthProviderModel(
+      id: json['id'] as String,
+      userId: json['user_id'] as String? ?? json['userId'] as String? ?? '',
+      provider: json['provider'] as String,
+      providerUserId: json['provider_user_id'] as String? ??
+          json['providerUserId'] as String? ??
+          '',
+      providerAccessToken: json['provider_access_token'] as String? ??
+          json['providerAccessToken'] as String?,
+      providerRefreshToken: json['provider_refresh_token'] as String? ??
+          json['providerRefreshToken'] as String?,
+      providerTokenExpiresAt: json['provider_token_expires_at'] != null
+          ? DateTime.parse(json['provider_token_expires_at'] as String)
+          : json['providerTokenExpiresAt'] != null
+              ? DateTime.parse(json['providerTokenExpiresAt'] as String)
+              : null,
+      metadata: json['metadata'] is Map
+          ? json['metadata'] as Map<String, dynamic>
+          : json['metadata'] is String
+              ? jsonDecode(json['metadata'] as String) as Map<String, dynamic>
+              : const {},
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'] as String)
+              : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'] as String)
+              : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'email': email,
-      'firstName': firstName,
-      'lastName': lastName,
-      'phoneNumber': phoneNumber,
-      'profileImageUrl': profileImageUrl,
-      'profile': profile.toJson(),
-      'preferences': preferences.toJson(),
-      'security': security.toJson(),
-      'linkedAccounts': linkedAccounts,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'lastLoginAt': lastLoginAt?.toIso8601String(),
-      'isEmailVerified': isEmailVerified,
-      'isPhoneVerified': isPhoneVerified,
-      'isActive': isActive,
-      'referralCode': referralCode,
-      'referredBy': referredBy,
-      'subscription': subscription.toJson(),
-      'notificationSettings': notificationSettings.map((e) => e.toJson()).toList(),
-    };
-  }
-}
-
-class UserProfile {
-  final String? displayName;
-  final String? bio;
-  final String? dateOfBirth;
-  final String? country;
-  final String? currency;
-  final String? language;
-  final String? timezone;
-  final String? address;
-  final String? city;
-  final String? state;
-  final String? postalCode;
-  final String? countryCode;
-  final bool onboardingCompleted;
-  final Map<String, dynamic>? metadata;
-
-  UserProfile({
-    this.displayName,
-    this.bio,
-    this.dateOfBirth,
-    this.country,
-    this.currency = 'USD',
-    this.language = 'en',
-    this.timezone = 'UTC',
-    this.address,
-    this.city,
-    this.state,
-    this.postalCode,
-    this.countryCode,
-    this.onboardingCompleted = false,
-    this.metadata,
-  });
-
-  UserProfile copyWith({
-    String? displayName,
-    String? bio,
-    String? dateOfBirth,
-    String? country,
-    String? currency,
-    String? language,
-    String? timezone,
-    String? address,
-    String? city,
-    String? state,
-    String? postalCode,
-    String? countryCode,
-    bool? onboardingCompleted,
-    Map<String, dynamic>? metadata,
-  }) {
-    return UserProfile(
-      displayName: displayName ?? this.displayName,
-      bio: bio ?? this.bio,
-      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      country: country ?? this.country,
-      currency: currency ?? this.currency,
-      language: language ?? this.language,
-      timezone: timezone ?? this.timezone,
-      address: address ?? this.address,
-      city: city ?? this.city,
-      state: state ?? this.state,
-      postalCode: postalCode ?? this.postalCode,
-      countryCode: countryCode ?? this.countryCode,
-      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
-      metadata: metadata ?? this.metadata,
-    );
-  }
-
-  factory UserProfile.fromJson(Map<String, dynamic> json) {
-    return UserProfile(
-      displayName: json['displayName'] as String?,
-      bio: json['bio'] as String?,
-      dateOfBirth: json['dateOfBirth'] as String?,
-      country: json['country'] as String?,
-      currency: json['currency'] as String? ?? 'USD',
-      language: json['language'] as String? ?? 'en',
-      timezone: json['timezone'] as String? ?? 'UTC',
-      address: json['address'] as String?,
-      city: json['city'] as String?,
-      state: json['state'] as String?,
-      postalCode: json['postalCode'] as String?,
-      countryCode: json['countryCode'] as String?,
-      onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
-      metadata: json['metadata'] as Map<String, dynamic>?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'displayName': displayName,
-      'bio': bio,
-      'dateOfBirth': dateOfBirth,
-      'country': country,
-      'currency': currency,
-      'language': language,
-      'timezone': timezone,
-      'address': address,
-      'city': city,
-      'state': state,
-      'postalCode': postalCode,
-      'countryCode': countryCode,
-      'onboardingCompleted': onboardingCompleted,
+      'user_id': userId,
+      'provider': provider,
+      'provider_user_id': providerUserId,
+      'provider_access_token': providerAccessToken,
+      'provider_refresh_token': providerRefreshToken,
+      'provider_token_expires_at': providerTokenExpiresAt?.toIso8601String(),
       'metadata': metadata,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
+
+  AuthProviderModel copyWith({
+    String? id,
+    String? userId,
+    String? provider,
+    String? providerUserId,
+    String? providerAccessToken,
+    String? providerRefreshToken,
+    DateTime? providerTokenExpiresAt,
+    Map<String, dynamic>? metadata,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return AuthProviderModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      provider: provider ?? this.provider,
+      providerUserId: providerUserId ?? this.providerUserId,
+      providerAccessToken: providerAccessToken ?? this.providerAccessToken,
+      providerRefreshToken: providerRefreshToken ?? this.providerRefreshToken,
+      providerTokenExpiresAt:
+          providerTokenExpiresAt ?? this.providerTokenExpiresAt,
+      metadata: metadata ?? this.metadata,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  bool get isGoogle => provider == AuthProviderType.google;
+  bool get isApple => provider == AuthProviderType.apple;
+  bool get isEmail => provider == AuthProviderType.email;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AuthProviderModel && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
-class UserPreferences {
-  final String defaultCurrency;
+/// User application settings model
+class UserSettingsModel {
+  /// Currency code (ISO 4217, e.g., 'IDR', 'USD')
+  final String currencyCode;
+
+  /// Currency symbol (e.g., 'Rp', '$')
+  final String currencySymbol;
+
+  /// Date format (e.g., 'DD/MM/YYYY', 'MM/DD/YYYY')
   final String dateFormat;
-  final String numberFormat;
-  final String theme;
-  final bool darkMode;
-  final bool compactMode;
-  final String defaultAccountId;
-  final String defaultView;
-  final List<String> favoriteStocks;
-  final Map<String, bool> dashboardWidgets;
-  final bool showNetWorth;
-  final bool showStockPerformance;
-  final bool autoRefreshData;
-  final int refreshIntervalMinutes;
 
-  UserPreferences({
-    this.defaultCurrency = 'USD',
-    this.dateFormat = 'MM/DD/YYYY',
-    this.numberFormat = 'en_US',
-    this.theme = 'system',
-    this.darkMode = false,
-    this.compactMode = false,
-    this.defaultAccountId = '',
-    this.defaultView = 'dashboard',
-    this.favoriteStocks = const [],
-    this.dashboardWidgets = const {},
-    this.showNetWorth = true,
-    this.showStockPerformance = true,
-    this.autoRefreshData = true,
-    this.refreshIntervalMinutes = 15,
+  /// First day of week (0 = Sunday, 1 = Monday)
+  final int firstDayOfWeek;
+
+  /// Decimal separator character
+  final String decimalSeparator;
+
+  /// Thousand separator character
+  final String thousandSeparator;
+
+  /// Default account ID for transactions
+  final String? defaultAccountId;
+
+  /// Whether notifications are enabled
+  final bool enableNotifications;
+
+  /// Whether email reports are enabled
+  final bool enableEmailReports;
+
+  /// Report frequency ('daily', 'weekly', 'monthly')
+  final String reportFrequency;
+
+  /// Whether low balance alerts are enabled
+  final bool lowBalanceAlert;
+
+  /// Low balance threshold amount
+  final double lowBalanceThreshold;
+
+  /// Budget alert percentage (triggers alert when % of budget used)
+  final int budgetAlertPercentage;
+
+  /// Investment alert percentage (triggers alert for price changes)
+  final int investmentAlertPercentage;
+
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const UserSettingsModel({
+    this.currencyCode = 'IDR',
+    this.currencySymbol = 'Rp',
+    this.dateFormat = 'DD/MM/YYYY',
+    this.firstDayOfWeek = 1,
+    this.decimalSeparator = ',',
+    this.thousandSeparator = '.',
+    this.defaultAccountId,
+    this.enableNotifications = true,
+    this.enableEmailReports = false,
+    this.reportFrequency = 'weekly',
+    this.lowBalanceAlert = true,
+    this.lowBalanceThreshold = 500000,
+    this.budgetAlertPercentage = 80,
+    this.investmentAlertPercentage = 10,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  UserPreferences copyWith({
-    String? defaultCurrency,
+  factory UserSettingsModel.fromJson(Map<String, dynamic> json) {
+    return UserSettingsModel(
+      currencyCode: json['currency_code'] as String? ??
+          json['currencyCode'] as String? ??
+          'IDR',
+      currencySymbol: json['currency_symbol'] as String? ??
+          json['currencySymbol'] as String? ??
+          'Rp',
+      dateFormat: json['date_format'] as String? ??
+          json['dateFormat'] as String? ??
+          'DD/MM/YYYY',
+      firstDayOfWeek: json['first_day_of_week'] as int? ??
+          json['firstDayOfWeek'] as int? ??
+          1,
+      decimalSeparator: json['decimal_separator'] as String? ??
+          json['decimalSeparator'] as String? ??
+          ',',
+      thousandSeparator: json['thousand_separator'] as String? ??
+          json['thousandSeparator'] as String? ??
+          '.',
+      defaultAccountId: json['default_account_id'] as String? ??
+          json['defaultAccountId'] as String?,
+      enableNotifications: json['enable_notifications'] as bool? ??
+          json['enableNotifications'] as bool? ??
+          true,
+      enableEmailReports: json['enable_email_reports'] as bool? ??
+          json['enableEmailReports'] as bool? ??
+          false,
+      reportFrequency: json['report_frequency'] as String? ??
+          json['reportFrequency'] as String? ??
+          'weekly',
+      lowBalanceAlert: json['low_balance_alert'] as bool? ??
+          json['lowBalanceAlert'] as bool? ??
+          true,
+      lowBalanceThreshold: (json['low_balance_threshold'] as num?)?.toDouble() ??
+          (json['lowBalanceThreshold'] as num?)?.toDouble() ??
+          500000,
+      budgetAlertPercentage: json['budget_alert_percentage'] as int? ??
+          json['budgetAlertPercentage'] as int? ??
+          80,
+      investmentAlertPercentage: json['investment_alert_percentage'] as int? ??
+          json['investmentAlertPercentage'] as int? ??
+          10,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : json['createdAt'] != null
+              ? DateTime.parse(json['createdAt'] as String)
+              : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : json['updatedAt'] != null
+              ? DateTime.parse(json['updatedAt'] as String)
+              : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'currency_code': currencyCode,
+      'currency_symbol': currencySymbol,
+      'date_format': dateFormat,
+      'first_day_of_week': firstDayOfWeek,
+      'decimal_separator': decimalSeparator,
+      'thousand_separator': thousandSeparator,
+      'default_account_id': defaultAccountId,
+      'enable_notifications': enableNotifications,
+      'enable_email_reports': enableEmailReports,
+      'report_frequency': reportFrequency,
+      'low_balance_alert': lowBalanceAlert,
+      'low_balance_threshold': lowBalanceThreshold,
+      'budget_alert_percentage': budgetAlertPercentage,
+      'investment_alert_percentage': investmentAlertPercentage,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  UserSettingsModel copyWith({
+    String? currencyCode,
+    String? currencySymbol,
     String? dateFormat,
-    String? numberFormat,
-    String? theme,
-    bool? darkMode,
-    bool? compactMode,
+    int? firstDayOfWeek,
+    String? decimalSeparator,
+    String? thousandSeparator,
     String? defaultAccountId,
-    String? defaultView,
-    List<String>? favoriteStocks,
-    Map<String, bool>? dashboardWidgets,
-    bool? showNetWorth,
-    bool? showStockPerformance,
-    bool? autoRefreshData,
-    int? refreshIntervalMinutes,
+    bool? enableNotifications,
+    bool? enableEmailReports,
+    String? reportFrequency,
+    bool? lowBalanceAlert,
+    double? lowBalanceThreshold,
+    int? budgetAlertPercentage,
+    int? investmentAlertPercentage,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool clearDefaultAccountId = false,
   }) {
-    return UserPreferences(
-      defaultCurrency: defaultCurrency ?? this.defaultCurrency,
+    return UserSettingsModel(
+      currencyCode: currencyCode ?? this.currencyCode,
+      currencySymbol: currencySymbol ?? this.currencySymbol,
       dateFormat: dateFormat ?? this.dateFormat,
-      numberFormat: numberFormat ?? this.numberFormat,
-      theme: theme ?? this.theme,
-      darkMode: darkMode ?? this.darkMode,
-      compactMode: compactMode ?? this.compactMode,
-      defaultAccountId: defaultAccountId ?? this.defaultAccountId,
-      defaultView: defaultView ?? this.defaultView,
-      favoriteStocks: favoriteStocks ?? this.favoriteStocks,
-      dashboardWidgets: dashboardWidgets ?? this.dashboardWidgets,
-      showNetWorth: showNetWorth ?? this.showNetWorth,
-      showStockPerformance: showStockPerformance ?? this.showStockPerformance,
-      autoRefreshData: autoRefreshData ?? this.autoRefreshData,
-      refreshIntervalMinutes: refreshIntervalMinutes ?? this.refreshIntervalMinutes,
+      firstDayOfWeek: firstDayOfWeek ?? this.firstDayOfWeek,
+      decimalSeparator: decimalSeparator ?? this.decimalSeparator,
+      thousandSeparator: thousandSeparator ?? this.thousandSeparator,
+      defaultAccountId:
+          clearDefaultAccountId ? null : (defaultAccountId ?? this.defaultAccountId),
+      enableNotifications: enableNotifications ?? this.enableNotifications,
+      enableEmailReports: enableEmailReports ?? this.enableEmailReports,
+      reportFrequency: reportFrequency ?? this.reportFrequency,
+      lowBalanceAlert: lowBalanceAlert ?? this.lowBalanceAlert,
+      lowBalanceThreshold: lowBalanceThreshold ?? this.lowBalanceThreshold,
+      budgetAlertPercentage: budgetAlertPercentage ?? this.budgetAlertPercentage,
+      investmentAlertPercentage:
+          investmentAlertPercentage ?? this.investmentAlertPercentage,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  factory UserPreferences.fromJson(Map<String, dynamic> json) {
-    return UserPreferences(
-      defaultCurrency: json['defaultCurrency'] as String? ?? 'USD',
-      dateFormat: json['dateFormat'] as String? ?? 'MM/DD/YYYY',
-      numberFormat: json['numberFormat'] as String? ?? 'en_US',
-      theme: json['theme'] as String? ?? 'system',
-      darkMode: json['darkMode'] as bool? ?? false,
-      compactMode: json['compactMode'] as bool? ?? false,
-      defaultAccountId: json['defaultAccountId'] as String? ?? '',
-      defaultView: json['defaultView'] as String? ?? 'dashboard',
-      favoriteStocks: List<String>.from(json['favoriteStocks'] ?? []),
-      dashboardWidgets: Map<String, bool>.from(json['dashboardWidgets'] ?? {}),
-      showNetWorth: json['showNetWorth'] as bool? ?? true,
-      showStockPerformance: json['showStockPerformance'] as bool? ?? true,
-      autoRefreshData: json['autoRefreshData'] as bool? ?? true,
-      refreshIntervalMinutes: json['refreshIntervalMinutes'] as int? ?? 15,
+  /// Formats a number as currency using user's settings
+  String formatCurrency(double amount) {
+    final parts = amount.toStringAsFixed(2).split('.');
+    final intPart = parts[0].replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}$thousandSeparator',
     );
+    return '$currencySymbol$intPart$decimalSeparator${parts[1]}';
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'defaultCurrency': defaultCurrency,
-      'dateFormat': dateFormat,
-      'numberFormat': numberFormat,
-      'theme': theme,
-      'darkMode': darkMode,
-      'compactMode': compactMode,
-      'defaultAccountId': defaultAccountId,
-      'defaultView': defaultView,
-      'favoriteStocks': favoriteStocks,
-      'dashboardWidgets': dashboardWidgets,
-      'showNetWorth': showNetWorth,
-      'showStockPerformance': showStockPerformance,
-      'autoRefreshData': autoRefreshData,
-      'refreshIntervalMinutes': refreshIntervalMinutes,
-    };
+  /// Formats a date according to user's date format setting
+  String formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year;
+
+    switch (dateFormat) {
+      case 'MM/DD/YYYY':
+        return '$month/$day/$year';
+      case 'YYYY-MM-DD':
+        return '$year-$month-$day';
+      case 'DD-MM-YYYY':
+        return '$day-$month-$year';
+      case 'DD/MM/YYYY':
+      default:
+        return '$day/$month/$year';
+    }
   }
+
+  /// Returns whether Monday is the first day of week
+  bool get isMondayFirstDayOfWeek => firstDayOfWeek == 1;
 }
 
-class UserSecurity {
-  final bool twoFactorEnabled;
-  final String? twoFactorMethod;
-  final String? twoFactorPhone;
-  final List<String> trustedDevices;
-  final List<String> trustedBrowsers;
-  final String? lastPasswordChange;
-  final int failedLoginAttempts;
-  final DateTime? lockoutUntil;
-  final bool biometricEnabled;
-  final String? biometricType;
-  final List<String> backupCodes;
-  final String securityQuestionsStatus;
+/// Device information for login/session tracking
+class DeviceInfoModel {
+  final String deviceId;
+  final String deviceName;
+  final String platform; // 'ios', 'android', 'web'
+  final String osVersion;
+  final String appVersion;
+  final String? pushToken;
+  final DateTime? lastActiveAt;
 
-  UserSecurity({
-    this.twoFactorEnabled = false,
-    this.twoFactorMethod,
-    this.twoFactorPhone,
-    this.trustedDevices = const [],
-    this.trustedBrowsers = const [],
-    this.lastPasswordChange,
-    this.failedLoginAttempts = 0,
-    this.lockoutUntil,
-    this.biometricEnabled = false,
-    this.biometricType,
-    this.backupCodes = const [],
-    this.securityQuestionsStatus = 'not_set',
+  const DeviceInfoModel({
+    required this.deviceId,
+    required this.deviceName,
+    required this.platform,
+    required this.osVersion,
+    required this.appVersion,
+    this.pushToken,
+    this.lastActiveAt,
   });
 
-  bool get isLockedOut {
-    if (lockoutUntil == null) return false;
-    return DateTime.now().isBefore(lockoutUntil!);
-  }
-
-  int get lockoutRemainingMinutes {
-    if (lockoutUntil == null) return 0;
-    final remaining = lockoutUntil!.difference(DateTime.now()).inMinutes;
-    return remaining > 0 ? remaining : 0;
-  }
-
-  UserSecurity copyWith({
-    bool? twoFactorEnabled,
-    String? twoFactorMethod,
-    String? twoFactorPhone,
-    List<String>? trustedDevices,
-    List<String>? trustedBrowsers,
-    String? lastPasswordChange,
-    int? failedLoginAttempts,
-    DateTime? lockoutUntil,
-    bool? biometricEnabled,
-    String? biometricType,
-    List<String>? backupCodes,
-    String? securityQuestionsStatus,
-  }) {
-    return UserSecurity(
-      twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
-      twoFactorMethod: twoFactorMethod ?? this.twoFactorMethod,
-      twoFactorPhone: twoFactorPhone ?? this.twoFactorPhone,
-      trustedDevices: trustedDevices ?? this.trustedDevices,
-      trustedBrowsers: trustedBrowsers ?? this.trustedBrowsers,
-      lastPasswordChange: lastPasswordChange ?? this.lastPasswordChange,
-      failedLoginAttempts: failedLoginAttempts ?? this.failedLoginAttempts,
-      lockoutUntil: lockoutUntil ?? this.lockoutUntil,
-      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
-      biometricType: biometricType ?? this.biometricType,
-      backupCodes: backupCodes ?? this.backupCodes,
-      securityQuestionsStatus: securityQuestionsStatus ?? this.securityQuestionsStatus,
-    );
-  }
-
-  factory UserSecurity.fromJson(Map<String, dynamic> json) {
-    return UserSecurity(
-      twoFactorEnabled: json['twoFactorEnabled'] as bool? ?? false,
-      twoFactorMethod: json['twoFactorMethod'] as String?,
-      twoFactorPhone: json['twoFactorPhone'] as String?,
-      trustedDevices: List<String>.from(json['trustedDevices'] ?? []),
-      trustedBrowsers: List<String>.from(json['trustedBrowsers'] ?? []),
-      lastPasswordChange: json['lastPasswordChange'] as String?,
-      failedLoginAttempts: json['failedLoginAttempts'] as int? ?? 0,
-      lockoutUntil: json['lockoutUntil'] != null
-          ? DateTime.parse(json['lockoutUntil'] as String)
-          : null,
-      biometricEnabled: json['biometricEnabled'] as bool? ?? false,
-      biometricType: json['biometricType'] as String?,
-      backupCodes: List<String>.from(json['backupCodes'] ?? []),
-      securityQuestionsStatus: json['securityQuestionsStatus'] as String? ?? 'not_set',
+  factory DeviceInfoModel.fromJson(Map<String, dynamic> json) {
+    return DeviceInfoModel(
+      deviceId: json['device_id'] as String? ??
+          json['deviceId'] as String? ??
+          '',
+      deviceName: json['device_name'] as String? ??
+          json['deviceName'] as String? ??
+          json['name'] as String? ??
+          'Unknown Device',
+      platform: json['platform'] as String? ?? 'unknown',
+      osVersion: json['os_version'] as String? ??
+          json['osVersion'] as String? ??
+          json['version'] as String? ??
+          'Unknown',
+      appVersion: json['app_version'] as String? ??
+          json['appVersion'] as String? ??
+          json['version'] as String? ??
+          '1.0.0',
+      pushToken: json['push_token'] as String? ??
+          json['pushToken'] as String?,
+      lastActiveAt: json['last_active_at'] != null
+          ? DateTime.parse(json['last_active_at'] as String)
+          : json['lastActiveAt'] != null
+              ? DateTime.parse(json['lastActiveAt'] as String)
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'twoFactorEnabled': twoFactorEnabled,
-      'twoFactorMethod': twoFactorMethod,
-      'twoFactorPhone': twoFactorPhone,
-      'trustedDevices': trustedDevices,
-      'trustedBrowsers': trustedBrowsers,
-      'lastPasswordChange': lastPasswordChange,
-      'failedLoginAttempts': failedLoginAttempts,
-      'lockoutUntil': lockoutUntil?.toIso8601String(),
-      'biometricEnabled': biometricEnabled,
-      'biometricType': biometricType,
-      'backupCodes': backupCodes,
-      'securityQuestionsStatus': securityQuestionsStatus,
+      'device_id': deviceId,
+      'device_name': deviceName,
+      'platform': platform,
+      'os_version': osVersion,
+      'app_version': appVersion,
+      'push_token': pushToken,
+      'last_active_at': lastActiveAt?.toIso8601String(),
     };
   }
+
+  bool get isIOS => platform.toLowerCase() == 'ios';
+  bool get isAndroid => platform.toLowerCase() == 'android';
+  bool get isWeb => platform.toLowerCase() == 'web';
 }
 
-class UserSubscription {
-  final String plan;
-  final String status;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final DateTime? nextBillingDate;
-  final double? monthlyPrice;
-  final String? billingCycle;
-  final String? paymentMethod;
-  final String? subscriptionId;
-  final bool autoRenew;
-  final List<String> features;
-  final int? maxAccounts;
-  final int? maxGoals;
-  final int? maxTransactions;
+/// Login history entry model
+class LoginHistoryModel {
+  final String id;
+  final String userId;
+  final String deviceName;
+  final String? ipAddress;
+  final String? location;
+  final DateTime timestamp;
+  final String status; // 'success', 'failed'
+  final String? failureReason;
+  final DeviceInfoModel? deviceInfo;
 
-  UserSubscription({
-    this.plan = 'free',
-    this.status = 'active',
-    this.startDate,
-    this.endDate,
-    this.nextBillingDate,
-    this.monthlyPrice,
-    this.billingCycle = 'monthly',
-    this.paymentMethod,
-    this.subscriptionId,
-    this.autoRenew = true,
-    this.features = const [],
-    this.maxAccounts = 3,
-    this.maxGoals = 5,
-    this.maxTransactions = 100,
+  const LoginHistoryModel({
+    required this.id,
+    required this.userId,
+    required this.deviceName,
+    this.ipAddress,
+    this.location,
+    required this.timestamp,
+    required this.status,
+    this.failureReason,
+    this.deviceInfo,
   });
 
-  bool get isPremium => plan != 'free';
-
-  bool get isExpired {
-    if (endDate == null) return false;
-    return DateTime.now().isAfter(endDate!);
-  }
-
-  int get daysRemaining {
-    if (nextBillingDate == null) return 0;
-    return nextBillingDate!.difference(DateTime.now()).inDays;
-  }
-
-  UserSubscription copyWith({
-    String? plan,
-    String? status,
-    DateTime? startDate,
-    DateTime? endDate,
-    DateTime? nextBillingDate,
-    double? monthlyPrice,
-    String? billingCycle,
-    String? paymentMethod,
-    String? subscriptionId,
-    bool? autoRenew,
-    List<String>? features,
-    int? maxAccounts,
-    int? maxGoals,
-    int? maxTransactions,
-  }) {
-    return UserSubscription(
-      plan: plan ?? this.plan,
-      status: status ?? this.status,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      nextBillingDate: nextBillingDate ?? this.nextBillingDate,
-      monthlyPrice: monthlyPrice ?? this.monthlyPrice,
-      billingCycle: billingCycle ?? this.billingCycle,
-      paymentMethod: paymentMethod ?? this.paymentMethod,
-      subscriptionId: subscriptionId ?? this.subscriptionId,
-      autoRenew: autoRenew ?? this.autoRenew,
-      features: features ?? this.features,
-      maxAccounts: maxAccounts ?? this.maxAccounts,
-      maxGoals: maxGoals ?? this.maxGoals,
-      maxTransactions: maxTransactions ?? this.maxTransactions,
-    );
-  }
-
-  factory UserSubscription.fromJson(Map<String, dynamic> json) {
-    return UserSubscription(
-      plan: json['plan'] as String? ?? 'free',
-      status: json['status'] as String? ?? 'active',
-      startDate: json['startDate'] != null
-          ? DateTime.parse(json['startDate'] as String)
-          : null,
-      endDate: json['endDate'] != null
-          ? DateTime.parse(json['endDate'] as String)
-          : null,
-      nextBillingDate: json['nextBillingDate'] != null
-          ? DateTime.parse(json['nextBillingDate'] as String)
-          : null,
-      monthlyPrice: (json['monthlyPrice'] as num?)?.toDouble(),
-      billingCycle: json['billingCycle'] as String? ?? 'monthly',
-      paymentMethod: json['paymentMethod'] as String?,
-      subscriptionId: json['subscriptionId'] as String?,
-      autoRenew: json['autoRenew'] as bool? ?? true,
-      features: List<String>.from(json['features'] ?? []),
-      maxAccounts: json['maxAccounts'] as int? ?? 3,
-      maxGoals: json['maxGoals'] as int? ?? 5,
-      maxTransactions: json['maxTransactions'] as int? ?? 100,
+  factory LoginHistoryModel.fromJson(Map<String, dynamic> json) {
+    return LoginHistoryModel(
+      id: json['id'] as String,
+      userId: json['user_id'] as String? ?? json['userId'] as String? ?? '',
+      deviceName: json['device'] as String? ??
+          json['device_name'] as String? ??
+          json['deviceName'] as String? ??
+          'Unknown Device',
+      ipAddress: json['ip_address'] as String? ?? json['ipAddress'] as String?,
+      location: json['location'] as String?,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : DateTime.now(),
+      status: json['status'] as String? ?? 'success',
+      failureReason: json['failure_reason'] as String? ??
+          json['failureReason'] as String?,
+      deviceInfo: json['device_info'] != null
+          ? DeviceInfoModel.fromJson(
+              json['device_info'] is String
+                  ? jsonDecode(json['device_info'] as String) as Map<String, dynamic>
+                  : json['device_info'] as Map<String, dynamic>,
+            )
+          : json['deviceInfo'] != null
+              ? DeviceInfoModel.fromJson(
+                  json['deviceInfo'] is String
+                      ? jsonDecode(json['deviceInfo'] as String) as Map<String, dynamic>
+                      : json['deviceInfo'] as Map<String, dynamic>,
+                )
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'plan': plan,
+      'id': id,
+      'user_id': userId,
+      'device_name': deviceName,
+      'ip_address': ipAddress,
+      'location': location,
+      'timestamp': timestamp.toIso8601String(),
       'status': status,
-      'startDate': startDate?.toIso8601String(),
-      'endDate': endDate?.toIso8601String(),
-      'nextBillingDate': nextBillingDate?.toIso8601String(),
-      'monthlyPrice': monthlyPrice,
-      'billingCycle': billingCycle,
-      'paymentMethod': paymentMethod,
-      'subscriptionId': subscriptionId,
-      'autoRenew': autoRenew,
-      'features': features,
-      'maxAccounts': maxAccounts,
-      'maxGoals': maxGoals,
-      'maxTransactions': maxTransactions,
+      'failure_reason': failureReason,
+      'device_info': deviceInfo?.toJson(),
     };
   }
+
+  bool get isSuccess => status == 'success';
+  bool get isFailed => status == 'failed';
 }
 
-class NotificationSettings {
-  final String type;
-  final bool emailEnabled;
-  final bool pushEnabled;
-  final bool smsEnabled;
-  final bool inAppEnabled;
-  final List<String> frequency;
+/// Auth tokens response model
+class AuthTokensModel {
+  final String accessToken;
+  final String refreshToken;
+  final int expiresIn; // seconds
+  final DateTime? issuedAt;
 
-  NotificationSettings({
-    required this.type,
-    this.emailEnabled = true,
-    this.pushEnabled = true,
-    this.smsEnabled = false,
-    this.inAppEnabled = true,
-    this.frequency = const ['realtime'],
+  const AuthTokensModel({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.expiresIn,
+    this.issuedAt,
   });
 
-  NotificationSettings copyWith({
-    String? type,
-    bool? emailEnabled,
-    bool? pushEnabled,
-    bool? smsEnabled,
-    bool? inAppEnabled,
-    List<String>? frequency,
-  }) {
-    return NotificationSettings(
-      type: type ?? this.type,
-      emailEnabled: emailEnabled ?? this.emailEnabled,
-      pushEnabled: pushEnabled ?? this.pushEnabled,
-      smsEnabled: smsEnabled ?? this.smsEnabled,
-      inAppEnabled: inAppEnabled ?? this.inAppEnabled,
-      frequency: frequency ?? this.frequency,
-    );
-  }
-
-  factory NotificationSettings.fromJson(Map<String, dynamic> json) {
-    return NotificationSettings(
-      type: json['type'] as String,
-      emailEnabled: json['emailEnabled'] as bool? ?? true,
-      pushEnabled: json['pushEnabled'] as bool? ?? true,
-      smsEnabled: json['smsEnabled'] as bool? ?? false,
-      inAppEnabled: json['inAppEnabled'] as bool? ?? true,
-      frequency: List<String>.from(json['frequency'] ?? ['realtime']),
+  factory AuthTokensModel.fromJson(Map<String, dynamic> json) {
+    return AuthTokensModel(
+      accessToken: json['access_token'] as String? ??
+          json['accessToken'] as String? ??
+          '',
+      refreshToken: json['refresh_token'] as String? ??
+          json['refreshToken'] as String? ??
+          '',
+      expiresIn: json['expires_in'] as int? ??
+          json['expiresIn'] as int? ??
+          900, // 15 minutes default
+      issuedAt: json['issued_at'] != null
+          ? DateTime.parse(json['issued_at'] as String)
+          : json['issuedAt'] != null
+              ? DateTime.parse(json['issuedAt'] as String)
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'type': type,
-      'emailEnabled': emailEnabled,
-      'pushEnabled': pushEnabled,
-      'smsEnabled': smsEnabled,
-      'inAppEnabled': inAppEnabled,
-      'frequency': frequency,
+      'access_token': accessToken,
+      'refresh_token': refreshToken,
+      'expires_in': expiresIn,
+      'issued_at': issuedAt?.toIso8601String(),
+    };
+  }
+
+  /// Returns the expiration time
+  DateTime get expiresAt {
+    return (issuedAt ?? DateTime.now()).add(Duration(seconds: expiresIn));
+  }
+
+  /// Checks if the access token is expired
+  bool get isExpired {
+    return DateTime.now().isAfter(expiresAt);
+  }
+
+  /// Checks if the access token is about to expire (within 5 minutes)
+  bool get isAboutToExpire {
+    return DateTime.now().isAfter(expiresAt.subtract(const Duration(minutes: 5)));
+  }
+}
+
+/// Complete authentication response model
+class AuthResponseModel {
+  final UserModel user;
+  final AuthTokensModel tokens;
+  final bool isNewUser;
+  final String? sessionToken;
+
+  const AuthResponseModel({
+    required this.user,
+    required this.tokens,
+    this.isNewUser = false,
+    this.sessionToken,
+  });
+
+  factory AuthResponseModel.fromJson(Map<String, dynamic> json) {
+    return AuthResponseModel(
+      user: json['user'] != null
+          ? UserModel.fromJson(
+              json['user'] is String
+                  ? jsonDecode(json['user'] as String) as Map<String, dynamic>
+                  : json['user'] as Map<String, dynamic>,
+            )
+          : throw const FormatException('User field is required in AuthResponseModel'),
+      tokens: json['tokens'] != null
+          ? AuthTokensModel.fromJson(
+              json['tokens'] is String
+                  ? jsonDecode(json['tokens'] as String) as Map<String, dynamic>
+                  : json['tokens'] as Map<String, dynamic>,
+            )
+          : throw const FormatException('Tokens field is required in AuthResponseModel'),
+      isNewUser: json['is_new_user'] as bool? ?? json['isNewUser'] as bool? ?? false,
+      sessionToken: json['session_token'] as String? ?? json['sessionToken'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'user': user.toJson(),
+      'tokens': tokens.toJson(),
+      'is_new_user': isNewUser,
+      'session_token': sessionToken,
     };
   }
 }
