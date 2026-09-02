@@ -1,5 +1,5 @@
 name: indojasamandiriv21
-description: Enterprise Application generated via AI Builder v28
+description: Enterprise Application generated via AI Builder v29
 
 publish_to: 'none'
 version: 1.0.0+1
@@ -11,6 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  provider: ^6.1.2
+  http: ^1.2.1
+  intl: ^0.19.0
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
