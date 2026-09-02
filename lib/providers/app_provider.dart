@@ -112,14 +112,11 @@ class AppProvider extends ChangeNotifier {
       // Simulate API call
       await Future.delayed(const Duration(milliseconds: 800));
 
-      // Mock successful login
+      // Mock successful login - using standard UserModel constructor
       _currentUser = UserModel(
         id: _uuid.v4(),
         email: email,
-        name: email.split('@').first,
-        currency: 'IDR',
-        timezone: 'Asia/Jakarta',
-        language: 'id',
+        fullName: email.split('@').first,
         createdAt: DateTime.now(),
       );
 
@@ -156,10 +153,7 @@ class AppProvider extends ChangeNotifier {
       _currentUser = UserModel(
         id: _uuid.v4(),
         email: email,
-        name: fullName,
-        currency: currency ?? 'IDR',
-        timezone: timezone ?? 'Asia/Jakarta',
-        language: 'id',
+        fullName: fullName,
         createdAt: DateTime.now(),
       );
 
@@ -187,15 +181,12 @@ class AppProvider extends ChangeNotifier {
     try {
       await Future.delayed(const Duration(milliseconds: 800));
 
-      // Mock Google login
+      // Mock Google login - using standard UserModel constructor
       _currentUser = UserModel(
         id: _uuid.v4(),
         email: 'user@gmail.com',
-        name: 'Google User',
+        fullName: 'Google User',
         avatarUrl: 'https://lh3.googleusercontent.com/photo.jpg',
-        currency: 'IDR',
-        timezone: 'Asia/Jakarta',
-        language: 'id',
         emailVerified: true,
         createdAt: DateTime.now(),
       );
@@ -262,7 +253,7 @@ class AppProvider extends ChangeNotifier {
   Future<void> _createDefaultAccount() async {
     final cashAccount = AccountModel(
       id: _uuid.v4(),
-      userId: _currentUser!.id,
+      userId: _currentUser?.id ?? '',
       name: 'Tunai',
       type: AccountType.cash,
       balance: 0,
@@ -1938,7 +1929,7 @@ class AppProvider extends ChangeNotifier {
   // ==================== USER PROFILE ====================
 
   Future<bool> updateProfile({
-    String? name,
+    String? fullName,
     String? phone,
     String? avatarUrl,
   }) async {
@@ -1954,12 +1945,10 @@ class AppProvider extends ChangeNotifier {
       _currentUser = UserModel(
         id: _currentUser!.id,
         email: _currentUser!.email,
-        name: name ?? _currentUser!.name,
+        fullName: fullName ?? _currentUser!.fullName,
         avatarUrl: avatarUrl ?? _currentUser!.avatarUrl,
         phone: phone ?? _currentUser!.phone,
-        currency: _currentUser!.currency,
-        timezone: _currentUser!.timezone,
-        language: _currentUser!.language,
+        emailVerified: _currentUser!.emailVerified,
         createdAt: _currentUser!.createdAt,
         updatedAt: DateTime.now(),
       );
