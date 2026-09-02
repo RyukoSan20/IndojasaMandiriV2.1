@@ -1,184 +1,295 @@
+/// User model representing a FinTrack user account
 class UserModel {
+  /// Unique identifier for the user
   final String id;
+
+  /// User's email address (used for authentication)
   final String email;
-  final String? displayName;
+
+  /// User's display/username
+  final String username;
+
+  /// User's first name
   final String? firstName;
+
+  /// User's last name
   final String? lastName;
-  final String? phoneNumber;
+
+  /// URL to user's profile avatar image
   final String? avatarUrl;
+
+  /// User's phone number
+  final String? phoneNumber;
+
+  /// User's date of birth
   final DateTime? dateOfBirth;
-  final String? currency;
-  final String? timezone;
-  final String? country;
-  final String? language;
-  final bool emailVerified;
-  final bool phoneVerified;
+
+  /// Preferred currency code (e.g., 'USD', 'EUR', 'GBP')
+  final String preferredCurrency;
+
+  /// User's timezone identifier (e.g., 'America/New_York')
+  final String timezone;
+
+  /// User's preferred language code (e.g., 'en', 'es', 'fr')
+  final String language;
+
+  /// Whether the user's email has been verified
+  final bool isEmailVerified;
+
+  /// Whether the user account is active
   final bool isActive;
-  final bool isPremium;
-  final DateTime? premiumExpiresAt;
-  final Map<String, dynamic>? preferences;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+
+  /// Whether two-factor authentication is enabled
+  final bool isTwoFactorEnabled;
+
+  /// Timestamp of last successful login
   final DateTime? lastLoginAt;
 
+  /// Total number of successful logins
+  final int loginCount;
+
+  /// Number of failed login attempts since last success
+  final int failedLoginAttempts;
+
+  /// Timestamp until which the account is locked (if locked)
+  final DateTime? lockedUntil;
+
+  /// When the user's password was last changed
+  final DateTime? passwordChangedAt;
+
+  /// User's notification preferences as JSON
+  final Map<String, dynamic> notificationPreferences;
+
+  /// User's theme preference ('light', 'dark', 'system')
+  final String themePreference;
+
+  /// ID of the user's default/primary account
+  final String? defaultAccountId;
+
+  /// User's risk tolerance level for investments (1-5 scale)
+  final int riskTolerance;
+
+  /// Whether the user has completed onboarding
+  final bool hasCompletedOnboarding;
+
+  /// User's financial goals summary
+  final String? financialGoals;
+
+  /// User's monthly income target
+  final double? monthlyIncomeTarget;
+
+  /// User's monthly expense limit
+  final double? monthlyExpenseLimit;
+
+  /// Timestamp when the user account was created
+  final DateTime createdAt;
+
+  /// Timestamp when the user account was last updated
+  final DateTime updatedAt;
+
+  /// Creates a new UserModel instance
   const UserModel({
     required this.id,
     required this.email,
-    this.displayName,
+    required this.username,
     this.firstName,
     this.lastName,
-    this.phoneNumber,
     this.avatarUrl,
+    this.phoneNumber,
     this.dateOfBirth,
-    this.currency,
-    this.timezone,
-    this.country,
-    this.language,
-    this.emailVerified = false,
-    this.phoneVerified = false,
+    this.preferredCurrency = 'USD',
+    this.timezone = 'UTC',
+    this.language = 'en',
+    this.isEmailVerified = false,
     this.isActive = true,
-    this.isPremium = false,
-    this.premiumExpiresAt,
-    this.preferences,
+    this.isTwoFactorEnabled = false,
+    this.lastLoginAt,
+    this.loginCount = 0,
+    this.failedLoginAttempts = 0,
+    this.lockedUntil,
+    this.passwordChangedAt,
+    this.notificationPreferences = const {},
+    this.themePreference = 'system',
+    this.defaultAccountId,
+    this.riskTolerance = 3,
+    this.hasCompletedOnboarding = false,
+    this.financialGoals,
+    this.monthlyIncomeTarget,
+    this.monthlyExpenseLimit,
     required this.createdAt,
     required this.updatedAt,
-    this.lastLoginAt,
   });
 
-  String get fullName {
-    if (displayName != null && displayName!.isNotEmpty) {
-      return displayName!;
-    }
+  /// Returns the user's full name or username if not available
+  String get displayName {
     if (firstName != null && lastName != null) {
       return '$firstName $lastName';
-    }
-    if (firstName != null) {
+    } else if (firstName != null) {
       return firstName!;
     }
-    if (lastName != null) {
-      return lastName!;
-    }
-    return email.split('@').first;
+    return username;
   }
 
+  /// Returns the user's initials for avatar fallback
   String get initials {
-    final name = fullName;
-    final parts = name.split(' ');
-    if (parts.length >= 2) {
-      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    if (firstName != null && lastName != null) {
+      return '${firstName![0]}${lastName![0]}'.toUpperCase();
+    } else if (firstName != null) {
+      return firstName![0].toUpperCase();
     }
-    return name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return username.isNotEmpty ? username[0].toUpperCase() : '?';
   }
 
-  bool get isPremiumActive {
-    if (!isPremium) return false;
-    if (premiumExpiresAt == null) return true;
-    return premiumExpiresAt!.isAfter(DateTime.now());
+  /// Checks if the account is currently locked
+  bool get isLocked {
+    if (lockedUntil == null) return false;
+    return DateTime.now().isBefore(lockedUntil!);
   }
 
+  /// Creates a copy of the user with updated fields
   UserModel copyWith({
     String? id,
     String? email,
-    String? displayName,
+    String? username,
     String? firstName,
     String? lastName,
-    String? phoneNumber,
     String? avatarUrl,
+    String? phoneNumber,
     DateTime? dateOfBirth,
-    String? currency,
+    String? preferredCurrency,
     String? timezone,
-    String? country,
     String? language,
-    bool? emailVerified,
-    bool? phoneVerified,
+    bool? isEmailVerified,
     bool? isActive,
-    bool? isPremium,
-    DateTime? premiumExpiresAt,
-    Map<String, dynamic>? preferences,
+    bool? isTwoFactorEnabled,
+    DateTime? lastLoginAt,
+    int? loginCount,
+    int? failedLoginAttempts,
+    DateTime? lockedUntil,
+    DateTime? passwordChangedAt,
+    Map<String, dynamic>? notificationPreferences,
+    String? themePreference,
+    String? defaultAccountId,
+    int? riskTolerance,
+    bool? hasCompletedOnboarding,
+    String? financialGoals,
+    double? monthlyIncomeTarget,
+    double? monthlyExpenseLimit,
     DateTime? createdAt,
     DateTime? updatedAt,
-    DateTime? lastLoginAt,
   }) {
     return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
-      displayName: displayName ?? this.displayName,
+      username: username ?? this.username,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      currency: currency ?? this.currency,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
       timezone: timezone ?? this.timezone,
-      country: country ?? this.country,
       language: language ?? this.language,
-      emailVerified: emailVerified ?? this.emailVerified,
-      phoneVerified: phoneVerified ?? this.phoneVerified,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       isActive: isActive ?? this.isActive,
-      isPremium: isPremium ?? this.isPremium,
-      premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
-      preferences: preferences ?? this.preferences,
+      isTwoFactorEnabled: isTwoFactorEnabled ?? this.isTwoFactorEnabled,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      loginCount: loginCount ?? this.loginCount,
+      failedLoginAttempts: failedLoginAttempts ?? this.failedLoginAttempts,
+      lockedUntil: lockedUntil ?? this.lockedUntil,
+      passwordChangedAt: passwordChangedAt ?? this.passwordChangedAt,
+      notificationPreferences:
+          notificationPreferences ?? this.notificationPreferences,
+      themePreference: themePreference ?? this.themePreference,
+      defaultAccountId: defaultAccountId ?? this.defaultAccountId,
+      riskTolerance: riskTolerance ?? this.riskTolerance,
+      hasCompletedOnboarding:
+          hasCompletedOnboarding ?? this.hasCompletedOnboarding,
+      financialGoals: financialGoals ?? this.financialGoals,
+      monthlyIncomeTarget: monthlyIncomeTarget ?? this.monthlyIncomeTarget,
+      monthlyExpenseLimit: monthlyExpenseLimit ?? this.monthlyExpenseLimit,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
     );
   }
 
+  /// Converts the user model to a JSON map
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'email': email,
-      'displayName': displayName,
+      'username': username,
       'firstName': firstName,
       'lastName': lastName,
-      'phoneNumber': phoneNumber,
       'avatarUrl': avatarUrl,
+      'phoneNumber': phoneNumber,
       'dateOfBirth': dateOfBirth?.toIso8601String(),
-      'currency': currency,
+      'preferredCurrency': preferredCurrency,
       'timezone': timezone,
-      'country': country,
       'language': language,
-      'emailVerified': emailVerified,
-      'phoneVerified': phoneVerified,
+      'isEmailVerified': isEmailVerified,
       'isActive': isActive,
-      'isPremium': isPremium,
-      'premiumExpiresAt': premiumExpiresAt?.toIso8601String(),
-      'preferences': preferences,
+      'isTwoFactorEnabled': isTwoFactorEnabled,
+      'lastLoginAt': lastLoginAt?.toIso8601String(),
+      'loginCount': loginCount,
+      'failedLoginAttempts': failedLoginAttempts,
+      'lockedUntil': lockedUntil?.toIso8601String(),
+      'passwordChangedAt': passwordChangedAt?.toIso8601String(),
+      'notificationPreferences': notificationPreferences,
+      'themePreference': themePreference,
+      'defaultAccountId': defaultAccountId,
+      'riskTolerance': riskTolerance,
+      'hasCompletedOnboarding': hasCompletedOnboarding,
+      'financialGoals': financialGoals,
+      'monthlyIncomeTarget': monthlyIncomeTarget,
+      'monthlyExpenseLimit': monthlyExpenseLimit,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
-      'lastLoginAt': lastLoginAt?.toIso8601String(),
     };
   }
 
+  /// Creates a user model from a JSON map
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
       email: json['email'] as String,
-      displayName: json['displayName'] as String?,
+      username: json['username'] as String,
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
-      phoneNumber: json['phoneNumber'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
       dateOfBirth: json['dateOfBirth'] != null
           ? DateTime.parse(json['dateOfBirth'] as String)
           : null,
-      currency: json['currency'] as String?,
-      timezone: json['timezone'] as String?,
-      country: json['country'] as String?,
-      language: json['language'] as String?,
-      emailVerified: json['emailVerified'] as bool? ?? false,
-      phoneVerified: json['phoneVerified'] as bool? ?? false,
+      preferredCurrency:
+          json['preferredCurrency'] as String? ?? 'USD',
+      timezone: json['timezone'] as String? ?? 'UTC',
+      language: json['language'] as String? ?? 'en',
+      isEmailVerified: json['isEmailVerified'] as bool? ?? false,
       isActive: json['isActive'] as bool? ?? true,
-      isPremium: json['isPremium'] as bool? ?? false,
-      premiumExpiresAt: json['premiumExpiresAt'] != null
-          ? DateTime.parse(json['premiumExpiresAt'] as String)
-          : null,
-      preferences: json['preferences'] as Map<String, dynamic>?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      isTwoFactorEnabled: json['isTwoFactorEnabled'] as bool? ?? false,
       lastLoginAt: json['lastLoginAt'] != null
           ? DateTime.parse(json['lastLoginAt'] as String)
           : null,
+      loginCount: json['loginCount'] as int? ?? 0,
+      failedLoginAttempts: json['failedLoginAttempts'] as int? ?? 0,
+      lockedUntil: json['lockedUntil'] != null
+          ? DateTime.parse(json['lockedUntil'] as String)
+          : null,
+      passwordChangedAt: json['passwordChangedAt'] != null
+          ? DateTime.parse(json['passwordChangedAt'] as String)
+          : null,
+      notificationPreferences:
+          json['notificationPreferences'] as Map<String, dynamic>? ?? {},
+      themePreference: json['themePreference'] as String? ?? 'system',
+      defaultAccountId: json['defaultAccountId'] as String?,
+      riskTolerance: json['riskTolerance'] as int? ?? 3,
+      hasCompletedOnboarding: json['hasCompletedOnboarding'] as bool? ?? false,
+      financialGoals: json['financialGoals'] as String?,
+      monthlyIncomeTarget: (json['monthlyIncomeTarget'] as num?)?.toDouble(),
+      monthlyExpenseLimit: (json['monthlyExpenseLimit'] as num?)?.toDouble(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
   }
 
@@ -193,6 +304,6 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(id: $id, email: $email, displayName: $displayName)';
+    return 'UserModel(id: $id, email: $email, username: $username)';
   }
 }

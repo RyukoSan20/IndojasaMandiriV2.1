@@ -1,383 +1,365 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// AppProvider manages global application state including authentication,
-/// theme settings, user preferences, and app-wide configurations.
+/// App-wide state management provider for FinTrack
+/// Handles theme, authentication state, app settings, and global configurations
 class AppProvider extends ChangeNotifier {
-  static const String _themeKey = 'app_theme_mode';
-  static const String _onboardingKey = 'onboarding_completed';
-  static const String _userIdKey = 'user_id';
-  static const String _userEmailKey = 'user_email';
-  static const String _userNameKey = 'user_name';
-  static const String _currencyKey = 'app_currency';
-  static const String _notificationsKey = 'notifications_enabled';
-  static const String _biometricKey = 'biometric_enabled';
-  static const String _lastSyncKey = 'last_sync_time';
-
-  final FlutterSecureStorage _secureStorage;
-  SharedPreferences? _prefs;
-
-  bool _isInitialized = false;
-  bool _isLoading = false;
-  bool _isAuthenticated = false;
-  ThemeMode _themeMode = ThemeMode.system;
-  bool _onboardingCompleted = false;
-  String? _userId;
-  String? _userEmail;
-  String? _userName;
-  String _currency = 'USD';
-  bool _notificationsEnabled = true;
-  bool _biometricEnabled = false;
-  DateTime? _lastSyncTime;
-  String? _errorMessage;
-  bool _isOffline = false;
-
-  AppProvider({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage(
-          aOptions: AndroidOptions(
-            encryptedSharedPreferences: true,
-          ),
-          iOptions: IOSOptions(
-            accessibility: KeychainAccessibility.first_unlock,
-          ),
-        );
-
-  // Getters
-  bool get isInitialized => _isInitialized;
-  bool get isLoading => _isLoading;
-  bool get isAuthenticated => _isAuthenticated;
-  ThemeMode get themeMode => _themeMode;
-  bool get onboardingCompleted => _onboardingCompleted;
-  String? get userId => _userId;
-  String? get userEmail => _userEmail;
-  String? get userName => _userName;
-  String get currency => _currency;
-  bool get notificationsEnabled => _notificationsEnabled;
-  bool get biometricEnabled => _biometricEnabled;
-  DateTime? get lastSyncTime => _lastSyncTime;
-  String? get errorMessage => _errorMessage;
-  bool get isOffline => _isOffline;
-
-  String get displayName => _userName ?? _userEmail?.split('@').first ?? 'User';
-
-  String get userInitials {
-    if (_userName != null && _userName!.isNotEmpty) {
-      final parts = _userName!.split(' ');
-      if (parts.length >= 2) {
-        return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-      }
-      return _userName![0].toUpperCase();
-    }
-    if (_userEmail != null && _userEmail!.isNotEmpty) {
-      return _userEmail![0].toUpperCase();
-    }
-    return 'U';
+  // Singleton instance
+  static AppProvider? _instance;
+  
+  AppProvider._internal();
+  
+  factory AppProvider() {
+    _instance ??= AppProvider._internal();
+    return _instance!;
   }
-
-  /// Initializes the app provider by loading stored preferences and secure data.
+  
+  // Private state variables
+  ThemeMode _themeMode = ThemeMode.system;
+  bool _isInitialized = false;
+  bool _isAuthenticated = false;
+  bool _isLoading = false;
+  String? _errorMessage;
+  String? _currentUserId;
+  String? _currentUserEmail;
+  Locale _locale = const Locale('en', 'US');
+  bool _showOnboarding = true;
+  String _currency = 'USD';
+  String _dateFormat = 'MM/dd/yyyy';
+  bool _biometricEnabled = false;
+  Map<String, dynamic> _appSettings = {};
+  
+  // Getters
+  ThemeMode get themeMode => _themeMode;
+  bool get isInitialized => _isInitialized;
+  bool get isAuthenticated => _isAuthenticated;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  String? get currentUserId => _currentUserId;
+  String? get currentUserEmail => _currentUserEmail;
+  Locale get locale => _locale;
+  bool get showOnboarding => _showOnboarding;
+  String get currency => _currency;
+  String get dateFormat => _dateFormat;
+  bool get biometricEnabled => _biometricEnabled;
+  Map<String, dynamic> get appSettings => _appSettings;
+  
+  // Computed getters
+  bool get isDarkMode => _themeMode == ThemeMode.dark;
+  bool get isLightMode => _themeMode == ThemeMode.light;
+  bool get isSystemMode => _themeMode == ThemeMode.system;
+  
+  /// Initialize the app provider with stored preferences
   Future<void> initialize() async {
     if (_isInitialized) return;
-
-    _setLoading(true);
+    
     try {
-      _prefs = await SharedPreferences.getInstance();
-      await _loadSecureData();
-      await _loadPreferences();
-      _isInitialized = true;
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage = 'Failed to initialize app: ${e.toString()}';
-      debugPrint('AppProvider initialization error: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> _loadSecureData() async {
-    try {
-      _userId = await _secureStorage.read(key: _userIdKey);
-      _userEmail = await _secureStorage.read(key: _userEmailKey);
-      _userName = await _secureStorage.read(key: _userNameKey);
-
-      final lastSyncString = await _secureStorage.read(key: _lastSyncKey);
-      if (lastSyncString != null) {
-        _lastSyncTime = DateTime.tryParse(lastSyncString);
-      }
-
-      _isAuthenticated = _userId != null && _userEmail != null;
-    } catch (e) {
-      debugPrint('Error loading secure data: $e');
-    }
-  }
-
-  Future<void> _loadPreferences() async {
-    if (_prefs == null) return;
-
-    try {
-      final themeModeIndex = _prefs!.getInt(_themeKey) ?? 0;
-      _themeMode = ThemeMode.values[themeModeIndex.clamp(0, ThemeMode.values.length - 1)];
-
-      _onboardingCompleted = _prefs!.getBool(_onboardingKey) ?? false;
-      _currency = _prefs!.getString(_currencyKey) ?? 'USD';
-      _notificationsEnabled = _prefs!.getBool(_notificationsKey) ?? true;
-      _biometricEnabled = _prefs!.getBool(_biometricKey) ?? false;
-    } catch (e) {
-      debugPrint('Error loading preferences: $e');
-    }
-  }
-
-  /// Sets loading state and notifies listeners.
-  void _setLoading(bool value) {
-    if (_isLoading != value) {
-      _isLoading = value;
-      notifyListeners();
-    }
-  }
-
-  /// Clears any error message.
-  void clearError() {
-    if (_errorMessage != null) {
-      _errorMessage = null;
-      notifyListeners();
-    }
-  }
-
-  /// Sets the authentication state after successful login.
-  Future<void> setAuthenticated({
-    required String userId,
-    required String email,
-    String? name,
-  }) async {
-    _setLoading(true);
-    try {
-      await _secureStorage.write(key: _userIdKey, value: userId);
-      await _secureStorage.write(key: _userEmailKey, value: email);
+      setLoading(true);
+      clearError();
       
-      if (name != null) {
-        await _secureStorage.write(key: _userNameKey, value: name);
-        _userName = name;
-      } else {
-        await _secureStorage.delete(key: _userNameKey);
-        _userName = null;
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Load theme preference
+      final themeModeIndex = prefs.getInt('themeMode') ?? 0;
+      _themeMode = ThemeMode.values[themeModeIndex];
+      
+      // Load locale preference
+      final languageCode = prefs.getString('languageCode') ?? 'en';
+      final countryCode = prefs.getString('countryCode') ?? 'US';
+      _locale = Locale(languageCode, countryCode);
+      
+      // Load onboarding status
+      _showOnboarding = prefs.getBool('showOnboarding') ?? true;
+      
+      // Load currency preference
+      _currency = prefs.getString('currency') ?? 'USD';
+      
+      // Load date format preference
+      _dateFormat = prefs.getString('dateFormat') ?? 'MM/dd/yyyy';
+      
+      // Load biometric preference
+      _biometricEnabled = prefs.getBool('biometricEnabled') ?? false;
+      
+      // Load app settings
+      final settingsString = prefs.getString('appSettings');
+      if (settingsString != null) {
+        // Parse settings if needed
       }
-
-      _userId = userId;
-      _userEmail = email;
-      _isAuthenticated = true;
-      _errorMessage = null;
-
-      await _updateLastSyncTime();
+      
+      // Check authentication state
+      _isAuthenticated = prefs.getBool('isAuthenticated') ?? false;
+      _currentUserId = prefs.getString('currentUserId');
+      _currentUserEmail = prefs.getString('currentUserEmail');
+      
+      _isInitialized = true;
+      notifyListeners();
     } catch (e) {
-      _errorMessage = 'Failed to save authentication data: ${e.toString()}';
-      debugPrint('Set authenticated error: $e');
+      setError('Failed to initialize app: ${e.toString()}');
     } finally {
-      _setLoading(false);
+      setLoading(false);
     }
   }
-
-  /// Logs out the current user and clears all authentication data.
-  Future<void> logout() async {
-    _setLoading(true);
-    try {
-      await _secureStorage.delete(key: _userIdKey);
-      await _secureStorage.delete(key: _userEmailKey);
-      await _secureStorage.delete(key: _userNameKey);
-      await _secureStorage.delete(key: _lastSyncKey);
-
-      _userId = null;
-      _userEmail = null;
-      _userName = null;
-      _isAuthenticated = false;
-      _lastSyncTime = null;
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage = 'Failed to logout: ${e.toString()}';
-      debugPrint('Logout error: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// Updates the user's profile information.
-  Future<void> updateProfile({String? name, String? email}) async {
-    if (!_isAuthenticated) return;
-
-    _setLoading(true);
-    try {
-      if (name != null) {
-        await _secureStorage.write(key: _userNameKey, value: name);
-        _userName = name;
-      }
-      if (email != null) {
-        await _secureStorage.write(key: _userEmailKey, value: email);
-        _userEmail = email;
-      }
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage = 'Failed to update profile: ${e.toString()}';
-      debugPrint('Update profile error: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// Sets the app theme mode.
+  
+  /// Set theme mode
   Future<void> setThemeMode(ThemeMode mode) async {
     if (_themeMode == mode) return;
-
+    
     _themeMode = mode;
     notifyListeners();
-
+    
     try {
-      await _prefs?.setInt(_themeKey, mode.index);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('themeMode', mode.index);
+      
+      // Update system UI overlay style
+      if (mode == ThemeMode.dark) {
+        SystemChrome.setSystemUIOverlayStyle(
+          const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.light,
+            systemNavigationBarColor: Color(0xFF121212),
+            systemNavigationBarIconBrightness: Brightness.light,
+          ),
+        );
+      } else {
+        SystemChrome.setSystemUIOverlayStyle(
+          const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            systemNavigationBarColor: Colors.white,
+            systemNavigationBarIconBrightness: Brightness.dark,
+          ),
+        );
+      }
     } catch (e) {
-      debugPrint('Error saving theme mode: $e');
+      // Silently fail preference save
     }
   }
-
-  /// Toggles between light and dark theme.
+  
+  /// Toggle between light and dark theme
   Future<void> toggleTheme() async {
-    final newMode = _themeMode == ThemeMode.light
-        ? ThemeMode.dark
-        : _themeMode == ThemeMode.dark
-            ? ThemeMode.system
-            : ThemeMode.light;
+    final newMode = _themeMode == ThemeMode.dark 
+        ? ThemeMode.light 
+        : ThemeMode.dark;
     await setThemeMode(newMode);
   }
-
-  /// Marks the onboarding process as completed.
-  Future<void> completeOnboarding() async {
-    if (_onboardingCompleted) return;
-
-    _onboardingCompleted = true;
+  
+  /// Set locale
+  Future<void> setLocale(Locale locale) async {
+    if (_locale == locale) return;
+    
+    _locale = locale;
     notifyListeners();
-
+    
     try {
-      await _prefs?.setBool(_onboardingKey, true);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('languageCode', locale.languageCode);
+      if (locale.countryCode != null) {
+        await prefs.setString('countryCode', locale.countryCode!);
+      }
     } catch (e) {
-      debugPrint('Error saving onboarding status: $e');
+      // Silently fail preference save
     }
   }
-
-  /// Sets the app currency.
-  Future<void> setCurrency(String currencyCode) async {
-    if (_currency == currencyCode) return;
-
-    _currency = currencyCode;
+  
+  /// Set currency
+  Future<void> setCurrency(String currency) async {
+    if (_currency == currency) return;
+    
+    _currency = currency;
     notifyListeners();
-
+    
     try {
-      await _prefs?.setString(_currencyKey, currencyCode);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('currency', currency);
     } catch (e) {
-      debugPrint('Error saving currency: $e');
+      // Silently fail preference save
     }
   }
-
-  /// Sets the notifications enabled state.
-  Future<void> setNotificationsEnabled(bool enabled) async {
-    if (_notificationsEnabled == enabled) return;
-
-    _notificationsEnabled = enabled;
+  
+  /// Set date format
+  Future<void> setDateFormat(String format) async {
+    if (_dateFormat == format) return;
+    
+    _dateFormat = format;
     notifyListeners();
-
+    
     try {
-      await _prefs?.setBool(_notificationsKey, enabled);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('dateFormat', format);
     } catch (e) {
-      debugPrint('Error saving notifications setting: $e');
+      // Silently fail preference save
     }
   }
-
-  /// Sets the biometric authentication enabled state.
+  
+  /// Enable or disable biometric authentication
   Future<void> setBiometricEnabled(bool enabled) async {
     if (_biometricEnabled == enabled) return;
-
+    
     _biometricEnabled = enabled;
     notifyListeners();
-
+    
     try {
-      await _prefs?.setBool(_biometricKey, enabled);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('biometricEnabled', enabled);
     } catch (e) {
-      debugPrint('Error saving biometric setting: $e');
+      // Silently fail preference save
     }
   }
-
-  /// Updates the last sync timestamp.
-  Future<void> _updateLastSyncTime() async {
-    _lastSyncTime = DateTime.now();
+  
+  /// Set onboarding completed
+  Future<void> setOnboardingCompleted() async {
+    if (!_showOnboarding) return;
+    
+    _showOnboarding = false;
+    notifyListeners();
+    
     try {
-      await _secureStorage.write(
-        key: _lastSyncKey,
-        value: _lastSyncTime!.toIso8601String(),
-      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('showOnboarding', false);
     } catch (e) {
-      debugPrint('Error saving last sync time: $e');
+      // Silently fail preference save
     }
   }
-
-  /// Triggers a manual sync and updates the last sync time.
-  Future<void> triggerSync() async {
-    _setLoading(true);
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      await _updateLastSyncTime();
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage = 'Sync failed: ${e.toString()}';
-      debugPrint('Sync error: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// Sets the offline mode state.
-  void setOfflineMode(bool offline) {
-    if (_isOffline == offline) return;
-
-    _isOffline = offline;
+  
+  /// Set loading state
+  void setLoading(bool loading) {
+    if (_isLoading == loading) return;
+    _isLoading = loading;
     notifyListeners();
   }
-
-  /// Resets the app to default state (for testing or account deletion).
-  Future<void> resetApp() async {
-    _setLoading(true);
+  
+  /// Set error message
+  void setError(String message) {
+    _errorMessage = message;
+    notifyListeners();
+  }
+  
+  /// Clear error message
+  void clearError() {
+    if (_errorMessage == null) return;
+    _errorMessage = null;
+    notifyListeners();
+  }
+  
+  /// Set authentication state
+  Future<void> setAuthenticated({
+    required bool authenticated,
+    String? userId,
+    String? email,
+  }) async {
+    _isAuthenticated = authenticated;
+    _currentUserId = userId;
+    _currentUserEmail = email;
+    notifyListeners();
+    
     try {
-      await _secureStorage.deleteAll();
-      await _prefs?.clear();
-
-      _isAuthenticated = false;
-      _userId = null;
-      _userEmail = null;
-      _userName = null;
-      _themeMode = ThemeMode.system;
-      _onboardingCompleted = false;
-      _currency = 'USD';
-      _notificationsEnabled = true;
-      _biometricEnabled = false;
-      _lastSyncTime = null;
-      _errorMessage = null;
-      _isOffline = false;
-
-      notifyListeners();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isAuthenticated', authenticated);
+      if (userId != null) {
+        await prefs.setString('currentUserId', userId);
+      }
+      if (email != null) {
+        await prefs.setString('currentUserEmail', email);
+      }
     } catch (e) {
-      _errorMessage = 'Failed to reset app: ${e.toString()}';
-      debugPrint('Reset app error: $e');
-    } finally {
-      _setLoading(false);
+      // Silently fail preference save
     }
   }
-
-  /// Formats currency amount based on current app currency setting.
-  String formatCurrency(double amount) {
-    final formatter = NumberFormat.currency(
-      symbol: _getCurrencySymbol(_currency),
-      decimalDigits: 2,
-    );
-    return formatter.format(amount);
+  
+  /// Login user
+  Future<bool> login({
+    required String userId,
+    required String email,
+  }) async {
+    try {
+      setLoading(true);
+      clearError();
+      
+      // Simulate network delay for authentication
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      await setAuthenticated(
+        authenticated: true,
+        userId: userId,
+        email: email,
+      );
+      
+      return true;
+    } catch (e) {
+      setError('Login failed: ${e.toString()}');
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }
-
-  String _getCurrencySymbol(String code) {
-    switch (code) {
+  
+  /// Logout user
+  Future<void> logout() async {
+    try {
+      setLoading(true);
+      clearError();
+      
+      await setAuthenticated(
+        authenticated: false,
+        userId: null,
+        email: null,
+      );
+      
+      // Clear sensitive data
+      _appSettings.clear();
+      
+    } catch (e) {
+      setError('Logout failed: ${e.toString()}');
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  /// Update app settings
+  Future<void> updateAppSettings(Map<String, dynamic> settings) async {
+    _appSettings = {..._appSettings, ...settings};
+    notifyListeners();
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('appSettings', _appSettings.toString());
+    } catch (e) {
+      // Silently fail preference save
+    }
+  }
+  
+  /// Reset app to default state
+  Future<void> resetApp() async {
+    try {
+      setLoading(true);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      
+      _themeMode = ThemeMode.system;
+      _locale = const Locale('en', 'US');
+      _showOnboarding = true;
+      _currency = 'USD';
+      _dateFormat = 'MM/dd/yyyy';
+      _biometricEnabled = false;
+      _appSettings.clear();
+      _isAuthenticated = false;
+      _currentUserId = null;
+      _currentUserEmail = null;
+      
+      notifyListeners();
+    } catch (e) {
+      setError('Failed to reset app: ${e.toString()}');
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  /// Get currency symbol based on current currency
+  String get currencySymbol {
+    switch (_currency) {
       case 'USD':
         return '\$';
       case 'EUR':
@@ -386,60 +368,81 @@ class AppProvider extends ChangeNotifier {
         return '£';
       case 'JPY':
         return '¥';
-      case 'INR':
-        return '₹';
       case 'CNY':
         return '¥';
-      case 'KRW':
-        return '₩';
-      case 'BRL':
-        return 'R\$';
-      case 'CAD':
-        return 'C\$';
+      case 'INR':
+        return '₹';
       case 'AUD':
         return 'A\$';
+      case 'CAD':
+        return 'C\$';
+      case 'CHF':
+        return 'CHF';
+      case 'KRW':
+        return '₩';
+      case 'MXN':
+        return 'MX\$';
+      case 'BRL':
+        return 'R\$';
       default:
-        return '\$$code ';
+        return _currency;
     }
   }
-
-  @override
-  void dispose() {
-    _secureStorage;
-    super.dispose();
+  
+  /// Format amount with currency
+  String formatAmount(double amount) {
+    final symbol = currencySymbol;
+    final isNegative = amount < 0;
+    final absAmount = amount.abs();
+    
+    String formatted;
+    if (_currency == 'JPY' || _currency == 'KRW') {
+      formatted = absAmount.toStringAsFixed(0);
+    } else {
+      formatted = absAmount.toStringAsFixed(2);
+    }
+    
+    // Add thousand separators
+    final parts = formatted.split('.');
+    final integerPart = parts[0];
+    final decimalPart = parts.length > 1 ? '.${parts[1]}' : '';
+    
+    final buffer = StringBuffer();
+    for (var i = 0; i < integerPart.length; i++) {
+      if (i > 0 && (integerPart.length - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(integerPart[i]);
+    }
+    
+    return isNegative 
+        ? '-$symbol${buffer.toString()}$decimalPart'
+        : '$symbol${buffer.toString()}$decimalPart';
   }
-}
-
-/// Supported currencies with their symbols and names.
-class SupportedCurrency {
-  final String code;
-  final String symbol;
-  final String name;
-
-  const SupportedCurrency({
-    required this.code,
-    required this.symbol,
-    required this.name,
-  });
-
-  static const List<SupportedCurrency> all = [
-    SupportedCurrency(code: 'USD', symbol: '\$', name: 'US Dollar'),
-    SupportedCurrency(code: 'EUR', symbol: '€', name: 'Euro'),
-    SupportedCurrency(code: 'GBP', symbol: '£', name: 'British Pound'),
-    SupportedCurrency(code: 'JPY', symbol: '¥', name: 'Japanese Yen'),
-    SupportedCurrency(code: 'INR', symbol: '₹', name: 'Indian Rupee'),
-    SupportedCurrency(code: 'CNY', symbol: '¥', name: 'Chinese Yuan'),
-    SupportedCurrency(code: 'KRW', symbol: '₩', name: 'South Korean Won'),
-    SupportedCurrency(code: 'BRL', symbol: 'R\$', name: 'Brazilian Real'),
-    SupportedCurrency(code: 'CAD', symbol: 'C\$', name: 'Canadian Dollar'),
-    SupportedCurrency(code: 'AUD', symbol: 'A\$', name: 'Australian Dollar'),
-  ];
-
-  static SupportedCurrency? fromCode(String code) {
-    try {
-      return all.firstWhere((c) => c.code == code);
-    } catch (_) {
-      return null;
+  
+  /// Format date according to user preference
+  String formatDate(DateTime date) {
+    final year = date.year.toString();
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    
+    switch (_dateFormat) {
+      case 'MM/dd/yyyy':
+        return '$month/$day/$year';
+      case 'dd/MM/yyyy':
+        return '$day/$month/$year';
+      case 'yyyy-MM-dd':
+        return '$year-$month-$day';
+      case 'dd-MM-yyyy':
+        return '$day-$month-$year';
+      case 'MMM dd, yyyy':
+        final months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        return '${months[date.month - 1]} $day, $year';
+      default:
+        return '$month/$day/$year';
     }
   }
 }
