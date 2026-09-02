@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../models/account_model.dart';
 import '../models/transaction_model.dart';
 import '../models/savings_goal_model.dart';
-import '../models/stock_model.dart';
-import '../services/mock_data_service.dart';
+import '../models/portfolio_model.dart';
+import '../services/finance_service.dart';
 import '../widgets/balance_card.dart';
-import '../widgets/transaction_list_item.dart';
+import '../widgets/transaction_list_tile.dart';
 import '../widgets/savings_goal_card.dart';
-import '../widgets/stock_card.dart';
+import '../widgets/stock_portfolio_card.dart';
+import '../widgets/spending_chart.dart';
 import '../widgets/quick_action_button.dart';
-import '../widgets/finance_chart.dart';
+import 'transactions_screen.dart';
+import 'savings_goals_screen.dart';
+import 'portfolio_screen.dart';
+import 'accounts_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -20,18 +22,16 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final MockDataService _mockDataService = MockDataService();
+  final FinanceService _financeService = FinanceService();
   bool _isLoading = true;
-  int _selectedNavIndex = 0;
-
-  List<AccountModel> _accounts = [];
-  List<TransactionModel> _transactions = [];
-  List<SavingsGoalModel> _savingsGoals = [];
-  List<StockModel> _stocks = [];
+  
   double _totalBalance = 0.0;
   double _monthlyIncome = 0.0;
   double _monthlyExpenses = 0.0;
-  List<Map<String, dynamic>> _weeklySpending = [];
+  List<TransactionModel> _recentTransactions = [];
+  List<SavingsGoalModel> _savingsGoals = [];
+  List<PortfolioModel> _portfolioHoldings = [];
+  Map<String, double> _spendingByCategory = {};
 
   @override
   void initState() {
@@ -40,297 +40,233 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final balanceData = await _financeService.getTotalBalance();
+      final incomeData = await _financeService.getMonthlyIncome();
+      final expenseData = await _financeService.getMonthlyExpenses();
+      final transactions = await _financeService.getRecentTransactions(limit: 5);
+      final goals = await _financeService.getSavingsGoals();
+      final holdings = await _financeService.getPortfolioHoldings();
+      final spending = await _financeService.getSpendingByCategory();
 
-    _accounts = _mockDataService.getAccounts();
-    _transactions = _mockDataService.getTransactions();
-    _savingsGoals = _mockDataService.getSavingsGoals();
-    _stocks = _mockDataService.getStocks();
-    _weeklySpending = _mockDataService.getWeeklySpending();
-
-    _totalBalance = _accounts.fold(0.0, (sum, account) => sum + account.balance);
-    _monthlyIncome = _mockDataService.getMonthlyIncome();
-    _monthlyExpenses = _mockDataService.getMonthlyExpenses();
-
-    setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _totalBalance = balanceData;
+          _monthlyIncome = incomeData;
+          _monthlyExpenses = expenseData;
+          _recentTransactions = transactions;
+          _savingsGoals = goals;
+          _portfolioHoldings = holdings;
+          _spendingByCategory = spending;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load dashboard data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
-  void _onNavItemTapped(int index) {
-    setState(() => _selectedNavIndex = index);
+  void _navigateToScreen(Widget screen, String screenName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => screen),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final theme = Theme.of(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onPrimary.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.account_balance_wallet,
-                size: 24,
-                color: theme.colorScheme.onPrimary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'FinTrack',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-          ],
+        title: const Text(
+          'FinTrack',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
+        backgroundColor: const Color(0xFF1E88E5),
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
+            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Notifications coming soon!'),
-                  duration: Duration(seconds: 2),
-                ),
+                const SnackBar(content: Text('Notifications coming soon!')),
               );
             },
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Settings coming soon!'),
-                  duration: Duration(seconds: 2),
-                ),
+                const SnackBar(content: Text('Settings coming soon!')),
               );
             },
           ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : RefreshIndicator(
-              onRefresh: _loadDashboardData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(isSmallScreen ? 12 : 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildGreetingSection(theme),
-                    const SizedBox(height: 20),
-                    _buildBalanceOverviewSection(theme, currencyFormat, isSmallScreen),
-                    const SizedBox(height: 24),
-                    _buildQuickActionsSection(theme),
-                    const SizedBox(height: 24),
-                    _buildSpendingChartSection(theme, isSmallScreen),
-                    const SizedBox(height: 24),
-                    _buildAccountsSection(theme, currencyFormat, isSmallScreen),
-                    const SizedBox(height: 24),
-                    _buildRecentTransactionsSection(theme, currencyFormat),
-                    const SizedBox(height: 24),
-                    _buildSavingsGoalsSection(theme, currencyFormat, isSmallScreen),
-                    const SizedBox(height: 24),
-                    _buildStockPortfolioSection(theme, currencyFormat, isSmallScreen),
-                    const SizedBox(height: 24),
-                    _buildFinancialInsightsSection(theme),
-                    const SizedBox(height: 80),
-                  ],
-                ),
-              ),
-            ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedNavIndex,
-        onDestinationSelected: _onNavItemTapped,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_outlined),
-            selectedIcon: Icon(Icons.account_balance),
-            label: 'Accounts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.trending_up_outlined),
-            selectedIcon: Icon(Icons.trending_up),
-            label: 'Stocks',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+      body: _isLoading ? _buildLoadingState() : _buildDashboardContent(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddTransactionDialog(context),
+        backgroundColor: const Color(0xFF1E88E5),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Add Transaction',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
 
-  Widget _buildGreetingSection(ThemeData theme) {
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: Color(0xFF1E88E5),
+      ),
+    );
+  }
+
+  Widget _buildDashboardContent() {
+    return RefreshIndicator(
+      onRefresh: _loadDashboardData,
+      color: const Color(0xFF1E88E5),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildGreetingSection(),
+            const SizedBox(height: 20),
+            _buildBalanceOverview(),
+            const SizedBox(height: 20),
+            _buildQuickActions(),
+            const SizedBox(height: 24),
+            _buildSpendingChart(),
+            const SizedBox(height: 24),
+            _buildIncomeExpenseComparison(),
+            const SizedBox(height: 24),
+            _buildRecentTransactions(),
+            const SizedBox(height: 24),
+            _buildSavingsGoals(),
+            const SizedBox(height: 24),
+            _buildPortfolioSummary(),
+            const SizedBox(height: 80),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGreetingSection() {
     final hour = DateTime.now().hour;
     String greeting;
-    IconData greetingIcon;
-
     if (hour < 12) {
       greeting = 'Good Morning';
-      greetingIcon = Icons.wb_sunny_outlined;
     } else if (hour < 17) {
       greeting = 'Good Afternoon';
-      greetingIcon = Icons.wb_sunny;
     } else {
       greeting = 'Good Evening';
-      greetingIcon = Icons.nights_stay_outlined;
     }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary,
-            theme.colorScheme.primary.withOpacity(0.8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  greeting,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: theme.colorScheme.onPrimary.withOpacity(0.8),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Welcome back!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  DateFormat('EEEE, MMMM d, yyyy').format(DateTime.now()),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.onPrimary.withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onPrimary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: Icon(
-              greetingIcon,
-              size: 32,
-              color: theme.colorScheme.onPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBalanceOverviewSection(
-    ThemeData theme,
-    NumberFormat currencyFormat,
-    bool isSmallScreen,
-  ) {
-    final savingsRate = _monthlyIncome > 0
-        ? ((_monthlyIncome - _monthlyExpenses) / _monthlyIncome * 100)
-        : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Financial Overview',
+          greeting,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Welcome back!',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF333333),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBalanceOverview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Total Balance',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+          ),
+        ),
+        const SizedBox(height: 8),
+        BalanceCard(
+          totalBalance: _totalBalance,
+          monthlyIncome: _monthlyIncome,
+          monthlyExpenses: _monthlyExpenses,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quick Actions',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
+            color: Color(0xFF333333),
           ),
         ),
         const SizedBox(height: 12),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Expanded(
-              child: _buildStatCard(
-                theme,
-                'Total Balance',
-                currencyFormat.format(_totalBalance),
-                Icons.account_balance_wallet,
-                theme.colorScheme.primary,
-              ),
+            QuickActionButton(
+              icon: Icons.account_balance_wallet,
+              label: 'Accounts',
+              color: const Color(0xFF4CAF50),
+              onTap: () => _navigateToScreen(const AccountsScreen(), 'Accounts'),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                theme,
-                'Monthly Income',
-                currencyFormat.format(_monthlyIncome),
-                Icons.arrow_upward,
-                Colors.green,
-              ),
+            QuickActionButton(
+              icon: Icons.transfer,
+              label: 'Transfer',
+              color: const Color(0xFF9C27B0),
+              onTap: () => _showTransferDialog(context),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                theme,
-                'Monthly Expenses',
-                currencyFormat.format(_monthlyExpenses),
-                Icons.arrow_downward,
-                Colors.red,
-              ),
+            QuickActionButton(
+              icon: Icons.trending_up,
+              label: 'Invest',
+              color: const Color(0xFFFF9800),
+              onTap: () => _navigateToScreen(const PortfolioScreen(), 'Portfolio'),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard(
-                theme,
-                'Savings Rate',
-                '${savingsRate.toStringAsFixed(1)}%',
-                Icons.savings,
-                Colors.orange,
-              ),
+            QuickActionButton(
+              icon: Icons.savings,
+              label: 'Goals',
+              color: const Color(0xFF00BCD4),
+              onTap: () => _navigateToScreen(const SavingsGoalsScreen(), 'Savings Goals'),
             ),
           ],
         ),
@@ -338,61 +274,129 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(
-    ThemeData theme,
-    String title,
-    String value,
-    IconData icon,
-    Color iconColor,
-  ) {
+  Widget _buildSpendingChart() {
+    if (_spendingByCategory.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Spending Overview',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF333333),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Detailed spending analysis coming soon!')),
+                );
+              },
+              child: const Text(
+                'See All',
+                style: TextStyle(color: Color(0xFF1E88E5)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SpendingChart(spendingData: _spendingByCategory),
+      ],
+    );
+  }
+
+  Widget _buildIncomeExpenseComparison() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Income vs Expenses',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+              Expanded(
+                child: _buildIncomeExpenseCard(
+                  'Income',
+                  _monthlyIncome,
+                  const Color(0xFF4CAF50),
+                  Icons.arrow_upward,
                 ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: iconColor,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildIncomeExpenseCard(
+                  'Expenses',
+                  _monthlyExpenses,
+                  const Color(0xFFE53935),
+                  Icons.arrow_downward,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          const SizedBox(height: 16),
+          _buildProgressIndicator(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncomeExpenseCard(String title, double amount, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
-            value,
+            '\$${amount.toStringAsFixed(2)}',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onSurface,
+              color: color,
             ),
           ),
         ],
@@ -400,100 +404,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickActionsSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              QuickActionButton(
-                icon: Icons.add_circle_outline,
-                label: 'Add Income',
-                color: Colors.green,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Add Income feature coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              QuickActionButton(
-                icon: Icons.remove_circle_outline,
-                label: 'Add Expense',
-                color: Colors.red,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Add Expense feature coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              QuickActionButton(
-                icon: Icons.transfer_outlined,
-                label: 'Transfer',
-                color: Colors.blue,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Transfer feature coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              QuickActionButton(
-                icon: Icons.savings_outlined,
-                label: 'Add Goal',
-                color: Colors.orange,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Add Goal feature coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 12),
-              QuickActionButton(
-                icon: Icons.show_chart,
-                label: 'Buy Stock',
-                color: Colors.purple,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Buy Stock feature coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildProgressIndicator() {
+    final progress = _monthlyIncome > 0 
+        ? (_monthlyExpenses / _monthlyIncome).clamp(0.0, 1.0) 
+        : 0.0;
+    final isOverBudget = _monthlyExpenses > _monthlyIncome;
 
-  Widget _buildSpendingChartSection(ThemeData theme, bool isSmallScreen) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -501,543 +417,809 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Weekly Spending',
+              isOverBudget ? 'Over budget by' : 'Savings rate',
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            Text(
+              isOverBudget 
+                  ? '\$${(_monthlyExpenses - _monthlyIncome).toStringAsFixed(2)}'
+                  : '${(100 - progress * 100).toStringAsFixed(1)}%',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isOverBudget ? const Color(0xFFE53935) : const Color(0xFF4CAF50),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.grey[200],
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isOverBudget ? const Color(0xFFE53935) : const Color(0xFF4CAF50),
+            ),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentTransactions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Recent Transactions',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+                color: Color(0xFF333333),
               ),
             ),
             TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('View detailed analytics coming soon!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text('See All'),
+              onPressed: () => _navigateToScreen(const TransactionsScreen(), 'Transactions'),
+              child: const Text(
+                'See All',
+                style: TextStyle(color: Color(0xFF1E88E5)),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Container(
-          height: 200,
-          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: FinanceChart(weeklySpending: _weeklySpending),
+          child: _recentTransactions.isEmpty
+              ? _buildEmptyTransactionsState()
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _recentTransactions.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    return TransactionListTile(
+                      transaction: _recentTransactions[index],
+                      onTap: () => _showTransactionDetails(_recentTransactions[index]),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildAccountsSection(
-    ThemeData theme,
-    NumberFormat currencyFormat,
-    bool isSmallScreen,
-  ) {
+  Widget _buildEmptyTransactionsState() {
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No transactions yet',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add your first transaction to get started',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavingsGoals() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Your Accounts',
+            const Text(
+              'Savings Goals',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+                color: Color(0xFF333333),
               ),
             ),
             TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('View all accounts coming soon!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text('See All'),
+              onPressed: () => _navigateToScreen(const SavingsGoalsScreen(), 'Savings Goals'),
+              child: const Text(
+                'See All',
+                style: TextStyle(color: Color(0xFF1E88E5)),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         SizedBox(
           height: 160,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _accounts.length,
-            itemBuilder: (context, index) {
-              final account = _accounts[index];
-              return Padding(
-                padding: EdgeInsets.only(right: index < _accounts.length - 1 ? 12 : 0),
-                child: BalanceCard(
-                  account: account,
-                  currencyFormat: currencyFormat,
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Viewing ${account.name}'),
-                        duration: const Duration(seconds: 2),
+          child: _savingsGoals.isEmpty
+              ? _buildEmptySavingsState()
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _savingsGoals.length > 3 ? 3 : _savingsGoals.length,
+                  separatorBuilder: (context, index) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    return SizedBox(
+                      width: 200,
+                      child: SavingsGoalCard(
+                        goal: _savingsGoals[index],
+                        onTap: () => _showGoalDetails(_savingsGoals[index]),
                       ),
                     );
                   },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildRecentTransactionsSection(
-    ThemeData theme,
-    NumberFormat currencyFormat,
-  ) {
-    final recentTransactions = _transactions.take(5).toList();
+  Widget _buildEmptySavingsState() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.savings_outlined,
+            size: 40,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No savings goals yet',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () => _navigateToScreen(const SavingsGoalsScreen(), 'Savings Goals'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E88E5),
+            ),
+            child: const Text(
+              'Create Goal',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildPortfolioSummary() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Recent Transactions',
+            const Text(
+              'Portfolio Summary',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
+                color: Color(0xFF333333),
               ),
             ),
             TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('View all transactions coming soon!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text('See All'),
+              onPressed: () => _navigateToScreen(const PortfolioScreen(), 'Portfolio'),
+              child: const Text(
+                'See All',
+                style: TextStyle(color: Color(0xFF1E88E5)),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: recentTransactions.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              indent: 16,
-              endIndent: 16,
-              color: theme.colorScheme.outlineVariant,
-            ),
-            itemBuilder: (context, index) {
-              final transaction = recentTransactions[index];
-              return TransactionListItem(
-                transaction: transaction,
-                currencyFormat: currencyFormat,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Transaction: ${transaction.description}'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+          child: _portfolioHoldings.isEmpty
+              ? _buildEmptyPortfolioState()
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _portfolioHoldings.length > 3 ? 3 : _portfolioHoldings.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    return StockPortfolioCard(
+                      holding: _portfolioHoldings[index],
+                      onTap: () => _showHoldingDetails(_portfolioHoldings[index]),
+                    );
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildSavingsGoalsSection(
-    ThemeData theme,
-    NumberFormat currencyFormat,
-    bool isSmallScreen,
-  ) {
-    final activeGoals = _savingsGoals.where((g) => !g.isCompleted).take(3).toList();
+  Widget _buildEmptyPortfolioState() {
+    return Padding(
+      padding: const EdgeInsets.all(32.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.show_chart,
+            size: 48,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No stocks in portfolio',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Start investing to see your holdings here',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[400],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Savings Goals',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
+  void _showAddTransactionDialog(BuildContext context) {
+    final amountController = TextEditingController();
+    final descriptionController = TextEditingController();
+    String selectedCategory = 'Food';
+    bool isExpense = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('View all goals coming soon!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text('See All'),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (activeGoals.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.savings_outlined,
-                    size: 48,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No active savings goals',
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Add Transaction',
                     style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setModalState(() => isExpense = true),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isExpense ? const Color(0xFFE53935) : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Expense',
+                                style: TextStyle(
+                                  color: isExpense ? Colors.white : Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setModalState(() => isExpense = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: !isExpense ? const Color(0xFF4CAF50) : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Income',
+                                style: TextStyle(
+                                  color: !isExpense ? Colors.white : Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: '\$ ',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Category',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF666666),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Create savings goal coming soon!'),
-                          duration: Duration(seconds: 2),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      'Food',
+                      'Transport',
+                      'Entertainment',
+                      'Shopping',
+                      'Utilities',
+                      'Salary',
+                      'Investment',
+                      'Other',
+                    ].map((category) {
+                      final isSelected = selectedCategory == category;
+                      return GestureDetector(
+                        onTap: () => setModalState(() => selectedCategory = category),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFF1E88E5) : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            category,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                       );
-                    },
-                    child: const Text('Create Goal'),
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final amount = double.tryParse(amountController.text);
+                        if (amount == null || amount <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a valid amount'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          await _financeService.addTransaction(
+                            amount: amount,
+                            description: descriptionController.text.isEmpty 
+                                ? selectedCategory 
+                                : descriptionController.text,
+                            category: selectedCategory,
+                            isExpense: isExpense,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            _loadDashboardData();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Transaction added successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to add transaction: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E88E5),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Add Transaction',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          )
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isSmallScreen ? 1 : 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: isSmallScreen ? 3.5 : 2,
-            ),
-            itemCount: activeGoals.length,
-            itemBuilder: (context, index) {
-              final goal = activeGoals[index];
-              return SavingsGoalCard(
-                goal: goal,
-                currencyFormat: currencyFormat,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Viewing goal: ${goal.name}'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-      ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildStockPortfolioSection(
-    ThemeData theme,
-    NumberFormat currencyFormat,
-    bool isSmallScreen,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Stock Portfolio',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-              ),
+  void _showTransferDialog(BuildContext context) {
+    final amountController = TextEditingController();
+    String fromAccount = 'Checking';
+    String toAccount = 'Savings';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
             ),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('View full portfolio coming soon!'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: const Text('See All'),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_stocks.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.show_chart,
-                    size: 48,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No stocks in portfolio',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Buy stocks coming soon!'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Transfer Money',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  DropdownButtonFormField<String>(
+                    value: fromAccount,
+                    decoration: InputDecoration(
+                      labelText: 'From Account',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    items: ['Checking', 'Savings', 'Investment']
+                        .map((account) => DropdownMenuItem(
+                              value: account,
+                              child: Text(account),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setModalState(() => fromAccount = value);
+                      }
                     },
-                    child: const Text('Start Investing'),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: toAccount,
+                    decoration: InputDecoration(
+                      labelText: 'To Account',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    items: ['Checking', 'Savings', 'Investment']
+                        .map((account) => DropdownMenuItem(
+                              value: account,
+                              child: Text(account),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setModalState(() => toAccount = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: '\$ ',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final amount = double.tryParse(amountController.text);
+                        if (amount == null || amount <= 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter a valid amount'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        try {
+                          await _financeService.transfer(
+                            amount: amount,
+                            fromAccount: fromAccount,
+                            toAccount: toAccount,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            _loadDashboardData();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Transfer successful!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Transfer failed: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E88E5),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Transfer',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          )
-        else
-          SizedBox(
-            height: 140,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _stocks.length,
-              itemBuilder: (context, index) {
-                final stock = _stocks[index];
-                return Padding(
-                  padding: EdgeInsets.only(right: index < _stocks.length - 1 ? 12 : 0),
-                  child: StockCard(
-                    stock: stock,
-                    currencyFormat: currencyFormat,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Viewing ${stock.symbol}'),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-      ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildFinancialInsightsSection(ThemeData theme) {
-    final insights = _generateInsights();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Financial Insights',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-          ),
+  void _showTransactionDetails(TransactionModel transaction) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(transaction.description),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Amount: \$${transaction.amount.toStringAsFixed(2)}'),
+            Text('Category: ${transaction.category}'),
+            Text('Date: ${transaction.date.toString().split(' ')[0]}'),
+            Text('Type: ${transaction.isExpense ? "Expense" : "Income"}'),
+          ],
         ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: insights.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              indent: 16,
-              endIndent: 16,
-              color: theme.colorScheme.outlineVariant,
-            ),
-            itemBuilder: (context, index) {
-              final insight = insights[index];
-              return ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: insight['color'].withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    insight['icon'],
-                    color: insight['color'],
-                    size: 24,
-                  ),
-                ),
-                title: Text(
-                  insight['title'],
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(insight['description']),
-                trailing: Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                onTap: () {
+          TextButton(
+            onPressed: () async {
+              try {
+                await _financeService.deleteTransaction(transaction.id);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  _loadDashboardData();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(insight['title']),
-                      duration: const Duration(seconds: 2),
+                    const SnackBar(
+                      content: Text('Transaction deleted'),
+                      backgroundColor: Colors.orange,
                     ),
                   );
-                },
-              );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  List<Map<String, dynamic>> _generateInsights() {
-    final insights = <Map<String, dynamic>>[];
-    final savingsRate = _monthlyIncome > 0
-        ? ((_monthlyIncome - _monthlyExpenses) / _monthlyIncome * 100)
-        : 0.0;
-
-    if (savingsRate >= 20) {
-      insights.add({
-        'icon': Icons.celebration,
-        'color': Colors.green,
-        'title': 'Great Savings Rate!',
-        'description': 'You\'re saving ${savingsRate.toStringAsFixed(1)}% of your income. Keep it up!',
-      });
-    } else if (savingsRate > 0) {
-      insights.add({
-        'icon': Icons.trending_up,
-        'color': Colors.orange,
-        'title': 'Room for Improvement',
-        'description': 'Try to increase your savings rate to at least 20% of your income.',
-      });
-    } else {
-      insights.add({
-        'icon': Icons.warning_amber,
-        'color': Colors.red,
-        'title': 'Spending Exceeds Income',
-        'description': 'Consider reviewing your expenses to avoid overspending.',
-      });
-    }
-
-    final topExpense = _getTopExpenseCategory();
-    if (topExpense != null) {
-      insights.add({
-        'icon': Icons.pie_chart,
-        'color': Colors.blue,
-        'title': 'Top Expense Category',
-        'description': 'Your highest expense is $topExpense. Consider reducing costs here.',
-      });
-    }
-
-    if (_stocks.isNotEmpty) {
-      final totalStockValue = _stocks.fold(0.0, (sum, s) => sum + s.currentValue);
-      insights.add({
-        'icon': Icons.show_chart,
-        'color': Colors.purple,
-        'title': 'Investment Portfolio',
-        'description': 'Your portfolio is worth ${NumberFormat.currency(symbol: '\$').format(totalStockValue)}.',
-      });
-    }
-
-    if (_savingsGoals.isNotEmpty) {
-      final activeGoals = _savingsGoals.where((g) => !g.isCompleted).length;
-      insights.add({
-        'icon': Icons.flag,
-        'color': Colors.teal,
-        'title': 'Savings Goals Progress',
-        'description': 'You have $activeGoals active savings goals. Stay focused!',
-      });
-    }
-
-    return insights;
+  void _showGoalDetails(SavingsGoalModel goal) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(goal.name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Target: \$${goal.targetAmount.toStringAsFixed(2)}'),
+            Text('Current: \$${goal.currentAmount.toStringAsFixed(2)}'),
+            Text('Progress: ${goal.progressPercentage.toStringAsFixed(1)}%'),
+            Text('Target Date: ${goal.targetDate.toString().split(' ')[0]}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
-  String? _getTopExpenseCategory() {
-    final categoryTotals = <String, double>{};
-    for (final transaction in _transactions) {
-      if (transaction.type == 'expense') {
-        categoryTotals[transaction.category] =
-            (categoryTotals[transaction.category] ?? 0) + transaction.amount;
-      }
-    }
-    if (categoryTotals.isEmpty) return null;
-
-    final sortedCategories = categoryTotals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return sortedCategories.first.key;
+  void _showHoldingDetails(PortfolioModel holding) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(holding.symbol),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Shares: ${holding.shares.toStringAsFixed(2)}'),
+            Text('Avg Price: \$${holding.averagePrice.toStringAsFixed(2)}'),
+            Text('Current Price: \$${holding.currentPrice.toStringAsFixed(2)}'),
+            Text('Total Value: \$${holding.totalValue.toStringAsFixed(2)}'),
+            Text('Gain/Loss: \$${holding.gainLoss.toStringAsFixed(2)}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 }

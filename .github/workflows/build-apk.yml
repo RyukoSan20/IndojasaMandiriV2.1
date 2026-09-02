@@ -22,6 +22,7 @@ jobs:
           
       - name: Build Release APK
         run: |
+          flutter config --no-analytics
           flutter pub get
           flutter build apk --release --no-tree-shake-icons
           
