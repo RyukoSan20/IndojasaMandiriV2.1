@@ -1,172 +1,198 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
+/// Custom Card widget with Material 3 design for FinTrack
 class CustomCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
-  final Color? color;
-  final double? elevation;
-  final BorderRadius? borderRadius;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final double? borderRadius;
   final VoidCallback? onTap;
-  final Border? border;
-  final Gradient? gradient;
-  final List<BoxShadow>? boxShadow;
+  final VoidCallback? onLongPress;
+  final bool showShadow;
+  final int? elevation;
+  final BorderRadiusGeometry? borderRadiusGeometry;
 
   const CustomCard({
     super.key,
     required this.child,
     this.padding,
     this.margin,
-    this.color,
-    this.elevation,
-    this.borderRadius,
+    this.backgroundColor,
+    this.borderColor,
+    this.borderRadius = 16,
     this.onTap,
-    this.border,
-    this.gradient,
-    this.boxShadow,
+    this.onLongPress,
+    this.showShadow = true,
+    this.elevation,
+    this.borderRadiusGeometry,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
+    
+    final cardColor = backgroundColor ?? 
+        (isDark ? theme.colorScheme.surfaceContainerHigh : theme.colorScheme.surfaceContainerLow);
+    
     Widget cardContent = Container(
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: gradient == null ? (color ?? theme.cardTheme.color ?? theme.colorScheme.surface) : null,
-        gradient: gradient,
-        borderRadius: borderRadius ?? BorderRadius.circular(16),
-        border: border ??
-            (isDark
-                ? Border.all(color: theme.colorScheme.outline.withOpacity(0.2), width: 1)
-                : null),
-        boxShadow: boxShadow ??
-            [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withOpacity(0.3)
-                    : Colors.black.withOpacity(0.08),
-                blurRadius: elevation ?? 8,
-                offset: const Offset(0, 2),
+        color: cardColor,
+        borderRadius: borderRadiusGeometry ?? BorderRadius.circular(borderRadius!),
+        border: borderColor != null
+            ? Border.all(color: borderColor!, width: 1)
+            : Border.all(
+                color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+                width: 1,
               ),
-            ],
+        boxShadow: showShadow
+            ? [
+                BoxShadow(
+                  color: theme.colorScheme.shadow.withOpacity(isDark ? 0.3 : 0.08),
+                  blurRadius: isDark ? 4 : 8,
+                  offset: Offset(0, isDark ? 1 : 2),
+                ),
+              ]
+            : null,
       ),
       child: child,
     );
 
-    if (onTap != null) {
-      return Padding(
-        padding: margin ?? EdgeInsets.zero,
+    if (onTap != null || onLongPress != null) {
+      return Container(
+        margin: margin,
         child: Material(
           color: Colors.transparent,
-          borderRadius: borderRadius ?? BorderRadius.circular(16),
+          borderRadius: borderRadiusGeometry ?? BorderRadius.circular(borderRadius!),
           child: InkWell(
             onTap: onTap,
-            borderRadius: borderRadius ?? BorderRadius.circular(16),
+            onLongPress: onLongPress,
+            borderRadius: borderRadiusGeometry ?? BorderRadius.circular(borderRadius!),
             child: cardContent,
           ),
         ),
       );
     }
 
-    return Padding(
-      padding: margin ?? EdgeInsets.zero,
+    return Container(
+      margin: margin,
       child: cardContent,
     );
   }
 }
 
+/// Balance Summary Card showing account balance with trend indicator
 class BalanceSummaryCard extends StatelessWidget {
   final String title;
-  final String balance;
-  final String? subtitle;
-  final IconData icon;
-  final Color iconColor;
+  final double balance;
+  final double? previousBalance;
+  final String currency;
+  final IconData? icon;
+  final Color? iconColor;
   final Color? backgroundColor;
   final VoidCallback? onTap;
   final bool showTrend;
-  final double? trendPercentage;
-  final bool isPositiveTrend;
 
   const BalanceSummaryCard({
     super.key,
     required this.title,
     required this.balance,
-    this.subtitle,
-    required this.icon,
-    required this.iconColor,
+    this.previousBalance,
+    this.currency = 'IDR',
+    this.icon,
+    this.iconColor,
     this.backgroundColor,
     this.onTap,
-    this.showTrend = false,
-    this.trendPercentage,
-    this.isPositiveTrend = true,
+    this.showTrend = true,
   });
+
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: currency == 'IDR' ? 'Rp' : '\$',
+      decimalDigits: 0,
+    );
+    return format.format(amount);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    
+    final change = previousBalance != null ? balance - previousBalance! : 0.0;
+    final changePercent = previousBalance != null && previousBalance! != 0
+        ? (change / previousBalance!) * 100
+        : 0.0;
+    final isPositive = change >= 0;
 
     return CustomCard(
       onTap: onTap,
+      backgroundColor: backgroundColor,
       padding: const EdgeInsets.all(20),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      gradient: backgroundColor != null
-          ? LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                backgroundColor!.withOpacity(isDark ? 0.3 : 1),
-                backgroundColor!.withOpacity(isDark ? 0.1 : 0.7),
-              ],
-            )
-          : null,
-      color: backgroundColor != null && isDark ? backgroundColor?.withOpacity(0.3) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(isDark ? 0.2 : 0.15),
-                  borderRadius: BorderRadius.circular(12),
+              if (icon != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (iconColor ?? theme.colorScheme.primary).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: iconColor ?? theme.colorScheme.primary,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 24,
+                const SizedBox(width: 12),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              if (showTrend && trendPercentage != null)
+              if (showTrend && previousBalance != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isPositiveTrend
-                        ? Colors.green.withOpacity(0.15)
-                        : Colors.red.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    color: (isPositive
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444))
+                        .withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isPositiveTrend
+                        isPositive
                             ? Icons.trending_up_rounded
                             : Icons.trending_down_rounded,
-                        size: 16,
-                        color: isPositiveTrend ? Colors.green : Colors.red,
+                        size: 14,
+                        color: isPositive
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${isPositiveTrend ? '+' : ''}${trendPercentage?.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          color: isPositiveTrend ? Colors.green : Colors.red,
+                        '${changePercent.abs().toStringAsFixed(1)}%',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: isPositive
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFEF4444),
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -176,34 +202,21 @@ class BalanceSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: isDark
-                  ? theme.colorScheme.onSurface.withOpacity(0.7)
-                  : Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            balance,
-            style: TextStyle(
-              fontSize: 24,
+            _formatCurrency(balance),
+            style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: isDark ? theme.colorScheme.onSurface : Colors.black87,
               letterSpacing: -0.5,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 8),
+          if (showTrend && previousBalance != null) ...[
+            const SizedBox(height: 4),
             Text(
-              subtitle!,
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark
-                    ? theme.colorScheme.onSurface.withOpacity(0.5)
-                    : Colors.black38,
+              '${isPositive ? '+' : ''}${_formatCurrency(change)} dari periode sebelumnya',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isPositive
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFEF4444),
               ),
             ),
           ],
@@ -213,70 +226,91 @@ class BalanceSummaryCard extends StatelessWidget {
   }
 }
 
-class CompactBalanceCard extends StatelessWidget {
+/// Quick Action Card for dashboard shortcuts
+class QuickActionCard extends StatelessWidget {
   final String label;
-  final String amount;
   final IconData icon;
-  final Color color;
+  final Color? color;
   final VoidCallback? onTap;
+  final bool isCompact;
 
-  const CompactBalanceCard({
+  const QuickActionCard({
     super.key,
     required this.label,
-    required this.amount,
     required this.icon,
-    required this.color,
+    this.color,
     this.onTap,
+    this.isCompact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final actionColor = color ?? theme.colorScheme.primary;
+
+    if (isCompact) {
+      return CustomCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: actionColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: actionColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      );
+    }
 
     return CustomCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(isDark ? 0.2 : 0.1),
+              color: actionColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? theme.colorScheme.onSurface.withOpacity(0.6)
-                        : Colors.black45,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  amount,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? theme.colorScheme.onSurface : Colors.black87,
-                  ),
-                ),
-              ],
+            child: Icon(
+              icon,
+              size: 20,
+              color: actionColor,
             ),
           ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
           Icon(
-            Icons.chevron_right_rounded,
-            color: isDark ? theme.colorScheme.onSurface.withOpacity(0.3) : Colors.black26,
+            Icons.arrow_forward_ios_rounded,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ],
       ),
@@ -284,466 +318,798 @@ class CompactBalanceCard extends StatelessWidget {
   }
 }
 
+/// Transaction Row Widget for transaction lists
 class TransactionRow extends StatelessWidget {
   final String title;
-  final String subtitle;
-  final String amount;
+  final String? subtitle;
+  final double amount;
   final bool isIncome;
-  final IconData? icon;
-  final Color? iconColor;
-  final DateTime? date;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final Widget? trailing;
   final String? category;
+  final IconData? categoryIcon;
+  final Color? categoryColor;
+  final DateTime? date;
+  final String? receiptUrl;
+  final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final bool showActions;
 
   const TransactionRow({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.amount,
     required this.isIncome,
-    this.icon,
-    this.iconColor,
-    this.date,
-    this.onTap,
-    this.onLongPress,
-    this.trailing,
     this.category,
+    this.categoryIcon,
+    this.categoryColor,
+    this.date,
+    this.receiptUrl,
+    this.onTap,
+    this.onEdit,
+    this.onDelete,
+    this.showActions = true,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final amountColor = isIncome ? Colors.green : Colors.red;
-    final defaultIconColor = isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: (iconColor ?? defaultIconColor).withOpacity(isDark ? 0.15 : 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: icon != null
-                    ? Icon(
-                        icon,
-                        color: iconColor ?? defaultIconColor,
-                        size: 22,
-                      )
-                    : Icon(
-                        isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                        color: iconColor ?? defaultIconColor,
-                        size: 22,
-                      ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? theme.colorScheme.onSurface : Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (category != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: (iconColor ?? defaultIconColor).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              category!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: iconColor ?? defaultIconColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark
-                                ? theme.colorScheme.onSurface.withOpacity(0.5)
-                                : Colors.black45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${isIncome ? '+' : '-'} $amount',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: amountColor,
-                    ),
-                  ),
-                  if (date != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatDate(date!),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark
-                            ? theme.colorScheme.onSurface.withOpacity(0.4)
-                            : Colors.black38,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
-            ],
-          ),
-        ),
-      ),
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp',
+      decimalDigits: 0,
     );
+    return format.format(amount);
   }
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final dateOnly = DateTime(date.year, date.month, date.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final transactionDate = DateTime(date.year, date.month, date.day);
 
-    if (dateOnly == today) {
-      return 'Hari ini';
-    } else if (dateOnly == today.subtract(const Duration(days: 1))) {
-      return 'Kemarin';
+    if (transactionDate == today) {
+      return 'Hari ini, ${DateFormat.Hm().format(date)}';
+    } else if (transactionDate == yesterday) {
+      return 'Kemarin, ${DateFormat.Hm().format(date)}';
     } else {
-      return '${date.day}/${date.month}/${date.year}';
+      return DateFormat('dd MMM yyyy, HH:mm').format(date);
     }
   }
-}
-
-class QuickActionCard extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-  final bool isLarge;
-
-  const QuickActionCard({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-    this.isLarge = false,
-  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final amountColor = isIncome
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
 
-    return Material(
+    Widget rowContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withOpacity(0.3),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Category Icon
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: (categoryColor ?? theme.colorScheme.primary).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              categoryIcon ?? (isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded),
+              color: categoryColor ?? amountColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Title and Subtitle
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    if (category != null) ...[
+                      Text(
+                        category!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (date != null)
+                      Text(
+                        _formatDate(date!),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                        ),
+                      ),
+                  ],
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Amount
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isIncome ? '+' : '-'}${_formatCurrency(amount)}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: amountColor,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              if (receiptUrl != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Icon(
+                    Icons.receipt_long_rounded,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    Widget tapWidget = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: EdgeInsets.all(isLarge ? 20 : 16),
-          decoration: BoxDecoration(
-            color: color.withOpacity(isDark ? 0.15 : 0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: color.withOpacity(isDark ? 0.3 : 0.15),
-              width: 1,
-            ),
+        child: rowContent,
+      ),
+    );
+
+    if (showActions && (onEdit != null || onDelete != null)) {
+      return Dismissible(
+        key: Key('transaction_${title}_${date?.toString()}'),
+        direction: DismissDirection.horizontal,
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.endToStart && onDelete != null) {
+            HapticFeedback.mediumImpact();
+            return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Hapus Transaksi'),
+                content: const Text('Apakah Anda yakin ingin menghapus transaksi ini?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Batal'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context, true);
+                      onDelete?.call();
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                    ),
+                    child: const Text('Hapus'),
+                  ),
+                ],
+              ),
+            ) ?? false;
+          } else if (direction == DismissDirection.startToEnd && onEdit != null) {
+            HapticFeedback.lightImpact();
+            onEdit?.call();
+            return false;
+          }
+          return false;
+        },
+        background: Container(
+          color: const Color(0xFF3B82F6).withOpacity(0.15),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: 20),
+          child: const Icon(
+            Icons.edit_rounded,
+            color: Color(0xFF3B82F6),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        ),
+        secondaryBackground: Container(
+          color: const Color(0xFFEF4444).withOpacity(0.15),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          child: const Icon(
+            Icons.delete_rounded,
+            color: Color(0xFFEF4444),
+          ),
+        ),
+        child: tapWidget,
+      );
+    }
+
+    return tapWidget;
+  }
+}
+
+/// Account Card Widget showing account info with balance
+class AccountCard extends StatelessWidget {
+  final String name;
+  final String type;
+  final double balance;
+  final IconData? icon;
+  final Color? color;
+  final String? lastDigits;
+  final bool isActive;
+  final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const AccountCard({
+    super.key,
+    required this.name,
+    required this.type,
+    required this.balance,
+    this.icon,
+    this.color,
+    this.lastDigits,
+    this.isActive = true,
+    this.onTap,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  IconData _getAccountIcon() {
+    switch (type.toLowerCase()) {
+      case 'cash':
+        return Icons.wallet_rounded;
+      case 'bank':
+        return Icons.account_balance_rounded;
+      case 'ewallet':
+        return Icons.phone_android_rounded;
+      case 'savings':
+        return Icons.savings_rounded;
+      case 'investment':
+        return Icons.trending_up_rounded;
+      default:
+        return Icons.account_balance_wallet_rounded;
+    }
+  }
+
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp',
+      decimalDigits: 0,
+    );
+    return format.format(amount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accountColor = color ?? theme.colorScheme.primary;
+
+    return CustomCard(
+      onTap: onTap,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
             children: [
               Container(
-                padding: EdgeInsets.all(isLarge ? 16 : 12),
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(isDark ? 0.2 : 0.15),
-                  borderRadius: BorderRadius.circular(14),
+                  color: accountColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  icon,
-                  color: color,
-                  size: isLarge ? 28 : 24,
+                  icon ?? _getAccountIcon(),
+                  color: accountColor,
+                  size: 24,
                 ),
               ),
-              SizedBox(height: isLarge ? 12 : 10),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: isLarge ? 14 : 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? theme.colorScheme.onSurface : Colors.black87,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF10B981).withOpacity(0.15)
+                                : theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isActive ? 'Aktif' : 'Nonaktif',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: isActive
+                                  ? const Color(0xFF10B981)
+                                  : theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          type.toUpperCase(),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        if (lastDigits != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '****$lastDigits',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Saldo',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  _formatCurrency(balance),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: balance >= 0
+                        ? theme.colorScheme.onSurface
+                        : const Color(0xFFEF4444),
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onEdit != null || onDelete != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (onEdit != null)
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Edit'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF3B82F6),
+                    ),
+                  ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_rounded, size: 16),
+                    label: const Text('Hapus'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFEF4444),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
+/// Savings Goal Card Widget
 class SavingsGoalCard extends StatelessWidget {
   final String name;
   final double currentAmount;
   final double targetAmount;
-  final IconData icon;
-  final Color color;
   final DateTime? deadline;
+  final IconData? icon;
+  final Color? color;
+  final String? status;
   final VoidCallback? onTap;
+  final VoidCallback? onContribute;
 
   const SavingsGoalCard({
     super.key,
     required this.name,
     required this.currentAmount,
     required this.targetAmount,
-    required this.icon,
-    required this.color,
     this.deadline,
+    this.icon,
+    this.color,
+    this.status,
     this.onTap,
+    this.onContribute,
   });
+
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp',
+      decimalDigits: 0,
+    );
+    return format.format(amount);
+  }
+
+  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0.0;
+
+  int get progressPercent => (progress * 100).round();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final progress = (currentAmount / targetAmount).clamp(0.0, 1.0);
-    final progressPercent = (progress * 100).toStringAsFixed(0);
+    final goalColor = color ?? theme.colorScheme.primary;
+    final isCompleted = status == 'completed' || progress >= 1.0;
 
     return CustomCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(20),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(isDark ? 0.2 : 0.1),
+                  color: goalColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(
+                  icon ?? Icons.savings_rounded,
+                  color: goalColor,
+                  size: 22,
+                ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       name,
-                      style: TextStyle(
-                        fontSize: 16,
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: isDark ? theme.colorScheme.onSurface : Colors.black87,
-                      ),
-                    ),
-                    if (deadline != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        'Target: ${_formatDeadline(deadline!)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark
-                              ? theme.colorScheme.onSurface.withOpacity(0.5)
-                              : Colors.black45,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: progress >= 1.0
-                      ? Colors.green.withOpacity(0.15)
-                      : color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '$progressPercent%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: progress >= 1.0 ? Colors.green : color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: color.withOpacity(0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                _formatCurrency(currentAmount),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-              Text(
-                'dari ${_formatCurrency(targetAmount)}',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark
-                      ? theme.colorScheme.onSurface.withOpacity(0.5)
-                      : Colors.black45,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatCurrency(double amount) {
-    if (amount >= 1000000) {
-      return 'Rp ${(amount / 1000000).toStringAsFixed(1)}jt';
-    } else if (amount >= 1000) {
-      return 'Rp ${(amount / 1000).toStringAsFixed(0)}rb';
-    }
-    return 'Rp ${amount.toStringAsFixed(0)}';
-  }
-
-  String _formatDeadline(DateTime deadline) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
-    ];
-    return '${deadline.day} ${months[deadline.month - 1]} ${deadline.year}';
-  }
-}
-
-class StockHoldingCard extends StatelessWidget {
-  final String symbol;
-  final String companyName;
-  final int shares;
-  final double averagePrice;
-  final double currentPrice;
-  final VoidCallback? onTap;
-
-  const StockHoldingCard({
-    super.key,
-    required this.symbol,
-    required this.companyName,
-    required this.shares,
-    required this.averagePrice,
-    required this.currentPrice,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final totalValue = shares * currentPrice;
-    final totalCost = shares * averagePrice;
-    final profitLoss = totalValue - totalCost;
-    final profitLossPercent = ((currentPrice - averagePrice) / averagePrice) * 100;
-    final isPositive = profitLoss >= 0;
-
-    return CustomCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(18),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(isDark ? 0.2 : 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    symbol.length > 2 ? symbol.substring(0, 2) : symbol,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF6366F1),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      symbol,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? theme.colorScheme.onSurface : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      companyName,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark
-                            ? theme.colorScheme.onSurface.withOpacity(0.5)
-                            : Colors.black45,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      deadline != null
+                          ? 'Target: ${DateFormat('dd MMM yyyy').format(deadline!)}'
+                          : 'Tanpa deadline',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isCompleted)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: Color(0xFF10B981),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Tercapai',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFF10B981),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Progress Bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isCompleted ? const Color(0xFF10B981) : goalColor,
+              ),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Amount Info
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Terkumpul',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    _formatCurrency(currentAmount),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF10B981),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Target',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    _formatCurrency(targetAmount),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Progress Percentage
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$progressPercent% tercapai',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                'Sisa: ${_formatCurrency(targetAmount - currentAmount)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          if (onContribute != null && !isCompleted) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onContribute,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Tambah Tabungan'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: goalColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Stock Portfolio Card Widget
+class PortfolioCard extends StatelessWidget {
+  final String symbol;
+  final String? companyName;
+  final double shares;
+  final double averagePrice;
+  final double currentPrice;
+  final double? dayChange;
+  final double? dayChangePercent;
+  final String? sector;
+  final VoidCallback? onTap;
+  final VoidCallback? onBuy;
+  final VoidCallback? onSell;
+
+  const PortfolioCard({
+    super.key,
+    required this.symbol,
+    this.companyName,
+    required this.shares,
+    required this.averagePrice,
+    required this.currentPrice,
+    this.dayChange,
+    this.dayChangePercent,
+    this.sector,
+    this.onTap,
+    this.onBuy,
+    this.onSell,
+  });
+
+  double get totalValue => shares * currentPrice;
+  double get totalInvested => shares * averagePrice;
+  double get profitLoss => totalValue - totalInvested;
+  double get profitLossPercent => totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0;
+  bool get isProfit => profitLoss >= 0;
+
+  String _formatCurrency(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp',
+      decimalDigits: 0,
+    );
+    return format.format(amount);
+  }
+
+  String _formatCompactCurrency(double amount) {
+    if (amount >= 1000000000) {
+      return 'Rp ${(amount / 1000000000).toStringAsFixed(1)}B';
+    } else if (amount >= 1000000) {
+      return 'Rp ${(amount / 1000000).toStringAsFixed(1)}M';
+    } else if (amount >= 1000) {
+      return 'Rp ${(amount / 1000).toStringAsFixed(1)}Rb';
+    }
+    return _formatCurrency(amount);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return CustomCard(
+      onTap: onTap,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          symbol,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (dayChange != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (dayChange! >= 0
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444))
+                                  .withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${dayChange! >= 0 ? '+' : ''}${dayChangePercent?.toStringAsFixed(2)}%',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: dayChange! >= 0
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFEF4444),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (companyName != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        companyName!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -751,128 +1117,210 @@ class StockHoldingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Rp ${_formatNumber(currentPrice)}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? theme.colorScheme.onSurface : Colors.black87,
+                    _formatCompactCurrency(currentPrice),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                        size: 14,
-                        color: isPositive ? Colors.green : Colors.red,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${isPositive ? '+' : ''}${profitLossPercent.toStringAsFixed(2)}%',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isPositive ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'per lembar',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
+          // Holdings Info
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _InfoItem(
+                      label: 'Lot',
+                      value: shares.toStringAsFixed(0),
+                    ),
+                    _InfoItem(
+                      label: 'Total Lembar',
+                      value: (shares * 100).toStringAsFixed(0),
+                    ),
+                    _InfoItem(
+                      label: 'Rata-rata Beli',
+                      value: _formatCompactCurrency(averagePrice),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _InfoItem(
+                      label: 'Total Investasi',
+                      value: _formatCompactCurrency(totalInvested),
+                    ),
+                    _InfoItem(
+                      label: 'Nilai Saat Ini',
+                      value: _formatCompactCurrency(totalValue),
+                    ),
+                    _InfoItem(
+                      label: 'Laba/Rugi',
+                      value: '${isProfit ? '+' : ''}${_formatCompactCurrency(profitLoss)}',
+                      valueColor: isProfit
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Profit/Loss Badge
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildInfoColumn('Lots', shares.toString(), theme, isDark),
-              _buildInfoColumn('Avg. Beli', 'Rp ${_formatNumber(averagePrice)}', theme, isDark),
-              _buildInfoColumn('Total', 'Rp ${_formatNumber(totalValue)}', theme, isDark),
-              _buildInfoColumn(
-                'P/L',
-                '${isPositive ? '+' : ''}Rp ${_formatNumber(profitLoss.abs())}',
-                theme,
-                isDark,
-                valueColor: isPositive ? Colors.green : Colors.red,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (isProfit
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444))
+                      .withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isProfit
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      size: 16,
+                      color: isProfit
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${isProfit ? '+' : ''}${profitLossPercent.toStringAsFixed(2)}%',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: isProfit
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const Spacer(),
+              if (onBuy != null)
+                TextButton.icon(
+                  onPressed: onBuy,
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Beli'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF10B981),
+                  ),
+                ),
+              if (onSell != null) ...[
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: onSell,
+                  icon: const Icon(Icons.remove_rounded, size: 16),
+                  label: const Text('Jual'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFEF4444),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
       ),
     );
   }
-
-  Widget _buildInfoColumn(String label, String value, ThemeData theme, bool isDark, {Color? valueColor}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: isDark ? theme.colorScheme.onSurface.withOpacity(0.5) : Colors.black38,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: valueColor ?? (isDark ? theme.colorScheme.onSurface : Colors.black87),
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatNumber(double number) {
-    if (number >= 1000000000) {
-      return '${(number / 1000000000).toStringAsFixed(1)}B';
-    } else if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return number.toStringAsFixed(0).replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (Match m) => '${m[1]}.',
-      );
-    }
-    return number.toStringAsFixed(0);
-  }
 }
 
-class StatCard extends StatelessWidget {
-  final String title;
+class _InfoItem extends StatelessWidget {
+  final String label;
   final String value;
-  final String? change;
-  final bool isPositiveChange;
-  final IconData? icon;
-  final Color? iconColor;
-  final VoidCallback? onTap;
+  final Color? valueColor;
 
-  const StatCard({
-    super.key,
-    required this.title,
+  const _InfoItem({
+    required this.label,
     required this.value,
-    this.change,
-    this.isPositiveChange = true,
-    this.icon,
-    this.iconColor,
-    this.onTap,
+    this.valueColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Stat Card for dashboard statistics
+class StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String? subtitle;
+  final IconData? icon;
+  final Color? iconColor;
+  final Color? backgroundColor;
+  final double? trend;
+  final bool showTrend;
+  final Widget? chart;
+
+  const StatCard({
+    super.key,
+    required this.title,
+    required this.value,
+    this.subtitle,
+    this.icon,
+    this.iconColor,
+    this.backgroundColor,
+    this.trend,
+    this.showTrend = true,
+    this.chart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
     return CustomCard(
-      onTap: onTap,
+      backgroundColor: backgroundColor,
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -882,12 +1330,12 @@ class StatCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: (iconColor ?? theme.colorScheme.primary).withOpacity(isDark ? 0.2 : 0.1),
+                    color: (iconColor ?? theme.colorScheme.primary).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     icon,
-                    size: 16,
+                    size: 18,
                     color: iconColor ?? theme.colorScheme.primary,
                   ),
                 ),
@@ -896,44 +1344,56 @@ class StatCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? theme.colorScheme.onSurface.withOpacity(0.6)
-                        : Colors.black45,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
+              if (showTrend && trend != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (trend! >= 0
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444))
+                        .withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${trend! >= 0 ? '+' : ''}${trend!.toStringAsFixed(1)}%',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: trend! >= 0
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 20,
+            style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: isDark ? theme.colorScheme.onSurface : Colors.black87,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          if (change != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  isPositiveChange ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  size: 16,
-                  color: isPositiveChange ? Colors.green : Colors.red,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  change!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: isPositiveChange ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (chart != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 40,
+              child: chart!,
             ),
           ],
         ],
@@ -942,219 +1402,69 @@ class StatCard extends StatelessWidget {
   }
 }
 
-class SectionHeader extends StatelessWidget {
-  final String title;
-  final String? actionText;
-  final VoidCallback? onActionTap;
-  final IconData? actionIcon;
-
-  const SectionHeader({
-    super.key,
-    required this.title,
-    this.actionText,
-    this.onActionTap,
-    this.actionIcon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: isDark ? theme.colorScheme.onSurface : Colors.black87,
-            ),
-          ),
-          if (actionText != null || actionIcon != null)
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onActionTap,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (actionIcon != null) ...[
-                        Icon(
-                          actionIcon,
-                          size: 18,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      if (actionText != null)
-                        Text(
-                          actionText!,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
+/// Empty State Card
 class EmptyStateCard extends StatelessWidget {
-  final String title;
-  final String message;
   final IconData icon;
-  final String? actionText;
+  final String title;
+  final String? message;
+  final String? actionLabel;
   final VoidCallback? onAction;
 
   const EmptyStateCard({
     super.key,
-    required this.title,
-    required this.message,
     required this.icon,
-    this.actionText,
+    required this.title,
+    this.message,
+    this.actionLabel,
     this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return CustomCard(
-      padding: const EdgeInsets.all(32),
-      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08),
+              color: theme.colorScheme.primaryContainer.withOpacity(0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              size: 40,
-              color: theme.colorScheme.primary.withOpacity(0.7),
+              size: 48,
+              color: theme.colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 18,
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: isDark ? theme.colorScheme.onSurface : Colors.black87,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark
-                  ? theme.colorScheme.onSurface.withOpacity(0.6)
-                  : Colors.black45,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (actionText != null && onAction != null) ...[
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(actionText!),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class ChartCard extends StatelessWidget {
-  final String title;
-  final Widget chart;
-  final String? subtitle;
-  final EdgeInsetsGeometry? padding;
-  final VoidCallback? onTap;
-
-  const ChartCard({
-    super.key,
-    required this.title,
-    required this.chart,
-    this.subtitle,
-    this.padding,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return CustomCard(
-      onTap: onTap,
-      padding: padding ?? const EdgeInsets.all(20),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? theme.colorScheme.onSurface : Colors.black87,
-                ),
-              ),
-              if (onTap != null)
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: isDark
-                      ? theme.colorScheme.onSurface.withOpacity(0.3)
-                      : Colors.black26,
-                ),
-            ],
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
+          if (message != null) ...[
+            const SizedBox(height: 8),
             Text(
-              subtitle!,
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark
-                    ? theme.colorScheme.onSurface.withOpacity(0.5)
-                    : Colors.black45,
+              message!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 200,
-            child: chart,
-          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: onAction,
+              child: Text(actionLabel!),
+            ),
+          ],
         ],
       ),
     );

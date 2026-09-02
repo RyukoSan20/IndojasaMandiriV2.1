@@ -1,175 +1,90 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 
-/// API Configuration
-class ApiConfig {
-  static const String baseUrl = 'https://api.fintrack.app/v1';
-  static const Duration connectTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
-  static const int maxRetries = 3;
-  static const Duration retryDelay = Duration(seconds: 1);
-}
+/// API Service configuration options
+class ApiServiceConfig {
+  final String baseUrl;
+  final Duration connectTimeout;
+  final Duration receiveTimeout;
+  final Duration sendTimeout;
+  final bool enableMockData;
+  final bool enableLogging;
 
-/// API Error Types
-enum ApiErrorType {
-  networkError,
-  timeoutError,
-  serverError,
-  unauthorized,
-  forbidden,
-  notFound,
-  validationError,
-  conflictError,
-  unknownError,
-}
-
-/// Custom API Exception
-class ApiException implements Exception {
-  final String message;
-  final ApiErrorType type;
-  final int? statusCode;
-  final dynamic data;
-  final String? requestId;
-
-  ApiException({
-    required this.message,
-    required this.type,
-    this.statusCode,
-    this.data,
-    this.requestId,
+  const ApiServiceConfig({
+    this.baseUrl = ApiConstants.baseUrl,
+    this.connectTimeout = const Duration(seconds: 30),
+    this.receiveTimeout = const Duration(seconds: 30),
+    this.sendTimeout = const Duration(seconds: 30),
+    this.enableMockData = true,
+    this.enableLogging = true,
   });
+}
 
-  factory ApiException.fromStatusCode(int statusCode, [dynamic data]) {
-    switch (statusCode) {
-      case 400:
-        return ApiException(
-          message: 'Bad request',
-          type: ApiErrorType.validationError,
-          statusCode: statusCode,
-          data: data,
-        );
-      case 401:
-        return ApiException(
-          message: 'Unauthorized - Please login again',
-          type: ApiErrorType.unauthorized,
-          statusCode: statusCode,
-          data: data,
-        );
-      case 403:
-        return ApiException(
-          message: 'Access forbidden',
-          type: ApiErrorType.forbidden,
-          statusCode: statusCode,
-          data: data,
-        );
-      case 404:
-        return ApiException(
-          message: 'Resource not found',
-          type: ApiErrorType.notFound,
-          statusCode: statusCode,
-          data: data,
-        );
-      case 409:
-        return ApiException(
-          message: 'Resource conflict',
-          type: ApiErrorType.conflictError,
-          statusCode: statusCode,
-          data: data,
-        );
-      case 500:
-      case 502:
-      case 503:
-        return ApiException(
-          message: 'Server error - Please try again later',
-          type: ApiErrorType.serverError,
-          statusCode: statusCode,
-          data: data,
-        );
-      default:
-        return ApiException(
-          message: 'An unexpected error occurred',
-          type: ApiErrorType.unknownError,
-          statusCode: statusCode,
-          data: data,
-        );
-    }
-  }
+/// HTTP Methods enum for type safety
+enum HttpMethod {
+  get('GET'),
+  post('POST'),
+  put('PUT'),
+  patch('PATCH'),
+  delete('DELETE');
 
-  factory ApiException.network([String? message]) => ApiException(
-        message: message ?? 'Network error - Please check your connection',
-        type: ApiErrorType.networkError,
-      );
-
-  factory ApiException.timeout([String? message]) => ApiException(
-        message: message ?? 'Request timed out - Please try again',
-        type: ApiErrorType.timeoutError,
-      );
-
-  @override
-  String toString() => 'ApiException: $message (Type: $type, Code: $statusCode)';
+  final String value;
+  const HttpMethod(this.value);
 }
 
 /// API Response wrapper
 class ApiResponse<T> {
   final bool success;
   final T? data;
-  final dynamic error;
-  final ApiMeta? meta;
-  final String? requestId;
+  final ApiError? error;
+  final ResponseMeta? meta;
+  final bool isFromCache;
 
-  ApiResponse({
+  const ApiResponse({
     required this.success,
     this.data,
     this.error,
     this.meta,
-    this.requestId,
+    this.isFromCache = false,
   });
 
-  factory ApiResponse.fromJson(
-    Map<String, dynamic> json,
-    T Function(dynamic)? fromJsonT,
-  ) {
+  factory ApiResponse.success(T data, {ResponseMeta? meta, bool isFromCache = false}) {
     return ApiResponse(
-      success: json['success'] ?? false,
-      data: json['data'] != null && fromJsonT != null
-          ? fromJsonT(json['data'])
-          : json['data'],
-      error: json['error'],
-      meta: json['meta'] != null ? ApiMeta.fromJson(json['meta']) : null,
-      requestId: json['request_id'],
+      success: true,
+      data: data,
+      meta: meta,
+      isFromCache: isFromCache,
     );
   }
 
-  R when<R>({
-    required R Function(T data) success,
-    required R Function(dynamic error) failure,
-  }) {
-    if (success) {
-      return success(data as T);
-    }
-    return failure(error);
+  factory ApiResponse.failure(ApiError error) {
+    return ApiResponse(
+      success: false,
+      error: error,
+    );
   }
 }
 
-/// API Metadata for pagination
-class ApiMeta {
+/// Response metadata for pagination
+class ResponseMeta {
   final int page;
   final int limit;
   final int total;
   final int totalPages;
 
-  ApiMeta({
+  const ResponseMeta({
     required this.page,
     required this.limit,
     required this.total,
     required this.totalPages,
   });
 
-  factory ApiMeta.fromJson(Map<String, dynamic> json) {
-    return ApiMeta(
+  factory ResponseMeta.fromJson(Map<String, dynamic> json) {
+    return ResponseMeta(
       page: json['page'] ?? 1,
       limit: json['limit'] ?? 20,
       total: json['total'] ?? 0,
@@ -177,479 +92,838 @@ class ApiMeta {
     );
   }
 
-  bool get hasMore => page < totalPages;
+  bool get hasNextPage => page < totalPages;
+  bool get hasPreviousPage => page > 1;
 }
 
-/// Request interceptor type
-typedef RequestInterceptor = Future<Map<String, String>> Function(
-    Map<String, String> headers);
+/// API Error model
+class ApiError {
+  final String code;
+  final String message;
+  final List<FieldError>? details;
+  final String? requestId;
 
-/// Response interceptor type
-typedef ResponseInterceptor = dynamic Function(dynamic data);
+  const ApiError({
+    required this.code,
+    required this.message,
+    this.details,
+    this.requestId,
+  });
 
-/// Mock data provider type
-typedef MockDataProvider<T> = T Function();
+  factory ApiError.fromJson(Map<String, dynamic> json) {
+    List<FieldError>? fieldErrors;
+    if (json['details'] != null) {
+      fieldErrors = (json['details'] as List)
+          .map((e) => FieldError.fromJson(e))
+          .toList();
+    }
 
-/// API Service class
-class ApiService {
-  static ApiService? _instance;
-  static ApiService get instance => _instance ??= ApiService._();
+    return ApiError(
+      code: json['code'] ?? 'UNKNOWN_ERROR',
+      message: json['message'] ?? 'An unknown error occurred',
+      details: fieldErrors,
+      requestId: json['request_id'],
+    );
+  }
 
-  ApiService._();
+  factory ApiError.fromDioException(DioException e) {
+    String code;
+    String message;
 
-  http.Client? _client;
-  String? _accessToken;
-  String? _refreshToken;
-  RequestInterceptor? _requestInterceptor;
-  bool _useMockData = false;
-  Map<String, MockDataProvider> _mockProviders = {};
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+        code = 'CONNECTION_TIMEOUT';
+        message = 'Connection timeout. Please check your internet connection.';
+        break;
+      case DioExceptionType.sendTimeout:
+        code = 'SEND_TIMEOUT';
+        message = 'Request timeout. Please try again.';
+        break;
+      case DioExceptionType.receiveTimeout:
+        code = 'RECEIVE_TIMEOUT';
+        message = 'Server response timeout. Please try again.';
+        break;
+      case DioExceptionType.badCertificate:
+        code = 'BAD_CERTIFICATE';
+        message = 'Security certificate error. Please update the app.';
+        break;
+      case DioExceptionType.badResponse:
+        code = _getStatusCodeError(e.response?.statusCode);
+        message = _getStatusCodeMessage(e.response?.statusCode);
+        break;
+      case DioExceptionType.cancel:
+        code = 'REQUEST_CANCELLED';
+        message = 'Request was cancelled.';
+        break;
+      case DioExceptionType.connectionError:
+        code = 'CONNECTION_ERROR';
+        message = 'Unable to connect. Please check your internet connection.';
+        break;
+      case DioExceptionType.unknown:
+      default:
+        code = 'UNKNOWN_ERROR';
+        message = 'An unexpected error occurred. Please try again.';
+    }
 
-  /// Initialize the API service
-  void init({
-    http.Client? client,
-    RequestInterceptor? requestInterceptor,
+    return ApiError(code: code, message: message);
+  }
+
+  static String _getStatusCodeError(int? statusCode) {
+    switch (statusCode) {
+      case 400:
+        return 'BAD_REQUEST';
+      case 401:
+        return 'UNAUTHORIZED';
+      case 403:
+        return 'FORBIDDEN';
+      case 404:
+        return 'NOT_FOUND';
+      case 409:
+        return 'CONFLICT';
+      case 422:
+        return 'VALIDATION_ERROR';
+      case 429:
+        return 'RATE_LIMITED';
+      case 500:
+        return 'INTERNAL_ERROR';
+      case 502:
+        return 'BAD_GATEWAY';
+      case 503:
+        return 'SERVICE_UNAVAILABLE';
+      default:
+        return 'SERVER_ERROR';
+    }
+  }
+
+  static String _getStatusCodeMessage(int? statusCode) {
+    switch (statusCode) {
+      case 400:
+        return 'Invalid request data.';
+      case 401:
+        return 'Session expired. Please login again.';
+      case 403:
+        return 'You do not have permission to access this resource.';
+      case 404:
+        return 'Resource not found.';
+      case 409:
+        return 'Resource already exists or conflict occurred.';
+      case 422:
+        return 'Validation failed. Please check your input.';
+      case 429:
+        return 'Too many requests. Please wait and try again.';
+      case 500:
+        return 'Server error. Please try again later.';
+      case 502:
+        return 'Server temporarily unavailable. Please try again.';
+      case 503:
+        return 'Service unavailable. Please try again later.';
+      default:
+        return 'An error occurred. Please try again.';
+    }
+  }
+}
+
+/// Field-specific error
+class FieldError {
+  final String field;
+  final String message;
+  final dynamic value;
+
+  const FieldError({
+    required this.field,
+    required this.message,
+    this.value,
+  });
+
+  factory FieldError.fromJson(Map<String, dynamic> json) {
+    return FieldError(
+      field: json['field'] ?? '',
+      message: json['message'] ?? '',
+      value: json['value'],
+    );
+  }
+}
+
+/// Request options wrapper
+class RequestOptions {
+  final Map<String, dynamic>? queryParameters;
+  final Map<String, dynamic>? headers;
+  final dynamic data;
+  final String? contentType;
+  final bool requiresAuth;
+  final bool useCache;
+  final Duration? cacheDuration;
+
+  const RequestOptions({
+    this.queryParameters,
+    this.headers,
+    this.data,
+    this.contentType,
+    this.requiresAuth = true,
+    this.useCache = false,
+    this.cacheDuration,
+  });
+
+  RequestOptions copyWith({
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    dynamic data,
+    String? contentType,
+    bool? requiresAuth,
+    bool? useCache,
+    Duration? cacheDuration,
   }) {
-    _client = client ?? http.Client();
-    _requestInterceptor = requestInterceptor;
-    _instance = this;
+    return RequestOptions(
+      queryParameters: queryParameters ?? this.queryParameters,
+      headers: headers ?? this.headers,
+      data: data ?? this.data,
+      contentType: contentType ?? this.contentType,
+      requiresAuth: requiresAuth ?? this.requiresAuth,
+      useCache: useCache ?? this.useCache,
+      cacheDuration: cacheDuration ?? this.cacheDuration,
+    );
   }
+}
 
-  /// Set authentication tokens
-  void setTokens({String? accessToken, String? refreshToken}) {
-    _accessToken = accessToken;
-    _refreshToken = refreshToken;
-  }
+/// Main API Service class
+class ApiService {
+  late final Dio _dio;
+  final ApiServiceConfig _config;
+  final NetworkInfo _networkInfo;
+  final StorageService _storageService;
+  final MockDataService _mockDataService;
 
-  /// Clear authentication tokens
-  void clearTokens() {
-    _accessToken = null;
-    _refreshToken = null;
-  }
-
-  /// Enable/disable mock data mode
-  void setMockMode(bool enabled) {
-    _useMockData = enabled;
-  }
-
-  /// Register a mock data provider
-  void registerMockProvider<T>(String endpoint, MockDataProvider<T> provider) {
-    _mockProviders[endpoint] = provider;
-  }
-
-  /// Clear all mock providers
-  void clearMockProviders() {
-    _mockProviders.clear();
-  }
-
-  /// Get default headers
-  Map<String, String> _getHeaders() {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-Client-Version': '1.0.0',
-      'X-Platform': Platform.operatingSystem,
-    };
-
-    if (_accessToken != null) {
-      headers['Authorization'] = 'Bearer $_accessToken';
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService({ApiServiceConfig? config}) {
+    if (config != null) {
+      _instance._configure(config);
     }
-
-    return headers;
+    return _instance;
   }
 
-  /// Build full URL
-  Uri _buildUrl(String endpoint, [Map<String, dynamic>? queryParams]) {
-    final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
-    if (queryParams != null && queryParams.isNotEmpty) {
-      return uri.replace(
-        queryParameters: queryParams.map(
-          (key, value) => MapEntry(
-            key,
-            value is List ? value.join(',') : value.toString(),
-          ),
-        ),
-      );
-    }
-    return uri;
+  factory ApiService.instance() => _instance;
+
+  ApiService._internal()
+      : _config = const ApiServiceConfig(),
+        _networkInfo = GetIt.I<NetworkInfo>(),
+        _storageService = GetIt.I<StorageService>(),
+        _mockDataService = MockDataService() {
+    _dio = _createDio();
   }
 
-  /// Execute request with retry logic
-  Future<dynamic> _executeWithRetry(
-    Future<http.Response> Function() request,
-  ) async {
-    int attempts = 0;
-    while (attempts < ApiConfig.maxRetries) {
-      try {
-        final response = await request().timeout(
-          ApiConfig.connectTimeout,
-          onTimeout: () {
-            throw ApiException.timeout();
-          },
-        );
-        return response;
-      } on TimeoutException {
-        attempts++;
-        if (attempts >= ApiConfig.maxRetries) {
-          throw ApiException.timeout();
-        }
-        await Future.delayed(ApiConfig.retryDelay * attempts);
-      } on SocketException {
-        throw ApiException.network();
-      } on http.ClientException {
-        throw ApiException.network();
-      }
-    }
-    throw ApiException.network('Max retries exceeded');
+  static void _configure(ApiServiceConfig config) {
+    _instance._config = config;
+    _instance._dio = _instance._createDio();
   }
 
-  /// Handle response
-  dynamic _handleResponse(http.Response response) {
-    final contentType = response.headers['content-type'];
-    dynamic data;
-    
-    if (contentType?.contains('application/json') ?? false) {
-      try {
-        data = json.decode(response.body);
-      } catch (_) {
-        data = response.body;
-      }
-    } else {
-      data = response.body;
-    }
+  Dio _createDio() {
+    final dio = Dio(BaseOptions(
+      baseUrl: _config.baseUrl,
+      connectTimeout: _config.connectTimeout,
+      receiveTimeout: _config.receiveTimeout,
+      sendTimeout: _config.sendTimeout,
+      headers: {
+        HttpHeaders.contentTypeHeader: 'application/json',
+        HttpHeaders.acceptHeader: 'application/json',
+        'X-App-Version': AppConstants.appVersion,
+        'X-Client-Type': kIsWeb ? 'web' : Platform.operatingSystem,
+      },
+    ));
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return data;
-    }
+    dio.interceptors.addAll([
+      _AuthInterceptor(_storageService),
+      _LoggingInterceptor(),
+      _RetryInterceptor(dio),
+      if (_config.enableLogging) _DebugInterceptor(),
+    ]);
 
-    String? requestId;
-    if (data is Map<String, dynamic>) {
-      requestId = data['request_id'];
-    }
-
-    throw ApiException.fromStatusCode(
-      response.statusCode,
-      data,
-    ).copyWith(requestId: requestId);
-  }
-
-  /// Process mock data
-  T? _processMockData<T>(String endpoint) {
-    final provider = _mockProviders[endpoint];
-    if (provider != null) {
-      return provider() as T;
-    }
-    return null;
+    return dio;
   }
 
   /// GET request
   Future<ApiResponse<T>> get<T>(
-    String endpoint, {
-    Map<String, dynamic>? queryParams,
-    T Function(dynamic)? fromJsonT,
-    bool useAuth = true,
+    String path, {
+    RequestOptions options = const RequestOptions(),
+    T Function(dynamic)? parser,
   }) async {
-    if (_useMockData) {
-      final mockData = _processMockData<T>(endpoint);
-      return ApiResponse(
-        success: true,
-        data: mockData,
-      );
-    }
-
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      if (_requestInterceptor != null) {
-        headers = await _requestInterceptor!(headers);
-      }
-
-      final response = await _executeWithRetry(
-        () => _client!.get(
-          _buildUrl(endpoint, queryParams),
-          headers: headers,
-        ),
-      );
-
-      final data = _handleResponse(response);
-      return ApiResponse.fromJson(data as Map<String, dynamic>, fromJsonT);
-    } on ApiException catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    } catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    }
+    return _request<T>(
+      path,
+      method: HttpMethod.get,
+      options: options,
+      parser: parser,
+    );
   }
 
   /// POST request
   Future<ApiResponse<T>> post<T>(
-    String endpoint, {
-    Map<String, dynamic>? body,
-    T Function(dynamic)? fromJsonT,
-    bool useAuth = true,
+    String path, {
+    dynamic data,
+    RequestOptions options = const RequestOptions(),
+    T Function(dynamic)? parser,
   }) async {
-    if (_useMockData) {
-      final mockData = _processMockData<T>(endpoint);
-      return ApiResponse(
-        success: true,
-        data: mockData,
-      );
-    }
-
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      if (_requestInterceptor != null) {
-        headers = await _requestInterceptor!(headers);
-      }
-
-      final response = await _executeWithRetry(
-        () => _client!.post(
-          _buildUrl(endpoint),
-          headers: headers,
-          body: body != null ? json.encode(body) : null,
-        ),
-      );
-
-      final data = _handleResponse(response);
-      return ApiResponse.fromJson(data as Map<String, dynamic>, fromJsonT);
-    } on ApiException catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    } catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    }
+    return _request<T>(
+      path,
+      method: HttpMethod.post,
+      data: data,
+      options: options,
+      parser: parser,
+    );
   }
 
   /// PUT request
   Future<ApiResponse<T>> put<T>(
-    String endpoint, {
-    Map<String, dynamic>? body,
-    T Function(dynamic)? fromJsonT,
-    bool useAuth = true,
+    String path, {
+    dynamic data,
+    RequestOptions options = const RequestOptions(),
+    T Function(dynamic)? parser,
   }) async {
-    if (_useMockData) {
-      final mockData = _processMockData<T>(endpoint);
-      return ApiResponse(
-        success: true,
-        data: mockData,
-      );
-    }
-
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      if (_requestInterceptor != null) {
-        headers = await _requestInterceptor!(headers);
-      }
-
-      final response = await _executeWithRetry(
-        () => _client!.put(
-          _buildUrl(endpoint),
-          headers: headers,
-          body: body != null ? json.encode(body) : null,
-        ),
-      );
-
-      final data = _handleResponse(response);
-      return ApiResponse.fromJson(data as Map<String, dynamic>, fromJsonT);
-    } on ApiException catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    } catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    }
+    return _request<T>(
+      path,
+      method: HttpMethod.put,
+      data: data,
+      options: options,
+      parser: parser,
+    );
   }
 
   /// PATCH request
   Future<ApiResponse<T>> patch<T>(
-    String endpoint, {
-    Map<String, dynamic>? body,
-    T Function(dynamic)? fromJsonT,
-    bool useAuth = true,
+    String path, {
+    dynamic data,
+    RequestOptions options = const RequestOptions(),
+    T Function(dynamic)? parser,
   }) async {
-    if (_useMockData) {
-      final mockData = _processMockData<T>(endpoint);
-      return ApiResponse(
-        success: true,
-        data: mockData,
-      );
-    }
-
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      if (_requestInterceptor != null) {
-        headers = await _requestInterceptor!(headers);
-      }
-
-      final response = await _executeWithRetry(
-        () => _client!.patch(
-          _buildUrl(endpoint),
-          headers: headers,
-          body: body != null ? json.encode(body) : null,
-        ),
-      );
-
-      final data = _handleResponse(response);
-      return ApiResponse.fromJson(data as Map<String, dynamic>, fromJsonT);
-    } on ApiException catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    } catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    }
+    return _request<T>(
+      path,
+      method: HttpMethod.patch,
+      data: data,
+      options: options,
+      parser: parser,
+    );
   }
 
   /// DELETE request
   Future<ApiResponse<T>> delete<T>(
-    String endpoint, {
-    Map<String, dynamic>? body,
-    T Function(dynamic)? fromJsonT,
-    bool useAuth = true,
+    String path, {
+    dynamic data,
+    RequestOptions options = const RequestOptions(),
+    T Function(dynamic)? parser,
   }) async {
-    if (_useMockData) {
-      final mockData = _processMockData<T>(endpoint);
-      return ApiResponse(
-        success: true,
-        data: mockData,
-      );
-    }
-
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      if (_requestInterceptor != null) {
-        headers = await _requestInterceptor!(headers);
-      }
-
-      final request = http.Request('DELETE', _buildUrl(endpoint));
-      request.headers.addAll(headers);
-      if (body != null) {
-        request.body = json.encode(body);
-      }
-
-      final streamedResponse = await _executeWithRetry(
-        () => _client!.send(request),
-      );
-      final response = await http.Response.fromStream(streamedResponse);
-
-      final data = _handleResponse(response);
-      return ApiResponse.fromJson(data as Map<String, dynamic>, fromJsonT);
-    } on ApiException catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    } catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    }
+    return _request<T>(
+      path,
+      method: HttpMethod.delete,
+      data: data,
+      options: options,
+      parser: parser,
+    );
   }
 
   /// Upload file
   Future<ApiResponse<T>> uploadFile<T>(
-    String endpoint, {
+    String path, {
     required String filePath,
-    required String fieldName,
-    Map<String, String>? fields,
-    T Function(dynamic)? fromJsonT,
-    bool useAuth = true,
+    required String fileField,
+    Map<String, dynamic>? additionalFields,
+    RequestOptions options = const RequestOptions(),
+    void Function(int, int)? onSendProgress,
+    T Function(dynamic)? parser,
   }) async {
-    if (_useMockData) {
-      final mockData = _processMockData<T>(endpoint);
-      return ApiResponse(
-        success: true,
-        data: mockData,
-      );
-    }
+    final formData = FormData.fromMap({
+      ...?additionalFields,
+      fileField: await MultipartFile.fromFile(filePath),
+    });
 
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      headers.remove('Content-Type');
+    final uploadOptions = options.copyWith(
+      headers: {
+        ...?options.headers,
+        HttpHeaders.contentTypeHeader: 'multipart/form-data',
+      },
+    );
 
-      final uri = Uri.parse('${ApiConfig.baseUrl}$endpoint');
-      final request = http.MultipartRequest('POST', uri);
-      request.headers.addAll(headers);
-
-      if (fields != null) {
-        request.fields.addAll(fields);
-      }
-
-      request.files.add(
-        await http.MultipartFile.fromPath(fieldName, filePath),
-      );
-
-      final streamedResponse = await _executeWithRetry(
-        () => _client!.send(request),
-      );
-      final response = await http.Response.fromStream(streamedResponse);
-      final data = _handleResponse(response);
-
-      return ApiResponse.fromJson(data as Map<String, dynamic>, fromJsonT);
-    } on ApiException catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    } catch (e) {
-      return ApiResponse(success: false, error: e.toString());
-    }
+    return _request<T>(
+      path,
+      method: HttpMethod.post,
+      data: formData,
+      options: uploadOptions,
+      parser: parser,
+      onSendProgress: onSendProgress,
+    );
   }
 
   /// Download file
-  Future<Uint8List?> downloadFile(
-    String endpoint, {
-    bool useAuth = true,
+  Future<String> downloadFile(
+    String path,
+    String savePath, {
+    RequestOptions options = const RequestOptions(),
+    void Function(int, int)? onReceiveProgress,
   }) async {
-    try {
-      var headers = _getHeaders();
-      if (!useAuth) {
-        headers.remove('Authorization');
-      }
-      if (_requestInterceptor != null) {
-        headers = await _requestInterceptor!(headers);
-      }
+    final response = await _dio.download(
+      path,
+      savePath,
+      queryParameters: options.queryParameters,
+      options: Options(
+        headers: options.headers,
+      ),
+      onReceiveProgress: onReceiveProgress,
+    );
 
-      final response = await _executeWithRetry(
-        () => _client!.get(
-          _buildUrl(endpoint),
-          headers: headers,
+    if (response.statusCode == 200) {
+      return savePath;
+    }
+    throw ApiException('Failed to download file');
+  }
+
+  Future<ApiResponse<T>> _request<T>(
+    String path, {
+    required HttpMethod method,
+    dynamic data,
+    RequestOptions options = const RequestOptions(),
+    T Function(dynamic)? parser,
+    void Function(int, int)? onSendProgress,
+  }) async {
+    // Check network connectivity
+    final isConnected = await _networkInfo.isConnected;
+
+    // Try mock data if offline and enabled
+    if (!isConnected && _config.enableMockData && options.useCache) {
+      return _handleMockData<T>(path, method, parser);
+    }
+
+    // If offline and mock not available, return offline error
+    if (!isConnected) {
+      return ApiResponse.failure(const ApiError(
+        code: 'OFFLINE',
+        message: 'No internet connection. Please check your network.',
+      ));
+    }
+
+    try {
+      final response = await _dio.request<T>(
+        path,
+        data: data,
+        queryParameters: options.queryParameters,
+        options: Options(
+          method: method.value,
+          headers: options.headers,
+          contentType: options.contentType,
         ),
+        onSendProgress: onSendProgress,
       );
 
-      if (response.statusCode == 200) {
-        return response.bodyBytes;
-      }
-      return null;
+      return _handleResponse<T>(response, parser);
+    } on DioException catch (e) {
+      return _handleDioError<T>(e, path, method, options, parser);
     } catch (e) {
-      return null;
+      return ApiResponse.failure(ApiError(
+        code: 'UNKNOWN_ERROR',
+        message: e.toString(),
+      ));
     }
   }
 
-  /// Close the client
-  void dispose() {
-    _client?.close();
-    _client = null;
+  ApiResponse<T> _handleResponse<T>(
+    Response response,
+    T Function(dynamic)? parser,
+  ) {
+    final body = response.data;
+
+    // Handle standard API response format
+    if (body is Map<String, dynamic>) {
+      final success = body['success'] == true;
+
+      if (success && body['data'] != null) {
+        final meta = body['meta'] != null
+            ? ResponseMeta.fromJson(body['meta'])
+            : null;
+
+        final parsedData = parser != null
+            ? parser(body['data'])
+            : body['data'] as T;
+
+        return ApiResponse.success(parsedData, meta: meta);
+      } else if (!success && body['error'] != null) {
+        return ApiResponse.failure(
+          ApiError.fromJson(body['error'] as Map<String, dynamic>),
+        );
+      }
+    }
+
+    // Direct data response
+    final parsedData = parser != null ? parser(body) : body as T;
+    return ApiResponse.success(parsedData);
+  }
+
+  ApiResponse<T> _handleDioError<T>(
+    DioException e,
+    String path,
+    HttpMethod method,
+    RequestOptions options,
+    T Function(dynamic)? parser,
+  ) {
+    // Handle 401 - token expired
+    if (e.response?.statusCode == 401) {
+      _handleUnauthorized();
+    }
+
+    // Try mock data fallback for read operations
+    if (e.response?.statusCode != null &&
+        e.response!.statusCode! >= 500 &&
+        _config.enableMockData &&
+        method == HttpMethod.get) {
+      return _handleMockData<T>(path, method, parser);
+    }
+
+    // Parse error response
+    if (e.response?.data is Map<String, dynamic>) {
+      final errorData = e.response!.data['error'];
+      if (errorData != null) {
+        return ApiResponse.failure(ApiError.fromJson(errorData));
+      }
+    }
+
+    return ApiResponse.failure(ApiError.fromDioException(e));
+  }
+
+  Future<ApiResponse<T>> _handleMockData<T>(
+    String path,
+    HttpMethod method,
+    T Function(dynamic)? parser,
+  ) async {
+    try {
+      final mockData = _mockDataService.getMockData(path, method.value);
+
+      if (mockData != null) {
+        final parsedData = parser != null ? parser(mockData) : mockData as T;
+        return ApiResponse.success(parsedData, isFromCache: true);
+      }
+    } catch (e) {
+      // Fall through to error response
+    }
+
+    return ApiResponse.failure(const ApiError(
+      code: 'NO_DATA',
+      message: 'No cached data available. Please connect to the internet.',
+    ));
+  }
+
+  void _handleUnauthorized() {
+    // Trigger logout or token refresh
+    _storageService.remove(ApiConstants.accessTokenKey);
+    _storageService.remove(ApiConstants.refreshTokenKey);
+  }
+
+  /// Set authentication token
+  void setAuthToken(String token) {
+    _storageService.write(ApiConstants.accessTokenKey, token);
+  }
+
+  /// Set refresh token
+  void setRefreshToken(String token) {
+    _storageService.write(ApiConstants.refreshTokenKey, token);
+  }
+
+  /// Clear authentication tokens
+  void clearAuth() {
+    _storageService.remove(ApiConstants.accessTokenKey);
+    _storageService.remove(ApiConstants.refreshTokenKey);
+  }
+
+  /// Get current access token
+  Future<String?> getAccessToken() async {
+    return _storageService.read(ApiConstants.accessTokenKey);
+  }
+
+  /// Get current refresh token
+  Future<String?> getRefreshToken() async {
+    return _storageService.read(ApiConstants.refreshTokenKey);
+  }
+
+  /// Cancel all pending requests
+  void cancelAllRequests() {
+    _dio.close(force: true);
+    _dio = _createDio();
   }
 }
 
-/// Extension to copy ApiException with requestId
-extension ApiExceptionCopyWith on ApiException {
-  ApiException copyWith({
-    String? message,
-    ApiErrorType? type,
-    int? statusCode,
-    dynamic data,
-    String? requestId,
-  }) {
+/// Auth interceptor for adding tokens
+class _AuthInterceptor extends Interceptor {
+  final StorageService _storageService;
+
+  _AuthInterceptor(this._storageService);
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    // Skip auth for public endpoints
+    if (_isPublicEndpoint(options.path)) {
+      return handler.next(options);
+    }
+
+    final token = await _storageService.read(ApiConstants.accessTokenKey);
+
+    if (token != null) {
+      options.headers[HttpHeaders.authorizationHeader] = 'Bearer $token';
+    }
+
+    // Add timezone header
+    options.headers['X-Timezone'] = DateTime.now().timeZoneName;
+
+    handler.next(options);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    if (err.response?.statusCode == 401) {
+      // Try to refresh token
+      final refreshed = await _refreshToken();
+      if (refreshed) {
+        // Retry original request
+        final retryResponse = await _retryRequest(err.requestOptions);
+        return handler.resolve(retryResponse);
+      }
+    }
+    handler.next(err);
+  }
+
+  bool _isPublicEndpoint(String path) {
+    final publicEndpoints = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/auth/verify-email',
+      '/auth/google',
+      '/utilities/exchange-rates',
+    ];
+
+    return publicEndpoints.any((endpoint) => path.contains(endpoint));
+  }
+
+  Future<bool> _refreshToken() async {
+    try {
+      final refreshToken = await _storageService.read(ApiConstants.refreshTokenKey);
+      if (refreshToken == null) return false;
+
+      final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
+      final response = await dio.post(
+        '/auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data['data'];
+        if (data['tokens'] != null) {
+          await _storageService.write(
+            ApiConstants.accessTokenKey,
+            data['tokens']['accessToken'],
+          );
+          await _storageService.write(
+            ApiConstants.refreshTokenKey,
+            data['tokens']['refreshToken'],
+          );
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Future<Response> _retryRequest(RequestOptions options) async {
+    final token = await _storageService.read(ApiConstants.accessTokenKey);
+    options.headers[HttpHeaders.authorizationHeader] = 'Bearer $token';
+
+    final dio = Dio();
+    return dio.fetch(options);
+  }
+}
+
+/// Logging interceptor
+class _LoggingInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    debugPrint('┌──────────────────────────────────────────────────────────────');
+    debugPrint('│ REQUEST: ${options.method} ${options.uri}');
+    debugPrint('│ Headers: ${options.headers}');
+    if (options.data != null) {
+      debugPrint('│ Body: ${jsonEncode(options.data)}');
+    }
+    debugPrint('└──────────────────────────────────────────────────────────────');
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    debugPrint('┌──────────────────────────────────────────────────────────────');
+    debugPrint('│ RESPONSE: ${response.statusCode} ${response.requestOptions.uri}');
+    debugPrint('│ Data: ${jsonEncode(response.data)}');
+    debugPrint('└──────────────────────────────────────────────────────────────');
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    debugPrint('┌──────────────────────────────────────────────────────────────');
+    debugPrint('│ ERROR: ${err.type} ${err.requestOptions.uri}');
+    debugPrint('│ Message: ${err.message}');
+    if (err.response != null) {
+      debugPrint('│ Response: ${err.response?.data}');
+    }
+    debugPrint('└──────────────────────────────────────────────────────────────');
+    handler.next(err);
+  }
+}
+
+/// Debug interceptor for development
+class _DebugInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (kDebugMode) {
+      _logRequest(options);
+    }
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    if (kDebugMode) {
+      _logResponse(response);
+    }
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    if (kDebugMode) {
+      _logError(err);
+    }
+    handler.next(err);
+  }
+
+  void _logRequest(RequestOptions options) {
+    final separator = '═' * 60;
+    debugPrint('''
+$separator
+📤 REQUEST
+$separator
+${options.method} ${options.uri}
+${options.headers.entries.map((e) => '${e.key}: ${e.value}').join('\n')}
+${options.data != null ? '\nBody: ${jsonEncode(options.data)}' : ''}
+$separator
+''');
+  }
+
+  void _logResponse(Response response) {
+    final separator = '═' * 60;
+    debugPrint('''
+$separator
+📥 RESPONSE
+$separator
+${response.statusCode} ${response.requestOptions.uri}
+Time: ${response.responseDateTime}
+${response.data != null ? '\nBody: ${jsonEncode(response.data)}' : ''}
+$separator
+''');
+  }
+
+  void _logError(DioException err) {
+    final separator = '═' * 60;
+    debugPrint('''
+$separator
+❌ ERROR
+$separator
+Type: ${err.type}
+URL: ${err.requestOptions.uri}
+Message: ${err.message}
+${err.response != null ? 'Status: ${err.response?.statusCode}\nData: ${err.response?.data}' : ''}
+$separator
+''');
+  }
+}
+
+/// Retry interceptor for failed requests
+class _RetryInterceptor extends Interceptor {
+  final Dio _dio;
+  final int _maxRetries;
+  final Duration _retryDelay;
+
+  _RetryInterceptor(
+    this._dio, {
+    int maxRetries = 3,
+    Duration retryDelay = const Duration(seconds: 1),
+  })  : _maxRetries = maxRetries,
+        _retryDelay = retryDelay;
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final requestOptions = err.requestOptions;
+    final retryCount = requestOptions.extra['retryCount'] ?? 0;
+
+    // Only retry on connection errors or 5xx server errors
+    final shouldRetry = _shouldRetry(err) && retryCount < _maxRetries;
+
+    if (shouldRetry) {
+      requestOptions.extra['retryCount'] = retryCount + 1;
+
+      // Exponential backoff
+      final delay = _retryDelay * (retryCount + 1);
+      await Future.delayed(delay);
+
+      try {
+        final response = await _dio.fetch(requestOptions);
+        return handler.resolve(response);
+      } catch (e) {
+        if (e is DioException) {
+          return handler.next(e);
+        }
+      }
+    }
+
+    handler.next(err);
+  }
+
+  bool _shouldRetry(DioException err) {
+    return err.type == DioExceptionType.connectionTimeout ||
+        err.type == DioExceptionType.sendTimeout ||
+        err.type == DioExceptionType.connectionError ||
+        (err.response?.statusCode ?? 0) >= 500;
+  }
+}
+
+/// Extension for API Exception handling
+extension ApiErrorExtension on ApiError {
+  bool get isNetworkError =>
+      code == 'CONNECTION_ERROR' ||
+      code == 'CONNECTION_TIMEOUT' ||
+      code == 'OFFLINE';
+
+  bool get isAuthError =>
+      code == 'UNAUTHORIZED' ||
+      code == 'TOKEN_EXPIRED' ||
+      code == 'INVALID_CREDENTIALS';
+
+  bool get isValidationError =>
+      code == 'VALIDATION_ERROR' || code == 'BAD_REQUEST';
+
+  bool get isServerError =>
+      code == 'INTERNAL_ERROR' ||
+      code == 'SERVER_ERROR' ||
+      code == 'SERVICE_UNAVAILABLE';
+}
+
+/// API Exception wrapper
+class ApiException implements Exception {
+  final String message;
+  final String? code;
+  final dynamic originalError;
+
+  const ApiException(this.message, {this.code, this.originalError});
+
+  factory ApiException.fromApiError(ApiError error) {
     return ApiException(
-      message: message ?? this.message,
-      type: type ?? this.type,
-      statusCode: statusCode ?? this.statusCode,
-      data: data ?? this.data,
-      requestId: requestId ?? this.requestId,
+      error.message,
+      code: error.code,
     );
   }
+
+  @override
+  String toString() => 'ApiException: $message (code: $code)';
 }
