@@ -1,105 +1,41 @@
-import 'package:json_annotation/json_annotation.dart';
+import 'dart:convert';
 
-part 'user_model.g.dart';
-
-/// User model representing a FinTrack user account.
-/// 
-/// Contains all user profile information, authentication settings,
-/// and user preferences for the application.
-@JsonSerializable(explicitToJson: true)
-class UserModel {
-  /// Unique identifier for the user (UUID format)
+class User {
   final String id;
-
-  /// User's email address (unique, required)
   final String email;
-
-  /// User's full name (display name)
-  @JsonKey(name: 'full_name')
+  final String? passwordHash;
   final String fullName;
-
-  /// URL to user's avatar image
-  @JsonKey(name: 'avatar_url')
   final String? avatarUrl;
-
-  /// User's phone number
-  @JsonKey(name: 'phone_number')
-  final String? phoneNumber;
-
-  /// User's date of birth
-  @JsonKey(name: 'date_of_birth', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
-  final DateTime? dateOfBirth;
-
-  /// Whether PIN authentication is enabled
-  @JsonKey(name: 'pin_enabled')
-  final bool pinEnabled;
-
-  /// Whether biometric authentication is enabled
-  @JsonKey(name: 'biometric_enabled')
+  final String? googleId;
+  final String? pinHash;
   final bool biometricEnabled;
-
-  /// User's timezone (IANA format, e.g., 'Asia/Jakarta')
+  final String phone;
+  final DateTime? dateOfBirth;
   final String timezone;
-
-  /// User's locale code (e.g., 'id_ID', 'en_US')
   final String locale;
-
-  /// UI theme preference ('light', 'dark', 'system')
   final String theme;
-
-  /// Whether email has been verified
-  @JsonKey(name: 'email_verified')
   final bool emailVerified;
-
-  /// Timestamp when email was verified
-  @JsonKey(name: 'email_verified_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
   final DateTime? emailVerifiedAt;
-
-  /// Whether the user account is active
-  @JsonKey(name: 'is_active')
   final bool isActive;
-
-  /// Whether the user has a premium subscription
-  @JsonKey(name: 'is_premium')
   final bool isPremium;
-
-  /// Premium subscription expiration date
-  @JsonKey(name: 'premium_expires_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
   final DateTime? premiumExpiresAt;
-
-  /// Last login timestamp
-  @JsonKey(name: 'last_login_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
   final DateTime? lastLoginAt;
-
-  /// User creation timestamp
-  @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
+  final UserSettings settings;
   final DateTime createdAt;
-
-  /// Last update timestamp
-  @JsonKey(name: 'updated_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
   final DateTime updatedAt;
-
-  /// User deletion timestamp (soft delete)
-  @JsonKey(name: 'deleted_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
   final DateTime? deletedAt;
 
-  /// User's custom settings/preferences
-  @JsonKey(name: 'settings')
-  final UserSettingsModel? settings;
-
-  /// Authentication provider information
-  @JsonKey(name: 'auth_provider')
-  final AuthProviderModel? authProvider;
-
-  const UserModel({
+  const User({
     required this.id,
     required this.email,
+    this.passwordHash,
     required this.fullName,
     this.avatarUrl,
-    this.phoneNumber,
-    this.dateOfBirth,
-    this.pinEnabled = false,
+    this.googleId,
+    this.pinHash,
     this.biometricEnabled = false,
+    this.phone = '',
+    this.dateOfBirth,
     this.timezone = 'Asia/Jakarta',
     this.locale = 'id_ID',
     this.theme = 'light',
@@ -109,29 +45,39 @@ class UserModel {
     this.isPremium = false,
     this.premiumExpiresAt,
     this.lastLoginAt,
+    this.settings = const UserSettings(),
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
-    this.settings,
-    this.authProvider,
   });
 
-  /// Creates a UserModel from JSON map.
-  factory UserModel.fromJson(Map<String, dynamic> json) => _$UserModelFromJson(json);
+  bool get hasPassword => passwordHash != null && passwordHash!.isNotEmpty;
+  bool get hasGoogle => googleId != null && googleId!.isNotEmpty;
+  bool get hasPin => pinHash != null && pinHash!.isNotEmpty;
+  bool get hasBiometric => biometricEnabled;
+  bool get premiumActive =>
+      isPremium && (premiumExpiresAt == null || premiumExpiresAt!.isAfter(DateTime.now()));
 
-  /// Converts this UserModel to JSON map.
-  Map<String, dynamic> toJson() => _$UserModelToJson(this);
+  String get initials {
+    final parts = fullName.trim().split(' ');
+    if (parts.isEmpty) return '';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
+  }
 
-  /// Creates a copy of this UserModel with optional field overrides.
-  UserModel copyWith({
+  String get displayName => fullName.isNotEmpty ? fullName : email.split('@').first;
+
+  User copyWith({
     String? id,
     String? email,
+    String? passwordHash,
     String? fullName,
     String? avatarUrl,
-    String? phoneNumber,
-    DateTime? dateOfBirth,
-    bool? pinEnabled,
+    String? googleId,
+    String? pinHash,
     bool? biometricEnabled,
+    String? phone,
+    DateTime? dateOfBirth,
     String? timezone,
     String? locale,
     String? theme,
@@ -141,204 +87,221 @@ class UserModel {
     bool? isPremium,
     DateTime? premiumExpiresAt,
     DateTime? lastLoginAt,
+    UserSettings? settings,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? deletedAt,
-    UserSettingsModel? settings,
-    AuthProviderModel? authProvider,
+    bool clearPasswordHash = false,
+    bool clearPinHash = false,
+    bool clearAvatarUrl = false,
+    bool clearGoogleId = false,
+    bool clearDateOfBirth = false,
+    bool clearEmailVerifiedAt = false,
+    bool clearPremiumExpiresAt = false,
+    bool clearLastLoginAt = false,
+    bool clearDeletedAt = false,
   }) {
-    return UserModel(
+    return User(
       id: id ?? this.id,
       email: email ?? this.email,
+      passwordHash: clearPasswordHash ? null : (passwordHash ?? this.passwordHash),
       fullName: fullName ?? this.fullName,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      pinEnabled: pinEnabled ?? this.pinEnabled,
+      avatarUrl: clearAvatarUrl ? null : (avatarUrl ?? this.avatarUrl),
+      googleId: clearGoogleId ? null : (googleId ?? this.googleId),
+      pinHash: clearPinHash ? null : (pinHash ?? this.pinHash),
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      phone: phone ?? this.phone,
+      dateOfBirth: clearDateOfBirth ? null : (dateOfBirth ?? this.dateOfBirth),
       timezone: timezone ?? this.timezone,
       locale: locale ?? this.locale,
       theme: theme ?? this.theme,
       emailVerified: emailVerified ?? this.emailVerified,
-      emailVerifiedAt: emailVerifiedAt ?? this.emailVerifiedAt,
+      emailVerifiedAt:
+          clearEmailVerifiedAt ? null : (emailVerifiedAt ?? this.emailVerifiedAt),
       isActive: isActive ?? this.isActive,
       isPremium: isPremium ?? this.isPremium,
-      premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      premiumExpiresAt:
+          clearPremiumExpiresAt ? null : (premiumExpiresAt ?? this.premiumExpiresAt),
+      lastLoginAt: clearLastLoginAt ? null : (lastLoginAt ?? this.lastLoginAt),
+      settings: settings ?? this.settings,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      deletedAt: deletedAt ?? this.deletedAt,
-      settings: settings ?? this.settings,
-      authProvider: authProvider ?? this.authProvider,
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
 
-  /// Creates an empty/default user model.
-  factory UserModel.empty() => UserModel(
-    id: '',
-    email: '',
-    fullName: '',
-    createdAt: DateTime.now(),
-    updatedAt: DateTime.now(),
-  );
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'password_hash': passwordHash,
+      'full_name': fullName,
+      'avatar_url': avatarUrl,
+      'google_id': googleId,
+      'pin_hash': pinHash,
+      'biometric_enabled': biometricEnabled,
+      'phone': phone,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'timezone': timezone,
+      'locale': locale,
+      'theme': theme,
+      'email_verified': emailVerified,
+      'email_verified_at': emailVerifiedAt?.toIso8601String(),
+      'is_active': isActive,
+      'is_premium': isPremium,
+      'premium_expires_at': premiumExpiresAt?.toIso8601String(),
+      'last_login_at': lastLoginAt?.toIso8601String(),
+      'settings': settings.toJson(),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'deleted_at': deletedAt?.toIso8601String(),
+    };
+  }
 
-  /// Returns true if this is a valid, non-empty user.
-  bool get isValid => id.isNotEmpty && email.isNotEmpty && fullName.isNotEmpty;
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      passwordHash: json['password_hash'] as String?,
+      fullName: json['full_name'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String?,
+      googleId: json['google_id'] as String?,
+      pinHash: json['pin_hash'] as String?,
+      biometricEnabled: json['biometric_enabled'] as bool? ?? false,
+      phone: json['phone'] as String? ?? '',
+      dateOfBirth: json['date_of_birth'] != null
+          ? DateTime.parse(json['date_of_birth'] as String)
+          : null,
+      timezone: json['timezone'] as String? ?? 'Asia/Jakarta',
+      locale: json['locale'] as String? ?? 'id_ID',
+      theme: json['theme'] as String? ?? 'light',
+      emailVerified: json['email_verified'] as bool? ?? false,
+      emailVerifiedAt: json['email_verified_at'] != null
+          ? DateTime.parse(json['email_verified_at'] as String)
+          : null,
+      isActive: json['is_active'] as bool? ?? true,
+      isPremium: json['is_premium'] as bool? ?? false,
+      premiumExpiresAt: json['premium_expires_at'] != null
+          ? DateTime.parse(json['premium_expires_at'] as String)
+          : null,
+      lastLoginAt: json['last_login_at'] != null
+          ? DateTime.parse(json['last_login_at'] as String)
+          : null,
+      settings: json['settings'] != null
+          ? UserSettings.fromJson(
+              json['settings'] is String
+                  ? jsonDecode(json['settings'] as String) as Map<String, dynamic>
+                  : json['settings'] as Map<String, dynamic>,
+            )
+          : const UserSettings(),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.now(),
+      deletedAt: json['deleted_at'] != null
+          ? DateTime.parse(json['deleted_at'] as String)
+          : null,
+    );
+  }
 
-  /// Returns true if the user's premium subscription is still valid.
-  bool get hasValidPremium => isPremium && 
-      (premiumExpiresAt == null || premiumExpiresAt!.isAfter(DateTime.now()));
+  String toJsonString() => jsonEncode(toJson());
 
-  /// Returns the user's display name (fullName or email username).
-  String get displayName => fullName.isNotEmpty ? fullName : email.split('@').first;
+  factory User.fromJsonString(String jsonString) =>
+      User.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'email': email,
+      'full_name': fullName,
+      'avatar_url': avatarUrl,
+      'phone': phone,
+      'date_of_birth': dateOfBirth?.millisecondsSinceEpoch,
+      'timezone': timezone,
+      'locale': locale,
+      'theme': theme,
+      'email_verified': emailVerified,
+      'is_active': isActive,
+      'is_premium': isPremium,
+      'premium_expires_at': premiumExpiresAt?.millisecondsSinceEpoch,
+      'last_login_at': lastLoginAt?.millisecondsSinceEpoch,
+      'settings': settings.toFirestore(),
+      'created_at': createdAt.millisecondsSinceEpoch,
+      'updated_at': updatedAt.millisecondsSinceEpoch,
+    };
+  }
+
+  factory User.fromFirestore(Map<String, dynamic> doc) {
+    final data = doc;
+    return User(
+      id: data['id'] as String,
+      email: data['email'] as String,
+      fullName: data['full_name'] as String? ?? '',
+      avatarUrl: data['avatar_url'] as String?,
+      phone: data['phone'] as String? ?? '',
+      dateOfBirth: data['date_of_birth'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['date_of_birth'] as int)
+          : null,
+      timezone: data['timezone'] as String? ?? 'Asia/Jakarta',
+      locale: data['locale'] as String? ?? 'id_ID',
+      theme: data['theme'] as String? ?? 'light',
+      emailVerified: data['email_verified'] as bool? ?? false,
+      isActive: data['is_active'] as bool? ?? true,
+      isPremium: data['is_premium'] as bool? ?? false,
+      premiumExpiresAt: data['premium_expires_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['premium_expires_at'] as int)
+          : null,
+      lastLoginAt: data['last_login_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['last_login_at'] as int)
+          : null,
+      settings: data['settings'] != null
+          ? UserSettings.fromFirestore(
+              data['settings'] as Map<String, dynamic>,
+            )
+          : const UserSettings(),
+      createdAt: data['created_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['created_at'] as int)
+          : DateTime.now(),
+      updatedAt: data['updated_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['updated_at'] as int)
+          : DateTime.now(),
+    );
+  }
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UserModel &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          email == other.email &&
-          fullName == other.fullName &&
-          avatarUrl == other.avatarUrl &&
-          phoneNumber == other.phoneNumber &&
-          dateOfBirth == other.dateOfBirth &&
-          pinEnabled == other.pinEnabled &&
-          biometricEnabled == other.biometricEnabled &&
-          timezone == other.timezone &&
-          locale == other.locale &&
-          theme == other.theme &&
-          emailVerified == other.emailVerified &&
-          isActive == other.isActive &&
-          isPremium == other.isPremium;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is User && other.id == id;
+  }
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        email,
-        fullName,
-        avatarUrl,
-        phoneNumber,
-        dateOfBirth,
-        pinEnabled,
-        biometricEnabled,
-        timezone,
-        locale,
-        theme,
-        emailVerified,
-        isActive,
-        isPremium,
-      );
+  int get hashCode => id.hashCode;
 
   @override
   String toString() {
-    return 'UserModel{id: $id, email: $email, fullName: $fullName, '
-        'isPremium: $isPremium, theme: $theme}';
+    return 'User(id: $id, email: $email, fullName: $fullName, isPremium: $isPremium)';
   }
 }
 
-/// Helper to parse DateTime from various formats.
-DateTime? _dateTimeFromJson(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
-  if (value is String) return DateTime.tryParse(value);
-  return null;
-}
-
-/// Helper to serialize DateTime to ISO 8601 string.
-dynamic _dateTimeToJson(DateTime? dateTime) {
-  return dateTime?.toIso8601String();
-}
-
-/// User settings and preferences model.
-@JsonSerializable()
-class UserSettingsModel {
-  /// Currency code (ISO 4217, e.g., 'IDR', 'USD')
-  @JsonKey(name: 'currency_code')
+class UserSettings {
   final String currencyCode;
-
-  /// Currency symbol (e.g., 'Rp', '$')
-  @JsonKey(name: 'currency_symbol')
   final String currencySymbol;
-
-  /// Date format string (e.g., 'DD/MM/YYYY', 'MM/DD/YYYY')
-  @JsonKey(name: 'date_format')
   final String dateFormat;
-
-  /// First day of week (0 = Sunday, 1 = Monday)
-  @JsonKey(name: 'first_day_of_week')
   final int firstDayOfWeek;
-
-  /// Decimal separator character
-  @JsonKey(name: 'decimal_separator')
   final String decimalSeparator;
-
-  /// Thousand separator character
-  @JsonKey(name: 'thousand_separator')
   final String thousandSeparator;
-
-  /// Default account ID for new transactions
-  @JsonKey(name: 'default_account_id')
   final String? defaultAccountId;
-
-  /// Whether notifications are enabled
-  @JsonKey(name: 'enable_notifications')
   final bool enableNotifications;
-
-  /// Whether email reports are enabled
-  @JsonKey(name: 'enable_email_reports')
   final bool enableEmailReports;
-
-  /// Email report frequency
-  @JsonKey(name: 'report_frequency')
   final String reportFrequency;
-
-  /// Whether low balance alerts are enabled
-  @JsonKey(name: 'low_balance_alert')
   final bool lowBalanceAlert;
-
-  /// Low balance threshold amount
-  @JsonKey(name: 'low_balance_threshold')
   final double lowBalanceThreshold;
-
-  /// Budget alert percentage (0-100)
-  @JsonKey(name: 'budget_alert_percentage')
   final int budgetAlertPercentage;
-
-  /// Investment alert percentage (0-100)
-  @JsonKey(name: 'investment_alert_percentage')
   final int investmentAlertPercentage;
 
-  /// Whether daily reminder is enabled
-  @JsonKey(name: 'daily_reminder')
-  final bool dailyReminder;
-
-  /// Daily reminder time (HH:mm format)
-  @JsonKey(name: 'reminder_time')
-  final String? reminderTime;
-
-  /// Whether transaction alerts are enabled
-  @JsonKey(name: 'transaction_alerts')
-  final bool transactionAlerts;
-
-  /// Whether portfolio alerts are enabled
-  @JsonKey(name: 'portfolio_alerts')
-  final bool portfolioAlerts;
-
-  /// Whether savings milestone notifications are enabled
-  @JsonKey(name: 'savings_milestones')
-  final bool savingsMilestones;
-
-  /// Auto-sync enabled
-  @JsonKey(name: 'auto_sync')
-  final bool autoSync;
-
-  /// Sync frequency ('realtime', 'hourly', 'daily')
-  @JsonKey(name: 'sync_frequency')
-  final String syncFrequency;
-
-  const UserSettingsModel({
+  const UserSettings({
     this.currencyCode = 'IDR',
     this.currencySymbol = 'Rp',
     this.dateFormat = 'DD/MM/YYYY',
@@ -353,21 +316,9 @@ class UserSettingsModel {
     this.lowBalanceThreshold = 500000,
     this.budgetAlertPercentage = 80,
     this.investmentAlertPercentage = 10,
-    this.dailyReminder = false,
-    this.reminderTime,
-    this.transactionAlerts = true,
-    this.portfolioAlerts = true,
-    this.savingsMilestones = true,
-    this.autoSync = true,
-    this.syncFrequency = 'realtime',
   });
 
-  factory UserSettingsModel.fromJson(Map<String, dynamic> json) => 
-      _$UserSettingsModelFromJson(json);
-
-  Map<String, dynamic> toJson() => _$UserSettingsModelToJson(this);
-
-  UserSettingsModel copyWith({
+  UserSettings copyWith({
     String? currencyCode,
     String? currencySymbol,
     String? dateFormat,
@@ -382,339 +333,299 @@ class UserSettingsModel {
     double? lowBalanceThreshold,
     int? budgetAlertPercentage,
     int? investmentAlertPercentage,
-    bool? dailyReminder,
-    String? reminderTime,
-    bool? transactionAlerts,
-    bool? portfolioAlerts,
-    bool? savingsMilestones,
-    bool? autoSync,
-    String? syncFrequency,
+    bool clearDefaultAccountId = false,
   }) {
-    return UserSettingsModel(
+    return UserSettings(
       currencyCode: currencyCode ?? this.currencyCode,
       currencySymbol: currencySymbol ?? this.currencySymbol,
       dateFormat: dateFormat ?? this.dateFormat,
       firstDayOfWeek: firstDayOfWeek ?? this.firstDayOfWeek,
       decimalSeparator: decimalSeparator ?? this.decimalSeparator,
       thousandSeparator: thousandSeparator ?? this.thousandSeparator,
-      defaultAccountId: defaultAccountId ?? this.defaultAccountId,
+      defaultAccountId:
+          clearDefaultAccountId ? null : (defaultAccountId ?? this.defaultAccountId),
       enableNotifications: enableNotifications ?? this.enableNotifications,
       enableEmailReports: enableEmailReports ?? this.enableEmailReports,
       reportFrequency: reportFrequency ?? this.reportFrequency,
       lowBalanceAlert: lowBalanceAlert ?? this.lowBalanceAlert,
       lowBalanceThreshold: lowBalanceThreshold ?? this.lowBalanceThreshold,
       budgetAlertPercentage: budgetAlertPercentage ?? this.budgetAlertPercentage,
-      investmentAlertPercentage: investmentAlertPercentage ?? this.investmentAlertPercentage,
-      dailyReminder: dailyReminder ?? this.dailyReminder,
-      reminderTime: reminderTime ?? this.reminderTime,
-      transactionAlerts: transactionAlerts ?? this.transactionAlerts,
-      portfolioAlerts: portfolioAlerts ?? this.portfolioAlerts,
-      savingsMilestones: savingsMilestones ?? this.savingsMilestones,
-      autoSync: autoSync ?? this.autoSync,
-      syncFrequency: syncFrequency ?? this.syncFrequency,
+      investmentAlertPercentage:
+          investmentAlertPercentage ?? this.investmentAlertPercentage,
     );
   }
 
-  /// Formats a number with the user's currency settings.
-  String formatCurrency(double amount) {
-    final parts = amount.toStringAsFixed(2).split('.');
-    final intPart = parts[0].replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}$thousandSeparator',
+  Map<String, dynamic> toJson() {
+    return {
+      'currency_code': currencyCode,
+      'currency_symbol': currencySymbol,
+      'date_format': dateFormat,
+      'first_day_of_week': firstDayOfWeek,
+      'decimal_separator': decimalSeparator,
+      'thousand_separator': thousandSeparator,
+      'default_account_id': defaultAccountId,
+      'enable_notifications': enableNotifications,
+      'enable_email_reports': enableEmailReports,
+      'report_frequency': reportFrequency,
+      'low_balance_alert': lowBalanceAlert,
+      'low_balance_threshold': lowBalanceThreshold,
+      'budget_alert_percentage': budgetAlertPercentage,
+      'investment_alert_percentage': investmentAlertPercentage,
+    };
+  }
+
+  factory UserSettings.fromJson(Map<String, dynamic> json) {
+    return UserSettings(
+      currencyCode: json['currency_code'] as String? ?? 'IDR',
+      currencySymbol: json['currency_symbol'] as String? ?? 'Rp',
+      dateFormat: json['date_format'] as String? ?? 'DD/MM/YYYY',
+      firstDayOfWeek: json['first_day_of_week'] as int? ?? 1,
+      decimalSeparator: json['decimal_separator'] as String? ?? ',',
+      thousandSeparator: json['thousand_separator'] as String? ?? '.',
+      defaultAccountId: json['default_account_id'] as String?,
+      enableNotifications: json['enable_notifications'] as bool? ?? true,
+      enableEmailReports: json['enable_email_reports'] as bool? ?? false,
+      reportFrequency: json['report_frequency'] as String? ?? 'weekly',
+      lowBalanceAlert: json['low_balance_alert'] as bool? ?? true,
+      lowBalanceThreshold:
+          (json['low_balance_threshold'] as num?)?.toDouble() ?? 500000,
+      budgetAlertPercentage: json['budget_alert_percentage'] as int? ?? 80,
+      investmentAlertPercentage:
+          json['investment_alert_percentage'] as int? ?? 10,
     );
-    return '$currencySymbol$intPart$decimalSeparator${parts[1]}';
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'currency_code': currencyCode,
+      'currency_symbol': currencySymbol,
+      'date_format': dateFormat,
+      'first_day_of_week': firstDayOfWeek,
+      'decimal_separator': decimalSeparator,
+      'thousand_separator': thousandSeparator,
+      'default_account_id': defaultAccountId,
+      'enable_notifications': enableNotifications,
+      'enable_email_reports': enableEmailReports,
+      'report_frequency': reportFrequency,
+      'low_balance_alert': lowBalanceAlert,
+      'low_balance_threshold': lowBalanceThreshold,
+      'budget_alert_percentage': budgetAlertPercentage,
+      'investment_alert_percentage': investmentAlertPercentage,
+    };
+  }
+
+  factory UserSettings.fromFirestore(Map<String, dynamic> doc) {
+    return UserSettings(
+      currencyCode: doc['currency_code'] as String? ?? 'IDR',
+      currencySymbol: doc['currency_symbol'] as String? ?? 'Rp',
+      dateFormat: doc['date_format'] as String? ?? 'DD/MM/YYYY',
+      firstDayOfWeek: doc['first_day_of_week'] as int? ?? 1,
+      decimalSeparator: doc['decimal_separator'] as String? ?? ',',
+      thousandSeparator: doc['thousand_separator'] as String? ?? '.',
+      defaultAccountId: doc['default_account_id'] as String?,
+      enableNotifications: doc['enable_notifications'] as bool? ?? true,
+      enableEmailReports: doc['enable_email_reports'] as bool? ?? false,
+      reportFrequency: doc['report_frequency'] as String? ?? 'weekly',
+      lowBalanceAlert: doc['low_balance_alert'] as bool? ?? true,
+      lowBalanceThreshold:
+          (doc['low_balance_threshold'] as num?)?.toDouble() ?? 500000,
+      budgetAlertPercentage: doc['budget_alert_percentage'] as int? ?? 80,
+      investmentAlertPercentage:
+          doc['investment_alert_percentage'] as int? ?? 10,
+    );
   }
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is UserSettingsModel &&
-          runtimeType == other.runtimeType &&
-          currencyCode == other.currencyCode &&
-          currencySymbol == other.currencySymbol &&
-          dateFormat == other.dateFormat &&
-          firstDayOfWeek == other.firstDayOfWeek &&
-          enableNotifications == other.enableNotifications &&
-          autoSync == other.autoSync;
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UserSettings &&
+        other.currencyCode == currencyCode &&
+        other.currencySymbol == currencySymbol &&
+        other.dateFormat == dateFormat &&
+        other.firstDayOfWeek == firstDayOfWeek &&
+        other.decimalSeparator == decimalSeparator &&
+        other.thousandSeparator == thousandSeparator &&
+        other.defaultAccountId == defaultAccountId &&
+        other.enableNotifications == enableNotifications &&
+        other.enableEmailReports == enableEmailReports &&
+        other.reportFrequency == reportFrequency &&
+        other.lowBalanceAlert == lowBalanceAlert &&
+        other.lowBalanceThreshold == lowBalanceThreshold &&
+        other.budgetAlertPercentage == budgetAlertPercentage &&
+        other.investmentAlertPercentage == investmentAlertPercentage;
+  }
 
   @override
-  int get hashCode => Object.hash(
-        currencyCode,
-        currencySymbol,
-        dateFormat,
-        firstDayOfWeek,
-        enableNotifications,
-        autoSync,
-      );
+  int get hashCode {
+    return Object.hash(
+      currencyCode,
+      currencySymbol,
+      dateFormat,
+      firstDayOfWeek,
+      decimalSeparator,
+      thousandSeparator,
+      defaultAccountId,
+      enableNotifications,
+      enableEmailReports,
+      reportFrequency,
+      lowBalanceAlert,
+      lowBalanceThreshold,
+      budgetAlertPercentage,
+      investmentAlertPercentage,
+    );
+  }
 }
 
-/// Authentication provider information.
-@JsonSerializable()
-class AuthProviderModel {
-  /// Provider type ('email', 'google', 'apple')
-  final String provider;
+class UserRegistrationRequest {
+  final String email;
+  final String password;
+  final String fullName;
+  final String? phone;
+  final String currency;
+  final String timezone;
 
-  /// Whether this is the primary provider
-  @JsonKey(name: 'is_primary')
-  final bool isPrimary;
-
-  /// Provider user ID
-  @JsonKey(name: 'provider_user_id')
-  final String? providerUserId;
-
-  /// Token expiration timestamp
-  @JsonKey(name: 'token_expires_at', fromJson: _dateTimeFromJson, toJson: _dateTimeToJson)
-  final DateTime? tokenExpiresAt;
-
-  /// Provider metadata
-  final Map<String, dynamic>? metadata;
-
-  const AuthProviderModel({
-    required this.provider,
-    this.isPrimary = false,
-    this.providerUserId,
-    this.tokenExpiresAt,
-    this.metadata,
+  const UserRegistrationRequest({
+    required this.email,
+    required this.password,
+    required this.fullName,
+    this.phone,
+    this.currency = 'IDR',
+    this.timezone = 'Asia/Jakarta',
   });
 
-  factory AuthProviderModel.fromJson(Map<String, dynamic> json) =>
-      _$AuthProviderModelFromJson(json);
-
-  Map<String, dynamic> toJson() => _$AuthProviderModelToJson(this);
-
-  AuthProviderModel copyWith({
-    String? provider,
-    bool? isPrimary,
-    String? providerUserId,
-    DateTime? tokenExpiresAt,
-    Map<String, dynamic>? metadata,
-  }) {
-    return AuthProviderModel(
-      provider: provider ?? this.provider,
-      isPrimary: isPrimary ?? this.isPrimary,
-      providerUserId: providerUserId ?? this.providerUserId,
-      tokenExpiresAt: tokenExpiresAt ?? this.tokenExpiresAt,
-      metadata: metadata ?? this.metadata,
-    );
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+      'full_name': fullName,
+      'phone': phone,
+      'currency': currency,
+      'timezone': timezone,
+    };
   }
 
-  /// Returns true if the provider uses Google OAuth.
-  bool get isGoogle => provider == 'google';
-
-  /// Returns true if the provider uses Apple OAuth.
-  bool get isApple => provider == 'apple';
-
-  /// Returns true if the provider uses email/password.
-  bool get isEmail => provider == 'email';
-
-  /// Returns true if the token is expired.
-  bool get isTokenExpired =>
-      tokenExpiresAt != null && tokenExpiresAt!.isBefore(DateTime.now());
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AuthProviderModel &&
-          runtimeType == other.runtimeType &&
-          provider == other.provider &&
-          isPrimary == other.isPrimary;
-
-  @override
-  int get hashCode => Object.hash(provider, isPrimary);
+  factory UserRegistrationRequest.fromJson(Map<String, dynamic> json) {
+    return UserRegistrationRequest(
+      email: json['email'] as String,
+      password: json['password'] as String,
+      fullName: json['full_name'] as String,
+      phone: json['phone'] as String?,
+      currency: json['currency'] as String? ?? 'IDR',
+      timezone: json['timezone'] as String? ?? 'Asia/Jakarta',
+    );
+  }
 }
 
-/// Authentication tokens response model.
-@JsonSerializable()
-class AuthTokensModel {
-  /// JWT access token
-  @JsonKey(name: 'access_token')
+class UserLoginRequest {
+  final String email;
+  final String password;
+  final DeviceInfo? deviceInfo;
+
+  const UserLoginRequest({
+    required this.email,
+    required this.password,
+    this.deviceInfo,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+      if (deviceInfo != null) 'device_info': deviceInfo!.toJson(),
+    };
+  }
+
+  factory UserLoginRequest.fromJson(Map<String, dynamic> json) {
+    return UserLoginRequest(
+      email: json['email'] as String,
+      password: json['password'] as String,
+      deviceInfo: json['device_info'] != null
+          ? DeviceInfo.fromJson(json['device_info'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+class DeviceInfo {
+  final String name;
+  final String platform;
+  final String version;
+
+  const DeviceInfo({
+    required this.name,
+    required this.platform,
+    required this.version,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'platform': platform,
+      'version': version,
+    };
+  }
+
+  factory DeviceInfo.fromJson(Map<String, dynamic> json) {
+    return DeviceInfo(
+      name: json['name'] as String,
+      platform: json['platform'] as String,
+      version: json['version'] as String,
+    );
+  }
+}
+
+class AuthTokens {
   final String accessToken;
-
-  /// Refresh token
-  @JsonKey(name: 'refresh_token')
   final String refreshToken;
-
-  /// Token expiration time in seconds
-  @JsonKey(name: 'expires_in')
   final int expiresIn;
 
-  /// Token type (usually 'Bearer')
-  @JsonKey(name: 'token_type')
-  final String tokenType;
-
-  const AuthTokensModel({
+  const AuthTokens({
     required this.accessToken,
     required this.refreshToken,
     this.expiresIn = 900,
-    this.tokenType = 'Bearer',
   });
 
-  factory AuthTokensModel.fromJson(Map<String, dynamic> json) =>
-      _$AuthTokensModelFromJson(json);
-
-  Map<String, dynamic> toJson() => _$AuthTokensModelToJson(this);
-
-  /// Returns the Authorization header value.
-  String get authorizationHeader => '$tokenType $accessToken';
-
-  /// Returns the expiration DateTime.
-  DateTime get expiresAt => DateTime.now().add(Duration(seconds: expiresIn));
-
-  /// Returns true if the token is expired.
-  bool get isExpired => DateTime.now().isAfter(expiresAt);
-
-  /// Returns true if the token expires within the given duration.
-  bool expiresWithin(Duration duration) =>
-      DateTime.now().add(duration).isAfter(expiresAt);
-
-  AuthTokensModel copyWith({
-    String? accessToken,
-    String? refreshToken,
-    int? expiresIn,
-    String? tokenType,
-  }) {
-    return AuthTokensModel(
-      accessToken: accessToken ?? this.accessToken,
-      refreshToken: refreshToken ?? this.refreshToken,
-      expiresIn: expiresIn ?? this.expiresIn,
-      tokenType: tokenType ?? this.tokenType,
-    );
+  Map<String, dynamic> toJson() {
+    return {
+      'access_token': accessToken,
+      'refresh_token': refreshToken,
+      'expires_in': expiresIn,
+    };
   }
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AuthTokensModel &&
-          runtimeType == other.runtimeType &&
-          accessToken == other.accessToken &&
-          refreshToken == other.refreshToken;
-
-  @override
-  int get hashCode => Object.hash(accessToken, refreshToken);
+  factory AuthTokens.fromJson(Map<String, dynamic> json) {
+    return AuthTokens(
+      accessToken: json['access_token'] as String,
+      refreshToken: json['refresh_token'] as String,
+      expiresIn: json['expires_in'] as int? ?? 900,
+    );
+  }
 }
 
-/// Complete authentication response model.
-@JsonSerializable(explicitToJson: true)
-class AuthResponseModel {
-  /// The authenticated user
-  final UserModel user;
-
-  /// Authentication tokens
-  @JsonKey(name: 'tokens')
-  final AuthTokensModel tokens;
-
-  /// Whether this is a new user (for OAuth flows)
-  @JsonKey(name: 'is_new_user')
+class AuthResponse {
+  final User user;
+  final AuthTokens tokens;
   final bool isNewUser;
 
-  const AuthResponseModel({
+  const AuthResponse({
     required this.user,
     required this.tokens,
     this.isNewUser = false,
   });
 
-  factory AuthResponseModel.fromJson(Map<String, dynamic> json) =>
-      _$AuthResponseModelFromJson(json);
-
-  Map<String, dynamic> toJson() => _$AuthResponseModelToJson(this);
-
-  AuthResponseModel copyWith({
-    UserModel? user,
-    AuthTokensModel? tokens,
-    bool? isNewUser,
-  }) {
-    return AuthResponseModel(
-      user: user ?? this.user,
-      tokens: tokens ?? this.tokens,
-      isNewUser: isNewUser ?? this.isNewUser,
-    );
-  }
-}
-
-/// Device information for authentication.
-@JsonSerializable()
-class DeviceInfoModel {
-  /// Device name (e.g., 'iPhone 15 Pro')
-  final String name;
-
-  /// Platform ('ios', 'android', 'web')
-  final String platform;
-
-  /// OS/ browser version
-  final String version;
-
-  /// Device unique identifier
-  @JsonKey(name: 'device_id')
-  final String? deviceId;
-
-  const DeviceInfoModel({
-    required this.name,
-    required this.platform,
-    required this.version,
-    this.deviceId,
-  });
-
-  factory DeviceInfoModel.fromJson(Map<String, dynamic> json) =>
-      _$DeviceInfoModelFromJson(json);
-
-  Map<String, dynamic> toJson() => _$DeviceInfoModelToJson(this);
-
-  /// Creates device info from current platform.
-  factory DeviceInfoModel.current({
-    required String name,
-    required String platform,
-    required String version,
-  }) {
-    return DeviceInfoModel(
-      name: name,
-      platform: platform,
-      version: version,
-    );
+  Map<String, dynamic> toJson() {
+    return {
+      'user': user.toJson(),
+      'tokens': tokens.toJson(),
+      'is_new_user': isNewUser,
+    };
   }
 
-  /// Returns iOS device info.
-  factory DeviceInfoModel.ios({required String name, required String version}) {
-    return DeviceInfoModel(
-      name: name,
-      platform: 'ios',
-      version: version,
+  factory AuthResponse.fromJson(Map<String, dynamic> json) {
+    return AuthResponse(
+      user: User.fromJson(json['user'] as Map<String, dynamic>),
+      tokens: AuthTokens.fromJson(json['tokens'] as Map<String, dynamic>),
+      isNewUser: json['is_new_user'] as bool? ?? false,
     );
   }
-
-  /// Returns Android device info.
-  factory DeviceInfoModel.android({required String name, required String version}) {
-    return DeviceInfoModel(
-      name: name,
-      platform: 'android',
-      version: version,
-    );
-  }
-
-  /// Returns Web browser info.
-  factory DeviceInfoModel.web({required String name, required String version}) {
-    return DeviceInfoModel(
-      name: name,
-      platform: 'web',
-      version: version,
-    );
-  }
-
-  DeviceInfoModel copyWith({
-    String? name,
-    String? platform,
-    String? version,
-    String? deviceId,
-  }) {
-    return DeviceInfoModel(
-      name: name ?? this.name,
-      platform: platform ?? this.platform,
-      version: version ?? this.version,
-      deviceId: deviceId ?? this.deviceId,
-    );
-  }
-
-  bool get isIOS => platform == 'ios';
-  bool get isAndroid => platform == 'android';
-  bool get isWeb => platform == 'web';
-  bool get isMobile => isIOS || isAndroid;
 }

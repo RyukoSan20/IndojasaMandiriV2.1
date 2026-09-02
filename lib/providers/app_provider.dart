@@ -1,2038 +1,478 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-
-// ============================================================================
-// Enums and Types
-// ============================================================================
-
-enum LoadingState { initial, loading, loaded, error }
-
-enum TransactionType { income, expense, transfer }
-
-enum AccountType { cash, bank, ewallet, savings, investment }
-
-enum GoalStatus { active, completed, cancelled }
-
-enum SyncStatus { idle, syncing, error, offline }
-
-// ============================================================================
-// User Model
-// ============================================================================
-
-class User {
-  final String id;
-  final String email;
-  final String name;
-  final String? avatarUrl;
-  final String currency;
-  final String timezone;
-  final String language;
-  final bool pinEnabled;
-  final bool biometricEnabled;
-  final bool emailVerified;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const User({
-    required this.id,
-    required this.email,
-    required this.name,
-    this.avatarUrl,
-    this.currency = 'IDR',
-    this.timezone = 'Asia/Jakarta',
-    this.language = 'id',
-    this.pinEnabled = false,
-    this.biometricEnabled = false,
-    this.emailVerified = false,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  User copyWith({
-    String? id,
-    String? email,
-    String? name,
-    String? avatarUrl,
-    String? currency,
-    String? timezone,
-    String? language,
-    bool? pinEnabled,
-    bool? biometricEnabled,
-    bool? emailVerified,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return User(
-      id: id ?? this.id,
-      email: email ?? this.email,
-      name: name ?? this.name,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-      currency: currency ?? this.currency,
-      timezone: timezone ?? this.timezone,
-      language: language ?? this.language,
-      pinEnabled: pinEnabled ?? this.pinEnabled,
-      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
-      emailVerified: emailVerified ?? this.emailVerified,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'email': email,
-      'name': name,
-      'avatarUrl': avatarUrl,
-      'currency': currency,
-      'timezone': timezone,
-      'language': language,
-      'pinEnabled': pinEnabled,
-      'biometricEnabled': biometricEnabled,
-      'emailVerified': emailVerified,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      name: json['name'] as String,
-      avatarUrl: json['avatarUrl'] as String?,
-      currency: json['currency'] as String? ?? 'IDR',
-      timezone: json['timezone'] as String? ?? 'Asia/Jakarta',
-      language: json['language'] as String? ?? 'id',
-      pinEnabled: json['pinEnabled'] as bool? ?? false,
-      biometricEnabled: json['biometricEnabled'] as bool? ?? false,
-      emailVerified: json['emailVerified'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-    );
-  }
-}
-
-// ============================================================================
-// Account Model
-// ============================================================================
-
-class Account {
-  final String id;
-  final String userId;
-  final String name;
-  final AccountType type;
-  final double balance;
-  final String currency;
-  final String? icon;
-  final String? color;
-  final bool isActive;
-  final String? cardLastDigits;
-  final bool includeInTotal;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const Account({
-    required this.id,
-    required this.userId,
-    required this.name,
-    required this.type,
-    this.balance = 0.0,
-    this.currency = 'IDR',
-    this.icon,
-    this.color,
-    this.isActive = true,
-    this.cardLastDigits,
-    this.includeInTotal = true,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  Account copyWith({
-    String? id,
-    String? userId,
-    String? name,
-    AccountType? type,
-    double? balance,
-    String? currency,
-    String? icon,
-    String? color,
-    bool? isActive,
-    String? cardLastDigits,
-    bool? includeInTotal,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Account(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      name: name ?? this.name,
-      type: type ?? this.type,
-      balance: balance ?? this.balance,
-      currency: currency ?? this.currency,
-      icon: icon ?? this.icon,
-      color: color ?? this.color,
-      isActive: isActive ?? this.isActive,
-      cardLastDigits: cardLastDigits ?? this.cardLastDigits,
-      includeInTotal: includeInTotal ?? this.includeInTotal,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'name': name,
-      'type': type.name,
-      'balance': balance,
-      'currency': currency,
-      'icon': icon,
-      'color': color,
-      'isActive': isActive,
-      'cardLastDigits': cardLastDigits,
-      'includeInTotal': includeInTotal,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  factory Account.fromJson(Map<String, dynamic> json) {
-    return Account(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      type: AccountType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => AccountType.cash,
-      ),
-      balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
-      currency: json['currency'] as String? ?? 'IDR',
-      icon: json['icon'] as String?,
-      color: json['color'] as String?,
-      isActive: json['isActive'] as bool? ?? true,
-      cardLastDigits: json['cardLastDigits'] as String?,
-      includeInTotal: json['includeInTotal'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-    );
-  }
-
-  String get typeDisplayName {
-    switch (type) {
-      case AccountType.cash:
-        return 'Tunai';
-      case AccountType.bank:
-        return 'Bank';
-      case AccountType.ewallet:
-        return 'E-Wallet';
-      case AccountType.savings:
-        return 'Tabungan';
-      case AccountType.investment:
-        return 'Investasi';
-    }
-  }
-
-  String get typeIcon {
-    switch (type) {
-      case AccountType.cash:
-        return 'wallet';
-      case AccountType.bank:
-        return 'account_balance';
-      case AccountType.ewallet:
-        return 'smartphone';
-      case AccountType.savings:
-        return 'savings';
-      case AccountType.investment:
-        return 'trending_up';
-    }
-  }
-}
-
-// ============================================================================
-// Category Model
-// ============================================================================
-
-class Category {
-  final String id;
-  final String? userId;
-  final String name;
-  final String type; // income, expense
-  final String icon;
-  final String color;
-  final String? parentId;
-  final bool isSystem;
-  final DateTime createdAt;
-
-  const Category({
-    required this.id,
-    this.userId,
-    required this.name,
-    required this.type,
-    required this.icon,
-    required this.color,
-    this.parentId,
-    this.isSystem = false,
-    required this.createdAt,
-  });
-
-  Category copyWith({
-    String? id,
-    String? userId,
-    String? name,
-    String? type,
-    String? icon,
-    String? color,
-    String? parentId,
-    bool? isSystem,
-    DateTime? createdAt,
-  }) {
-    return Category(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      name: name ?? this.name,
-      type: type ?? this.type,
-      icon: icon ?? this.icon,
-      color: color ?? this.color,
-      parentId: parentId ?? this.parentId,
-      isSystem: isSystem ?? this.isSystem,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'name': name,
-      'type': type,
-      'icon': icon,
-      'color': color,
-      'parentId': parentId,
-      'isSystem': isSystem,
-      'createdAt': createdAt.toIso8601String(),
-    };
-  }
-
-  factory Category.fromJson(Map<String, dynamic> json) {
-    return Category(
-      id: json['id'] as String,
-      userId: json['userId'] as String?,
-      name: json['name'] as String,
-      type: json['type'] as String,
-      icon: json['icon'] as String,
-      color: json['color'] as String,
-      parentId: json['parentId'] as String?,
-      isSystem: json['isSystem'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-    );
-  }
-}
-
-// ============================================================================
-// Transaction Model
-// ============================================================================
-
-class Transaction {
-  final String id;
-  final String userId;
-  final String accountId;
-  final String type; // income, expense, transfer
-  final double amount;
-  final String categoryId;
-  final String? description;
-  final DateTime date;
-  final String? receiptUrl;
-  final List<String>? tags;
-  final bool isRecurring;
-  final String? recurringId;
-  final String? notes;
-  final String? location;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const Transaction({
-    required this.id,
-    required this.userId,
-    required this.accountId,
-    required this.type,
-    required this.amount,
-    required this.categoryId,
-    this.description,
-    required this.date,
-    this.receiptUrl,
-    this.tags,
-    this.isRecurring = false,
-    this.recurringId,
-    this.notes,
-    this.location,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  Transaction copyWith({
-    String? id,
-    String? userId,
-    String? accountId,
-    String? type,
-    double? amount,
-    String? categoryId,
-    String? description,
-    DateTime? date,
-    String? receiptUrl,
-    List<String>? tags,
-    bool? isRecurring,
-    String? recurringId,
-    String? notes,
-    String? location,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return Transaction(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      accountId: accountId ?? this.accountId,
-      type: type ?? this.type,
-      amount: amount ?? this.amount,
-      categoryId: categoryId ?? this.categoryId,
-      description: description ?? this.description,
-      date: date ?? this.date,
-      receiptUrl: receiptUrl ?? this.receiptUrl,
-      tags: tags ?? this.tags,
-      isRecurring: isRecurring ?? this.isRecurring,
-      recurringId: recurringId ?? this.recurringId,
-      notes: notes ?? this.notes,
-      location: location ?? this.location,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'accountId': accountId,
-      'type': type,
-      'amount': amount,
-      'categoryId': categoryId,
-      'description': description,
-      'date': date.toIso8601String(),
-      'receiptUrl': receiptUrl,
-      'tags': tags,
-      'isRecurring': isRecurring,
-      'recurringId': recurringId,
-      'notes': notes,
-      'location': location,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  factory Transaction.fromJson(Map<String, dynamic> json) {
-    return Transaction(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      accountId: json['accountId'] as String,
-      type: json['type'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      categoryId: json['categoryId'] as String,
-      description: json['description'] as String?,
-      date: DateTime.parse(json['date'] as String),
-      receiptUrl: json['receiptUrl'] as String?,
-      tags: (json['tags'] as List<dynamic>?)?.cast<String>(),
-      isRecurring: json['isRecurring'] as bool? ?? false,
-      recurringId: json['recurringId'] as String?,
-      notes: json['notes'] as String?,
-      location: json['location'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-    );
-  }
-
-  bool get isIncome => type == 'income';
-  bool get isExpense => type == 'expense';
-  bool get isTransfer => type == 'transfer';
-}
-
-// ============================================================================
-// Savings Goal Model
-// ============================================================================
-
-class SavingsGoal {
-  final String id;
-  final String userId;
-  final String name;
-  final double targetAmount;
-  final double currentAmount;
-  final DateTime? deadline;
-  final String? icon;
-  final String? color;
-  final int priority;
-  final GoalStatus status;
-  final String? notes;
-  final List<GoalContribution>? contributions;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const SavingsGoal({
-    required this.id,
-    required this.userId,
-    required this.name,
-    required this.targetAmount,
-    this.currentAmount = 0.0,
-    this.deadline,
-    this.icon,
-    this.color,
-    this.priority = 1,
-    this.status = GoalStatus.active,
-    this.notes,
-    this.contributions,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  double get progressPercentage {
-    if (targetAmount <= 0) return 0.0;
-    return (currentAmount / targetAmount).clamp(0.0, 1.0) * 100;
-  }
-
-  double get remainingAmount => (targetAmount - currentAmount).clamp(0.0, double.infinity);
-
-  int? get daysRemaining {
-    if (deadline == null) return null;
-    return deadline!.difference(DateTime.now()).inDays;
-  }
-
-  SavingsGoal copyWith({
-    String? id,
-    String? userId,
-    String? name,
-    double? targetAmount,
-    double? currentAmount,
-    DateTime? deadline,
-    String? icon,
-    String? color,
-    int? priority,
-    GoalStatus? status,
-    String? notes,
-    List<GoalContribution>? contributions,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return SavingsGoal(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      name: name ?? this.name,
-      targetAmount: targetAmount ?? this.targetAmount,
-      currentAmount: currentAmount ?? this.currentAmount,
-      deadline: deadline ?? this.deadline,
-      icon: icon ?? this.icon,
-      color: color ?? this.color,
-      priority: priority ?? this.priority,
-      status: status ?? this.status,
-      notes: notes ?? this.notes,
-      contributions: contributions ?? this.contributions,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'name': name,
-      'targetAmount': targetAmount,
-      'currentAmount': currentAmount,
-      'deadline': deadline?.toIso8601String(),
-      'icon': icon,
-      'color': color,
-      'priority': priority,
-      'status': status.name,
-      'notes': notes,
-      'contributions': contributions?.map((c) => c.toJson()).toList(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  factory SavingsGoal.fromJson(Map<String, dynamic> json) {
-    return SavingsGoal(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      targetAmount: (json['targetAmount'] as num).toDouble(),
-      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
-      deadline: json['deadline'] != null ? DateTime.parse(json['deadline'] as String) : null,
-      icon: json['icon'] as String?,
-      color: json['color'] as String?,
-      priority: json['priority'] as int? ?? 1,
-      status: GoalStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => GoalStatus.active,
-      ),
-      notes: json['notes'] as String?,
-      contributions: (json['contributions'] as List<dynamic>?)
-          ?.map((c) => GoalContribution.fromJson(c as Map<String, dynamic>))
-          .toList(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-    );
-  }
-}
-
-class GoalContribution {
-  final String id;
-  final double amount;
-  final DateTime date;
-  final String? note;
-  final String? accountId;
-
-  const GoalContribution({
-    required this.id,
-    required this.amount,
-    required this.date,
-    this.note,
-    this.accountId,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'amount': amount,
-      'date': date.toIso8601String(),
-      'note': note,
-      'accountId': accountId,
-    };
-  }
-
-  factory GoalContribution.fromJson(Map<String, dynamic> json) {
-    return GoalContribution(
-      id: json['id'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      date: DateTime.parse(json['date'] as String),
-      note: json['note'] as String?,
-      accountId: json['accountId'] as String?,
-    );
-  }
-}
-
-// ============================================================================
-// Stock Portfolio Model
-// ============================================================================
-
-class StockHolding {
-  final String id;
-  final String userId;
-  final String symbol;
-  final String companyName;
-  final double shares;
-  final double averageBuyPrice;
-  final double currentPrice;
-  final String? sector;
-  final String? exchange;
-  final String currency;
-  final DateTime? lastUpdated;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const StockHolding({
-    required this.id,
-    required this.userId,
-    required this.symbol,
-    required this.companyName,
-    required this.shares,
-    required this.averageBuyPrice,
-    this.currentPrice = 0.0,
-    this.sector,
-    this.exchange,
-    this.currency = 'IDR',
-    this.lastUpdated,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  double get totalInvested => shares * averageBuyPrice;
-  double get currentValue => shares * currentPrice;
-  double get profitLoss => currentValue - totalInvested;
-  double get profitLossPercentage {
-    if (totalInvested <= 0) return 0.0;
-    return (profitLoss / totalInvested) * 100;
-  }
-
-  StockHolding copyWith({
-    String? id,
-    String? userId,
-    String? symbol,
-    String? companyName,
-    double? shares,
-    double? averageBuyPrice,
-    double? currentPrice,
-    String? sector,
-    String? exchange,
-    String? currency,
-    DateTime? lastUpdated,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return StockHolding(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      symbol: symbol ?? this.symbol,
-      companyName: companyName ?? this.companyName,
-      shares: shares ?? this.shares,
-      averageBuyPrice: averageBuyPrice ?? this.averageBuyPrice,
-      currentPrice: currentPrice ?? this.currentPrice,
-      sector: sector ?? this.sector,
-      exchange: exchange ?? this.exchange,
-      currency: currency ?? this.currency,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'symbol': symbol,
-      'companyName': companyName,
-      'shares': shares,
-      'averageBuyPrice': averageBuyPrice,
-      'currentPrice': currentPrice,
-      'sector': sector,
-      'exchange': exchange,
-      'currency': currency,
-      'lastUpdated': lastUpdated?.toIso8601String(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  factory StockHolding.fromJson(Map<String, dynamic> json) {
-    return StockHolding(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      symbol: json['symbol'] as String,
-      companyName: json['companyName'] as String,
-      shares: (json['shares'] as num).toDouble(),
-      averageBuyPrice: (json['averageBuyPrice'] as num).toDouble(),
-      currentPrice: (json['currentPrice'] as num?)?.toDouble() ?? 0.0,
-      sector: json['sector'] as String?,
-      exchange: json['exchange'] as String?,
-      currency: json['currency'] as String? ?? 'IDR',
-      lastUpdated: json['lastUpdated'] != null
-          ? DateTime.parse(json['lastUpdated'] as String)
-          : null,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-    );
-  }
-}
-
-// ============================================================================
-// Watchlist Model
-// ============================================================================
-
-class WatchlistItem {
-  final String id;
-  final String userId;
-  final String symbol;
-  final String? companyName;
-  final double? lastPrice;
-  final double? change;
-  final double? changePercent;
-  final double? targetPrice;
-  final String? notes;
-  final bool alertEnabled;
-  final DateTime addedAt;
-
-  const WatchlistItem({
-    required this.id,
-    required this.userId,
-    required this.symbol,
-    this.companyName,
-    this.lastPrice,
-    this.change,
-    this.changePercent,
-    this.targetPrice,
-    this.notes,
-    this.alertEnabled = false,
-    required this.addedAt,
-  });
-
-  WatchlistItem copyWith({
-    String? id,
-    String? userId,
-    String? symbol,
-    String? companyName,
-    double? lastPrice,
-    double? change,
-    double? changePercent,
-    double? targetPrice,
-    String? notes,
-    bool? alertEnabled,
-    DateTime? addedAt,
-  }) {
-    return WatchlistItem(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      symbol: symbol ?? this.symbol,
-      companyName: companyName ?? this.companyName,
-      lastPrice: lastPrice ?? this.lastPrice,
-      change: change ?? this.change,
-      changePercent: changePercent ?? this.changePercent,
-      targetPrice: targetPrice ?? this.targetPrice,
-      notes: notes ?? this.notes,
-      alertEnabled: alertEnabled ?? this.alertEnabled,
-      addedAt: addedAt ?? this.addedAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'symbol': symbol,
-      'companyName': companyName,
-      'lastPrice': lastPrice,
-      'change': change,
-      'changePercent': changePercent,
-      'targetPrice': targetPrice,
-      'notes': notes,
-      'alertEnabled': alertEnabled,
-      'addedAt': addedAt.toIso8601String(),
-    };
-  }
-
-  factory WatchlistItem.fromJson(Map<String, dynamic> json) {
-    return WatchlistItem(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      symbol: json['symbol'] as String,
-      companyName: json['companyName'] as String?,
-      lastPrice: (json['lastPrice'] as num?)?.toDouble(),
-      change: (json['change'] as num?)?.toDouble(),
-      changePercent: (json['changePercent'] as num?)?.toDouble(),
-      targetPrice: (json['targetPrice'] as num?)?.toDouble(),
-      notes: json['notes'] as String?,
-      alertEnabled: json['alertEnabled'] as bool? ?? false,
-      addedAt: DateTime.parse(json['addedAt'] as String),
-    );
-  }
-}
-
-// ============================================================================
-// Dashboard Summary Model
-// ============================================================================
-
-class DashboardSummary {
-  final double totalBalance;
-  final double monthlyIncome;
-  final double monthlyExpense;
-  final double totalSavings;
-  final double portfolioValue;
-  final double portfolioProfitLoss;
-  final double portfolioProfitLossPercent;
-  final double netWorth;
-  final double netWorthChange;
-  final double netWorthChangePercent;
-  final double savingsRate;
-  final int totalAccounts;
-  final int activeGoals;
-  final List<CashflowData> cashflowHistory;
-  final List<NetWorthData> netWorthHistory;
-  final List<CategorySpending> topCategories;
-  final List<FinancialInsight> insights;
-
-  const DashboardSummary({
-    this.totalBalance = 0.0,
-    this.monthlyIncome = 0.0,
-    this.monthlyExpense = 0.0,
-    this.totalSavings = 0.0,
-    this.portfolioValue = 0.0,
-    this.portfolioProfitLoss = 0.0,
-    this.portfolioProfitLossPercent = 0.0,
-    this.netWorth = 0.0,
-    this.netWorthChange = 0.0,
-    this.netWorthChangePercent = 0.0,
-    this.savingsRate = 0.0,
-    this.totalAccounts = 0,
-    this.activeGoals = 0,
-    this.cashflowHistory = const [],
-    this.netWorthHistory = const [],
-    this.topCategories = const [],
-    this.insights = const [],
-  });
-
-  DashboardSummary copyWith({
-    double? totalBalance,
-    double? monthlyIncome,
-    double? monthlyExpense,
-    double? totalSavings,
-    double? portfolioValue,
-    double? portfolioProfitLoss,
-    double? portfolioProfitLossPercent,
-    double? netWorth,
-    double? netWorthChange,
-    double? netWorthChangePercent,
-    double? savingsRate,
-    int? totalAccounts,
-    int? activeGoals,
-    List<CashflowData>? cashflowHistory,
-    List<NetWorthData>? netWorthHistory,
-    List<CategorySpending>? topCategories,
-    List<FinancialInsight>? insights,
-  }) {
-    return DashboardSummary(
-      totalBalance: totalBalance ?? this.totalBalance,
-      monthlyIncome: monthlyIncome ?? this.monthlyIncome,
-      monthlyExpense: monthlyExpense ?? this.monthlyExpense,
-      totalSavings: totalSavings ?? this.totalSavings,
-      portfolioValue: portfolioValue ?? this.portfolioValue,
-      portfolioProfitLoss: portfolioProfitLoss ?? this.portfolioProfitLoss,
-      portfolioProfitLossPercent: portfolioProfitLossPercent ?? this.portfolioProfitLossPercent,
-      netWorth: netWorth ?? this.netWorth,
-      netWorthChange: netWorthChange ?? this.netWorthChange,
-      netWorthChangePercent: netWorthChangePercent ?? this.netWorthChangePercent,
-      savingsRate: savingsRate ?? this.savingsRate,
-      totalAccounts: totalAccounts ?? this.totalAccounts,
-      activeGoals: activeGoals ?? this.activeGoals,
-      cashflowHistory: cashflowHistory ?? this.cashflowHistory,
-      netWorthHistory: netWorthHistory ?? this.netWorthHistory,
-      topCategories: topCategories ?? this.topCategories,
-      insights: insights ?? this.insights,
-    );
-  }
-}
-
-class CashflowData {
-  final DateTime date;
-  final double income;
-  final double expense;
-  final double net;
-
-  const CashflowData({
-    required this.date,
-    this.income = 0.0,
-    this.expense = 0.0,
-    this.net = 0.0,
-  });
-
-  factory CashflowData.fromJson(Map<String, dynamic> json) {
-    return CashflowData(
-      date: DateTime.parse(json['date'] as String),
-      income: (json['income'] as num?)?.toDouble() ?? 0.0,
-      expense: (json['expense'] as num?)?.toDouble() ?? 0.0,
-      net: (json['net'] as num?)?.toDouble() ?? 0.0,
-    );
-  }
-}
-
-class NetWorthData {
-  final DateTime date;
-  final double netWorth;
-
-  const NetWorthData({
-    required this.date,
-    this.netWorth = 0.0,
-  });
-
-  factory NetWorthData.fromJson(Map<String, dynamic> json) {
-    return NetWorthData(
-      date: DateTime.parse(json['date'] as String),
-      netWorth: (json['netWorth'] as num?)?.toDouble() ?? 0.0,
-    );
-  }
-}
-
-class CategorySpending {
-  final String categoryId;
-  final String categoryName;
-  final String categoryIcon;
-  final String categoryColor;
-  final double amount;
-  final double percentage;
-  final int transactionCount;
-
-  const CategorySpending({
-    required this.categoryId,
-    required this.categoryName,
-    required this.categoryIcon,
-    required this.categoryColor,
-    this.amount = 0.0,
-    this.percentage = 0.0,
-    this.transactionCount = 0,
-  });
-
-  factory CategorySpending.fromJson(Map<String, dynamic> json) {
-    return CategorySpending(
-      categoryId: json['categoryId'] as String,
-      categoryName: json['categoryName'] as String,
-      categoryIcon: json['categoryIcon'] as String? ?? 'category',
-      categoryColor: json['categoryColor'] as String? ?? '#6366F1',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
-      transactionCount: json['transactionCount'] as int? ?? 0,
-    );
-  }
-}
-
-class FinancialInsight {
-  final String id;
-  final String type;
-  final String title;
-  final String message;
-  final String? icon;
-  final String? color;
-  final bool isRead;
-  final DateTime createdAt;
-
-  const FinancialInsight({
-    required this.id,
-    required this.type,
-    required this.title,
-    required this.message,
-    this.icon,
-    this.color,
-    this.isRead = false,
-    required this.createdAt,
-  });
-
-  FinancialInsight copyWith({
-    String? id,
-    String? type,
-    String? title,
-    String? message,
-    String? icon,
-    String? color,
-    bool? isRead,
-    DateTime? createdAt,
-  }) {
-    return FinancialInsight(
-      id: id ?? this.id,
-      type: type ?? this.type,
-      title: title ?? this.title,
-      message: message ?? this.message,
-      icon: icon ?? this.icon,
-      color: color ?? this.color,
-      isRead: isRead ?? this.isRead,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
-
-  factory FinancialInsight.fromJson(Map<String, dynamic> json) {
-    return FinancialInsight(
-      id: json['id'] as String,
-      type: json['type'] as String,
-      title: json['title'] as String,
-      message: json['message'] as String,
-      icon: json['icon'] as String?,
-      color: json['color'] as String?,
-      isRead: json['isRead'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-    );
-  }
-}
-
-// ============================================================================
-// Transaction Filter Model
-// ============================================================================
-
-class TransactionFilter {
-  final String? accountId;
-  final String? categoryId;
-  final String? type;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final double? minAmount;
-  final double? maxAmount;
-  final List<String>? tags;
-  final String? searchQuery;
-
-  const TransactionFilter({
-    this.accountId,
-    this.categoryId,
-    this.type,
-    this.startDate,
-    this.endDate,
-    this.minAmount,
-    this.maxAmount,
-    this.tags,
-    this.searchQuery,
-  });
-
-  TransactionFilter copyWith({
-    String? accountId,
-    String? categoryId,
-    String? type,
-    DateTime? startDate,
-    DateTime? endDate,
-    double? minAmount,
-    double? maxAmount,
-    List<String>? tags,
-    String? searchQuery,
-  }) {
-    return TransactionFilter(
-      accountId: accountId ?? this.accountId,
-      categoryId: categoryId ?? this.categoryId,
-      type: type ?? this.type,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      minAmount: minAmount ?? this.minAmount,
-      maxAmount: maxAmount ?? this.maxAmount,
-      tags: tags ?? this.tags,
-      searchQuery: searchQuery ?? this.searchQuery,
-    );
-  }
-
-  bool get hasFilters =>
-      accountId != null ||
-      categoryId != null ||
-      type != null ||
-      startDate != null ||
-      endDate != null ||
-      minAmount != null ||
-      maxAmount != null ||
-      (tags != null && tags!.isNotEmpty) ||
-      (searchQuery != null && searchQuery!.isNotEmpty);
-
-  TransactionFilter clear() => const TransactionFilter();
-}
-
-// ============================================================================
-// App Settings Model
-// ============================================================================
-
-class AppSettings {
-  final String theme;
-  final String currency;
-  final String dateFormat;
-  final String language;
-  final int firstDayOfWeek;
-  final bool notificationsEnabled;
-  final bool dailyReminder;
-  final String reminderTime;
-  final bool transactionAlerts;
-  final bool portfolioAlerts;
-  final bool savingsMilestones;
-  final bool biometricEnabled;
-  final bool pinEnabled;
-  final bool autoSync;
-  final String syncFrequency;
-
-  const AppSettings({
-    this.theme = 'system',
-    this.currency = 'IDR',
-    this.dateFormat = 'DD/MM/YYYY',
-    this.language = 'id',
-    this.firstDayOfWeek = 1,
-    this.notificationsEnabled = true,
-    this.dailyReminder = true,
-    this.reminderTime = '20:00',
-    this.transactionAlerts = true,
-    this.portfolioAlerts = true,
-    this.savingsMilestones = true,
-    this.biometricEnabled = false,
-    this.pinEnabled = false,
-    this.autoSync = true,
-    this.syncFrequency = 'realtime',
-  });
-
-  AppSettings copyWith({
-    String? theme,
-    String? currency,
-    String? dateFormat,
-    String? language,
-    int? firstDayOfWeek,
-    bool? notificationsEnabled,
-    bool? dailyReminder,
-    String? reminderTime,
-    bool? transactionAlerts,
-    bool? portfolioAlerts,
-    bool? savingsMilestones,
-    bool? biometricEnabled,
-    bool? pinEnabled,
-    bool? autoSync,
-    String? syncFrequency,
-  }) {
-    return AppSettings(
-      theme: theme ?? this.theme,
-      currency: currency ?? this.currency,
-      dateFormat: dateFormat ?? this.dateFormat,
-      language: language ?? this.language,
-      firstDayOfWeek: firstDayOfWeek ?? this.firstDayOfWeek,
-      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-      dailyReminder: dailyReminder ?? this.dailyReminder,
-      reminderTime: reminderTime ?? this.reminderTime,
-      transactionAlerts: transactionAlerts ?? this.transactionAlerts,
-      portfolioAlerts: portfolioAlerts ?? this.portfolioAlerts,
-      savingsMilestones: savingsMilestones ?? this.savingsMilestones,
-      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
-      pinEnabled: pinEnabled ?? this.pinEnabled,
-      autoSync: autoSync ?? this.autoSync,
-      syncFrequency: syncFrequency ?? this.syncFrequency,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'theme': theme,
-      'currency': currency,
-      'dateFormat': dateFormat,
-      'language': language,
-      'firstDayOfWeek': firstDayOfWeek,
-      'notificationsEnabled': notificationsEnabled,
-      'dailyReminder': dailyReminder,
-      'reminderTime': reminderTime,
-      'transactionAlerts': transactionAlerts,
-      'portfolioAlerts': portfolioAlerts,
-      'savingsMilestones': savingsMilestones,
-      'biometricEnabled': biometricEnabled,
-      'pinEnabled': pinEnabled,
-      'autoSync': autoSync,
-      'syncFrequency': syncFrequency,
-    };
-  }
-
-  factory AppSettings.fromJson(Map<String, dynamic> json) {
-    return AppSettings(
-      theme: json['theme'] as String? ?? 'system',
-      currency: json['currency'] as String? ?? 'IDR',
-      dateFormat: json['dateFormat'] as String? ?? 'DD/MM/YYYY',
-      language: json['language'] as String? ?? 'id',
-      firstDayOfWeek: json['firstDayOfWeek'] as int? ?? 1,
-      notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
-      dailyReminder: json['dailyReminder'] as bool? ?? true,
-      reminderTime: json['reminderTime'] as String? ?? '20:00',
-      transactionAlerts: json['transactionAlerts'] as bool? ?? true,
-      portfolioAlerts: json['portfolioAlerts'] as bool? ?? true,
-      savingsMilestones: json['savingsMilestones'] as bool? ?? true,
-      biometricEnabled: json['biometricEnabled'] as bool? ?? false,
-      pinEnabled: json['pinEnabled'] as bool? ?? false,
-      autoSync: json['autoSync'] as bool? ?? true,
-      syncFrequency: json['syncFrequency'] as String? ?? 'realtime',
-    );
-  }
-}
-
-// ============================================================================
-// Notification Model
-// ============================================================================
-
-class AppNotification {
-  final String id;
-  final String type;
-  final String title;
-  final String body;
-  final Map<String, dynamic>? data;
-  final bool isRead;
-  final DateTime createdAt;
-
-  const AppNotification({
-    required this.id,
-    required this.type,
-    required this.title,
-    required this.body,
-    this.data,
-    this.isRead = false,
-    required this.createdAt,
-  });
-
-  AppNotification copyWith({
-    String? id,
-    String? type,
-    String? title,
-    String? body,
-    Map<String, dynamic>? data,
-    bool? isRead,
-    DateTime? createdAt,
-  }) {
-    return AppNotification(
-      id: id ?? this.id,
-      type: type ?? this.type,
-      title: title ?? this.title,
-      body: body ?? this.body,
-      data: data ?? this.data,
-      isRead: isRead ?? this.isRead,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type,
-      'title': title,
-      'body': body,
-      'data': data,
-      'isRead': isRead,
-      'createdAt': createdAt.toIso8601String(),
-    };
-  }
-
-  factory AppNotification.fromJson(Map<String, dynamic> json) {
-    return AppNotification(
-      id: json['id'] as String,
-      type: json['type'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      data: json['data'] as Map<String, dynamic>?,
-      isRead: json['isRead'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-    );
-  }
-}
-
-// ============================================================================
-// Main App Provider
-// ============================================================================
-
+import '../models/user_model.dart';
+import '../models/account_model.dart';
+import '../models/transaction_model.dart';
+import '../models/category_model.dart';
+import '../models/savings_goal_model.dart';
+import '../models/portfolio_model.dart';
+import '../models/watchlist_model.dart';
+import '../models/dashboard_model.dart';
+import '../models/settings_model.dart';
+
+/// AppProvider - Central state management for FinTrack application
+/// Handles all CRUD operations for accounts, transactions, savings goals,
+/// portfolio holdings, and provides dashboard analytics
 class AppProvider extends ChangeNotifier {
+  // UUID Generator
   static const _uuid = Uuid();
 
-  // ============================================================================
-  // Authentication State
-  // ============================================================================
+  // ==================== STATE VARIABLES ====================
 
-  User? _currentUser;
+  // Authentication State
   bool _isAuthenticated = false;
-  bool _isAuthLoading = false;
-  String? _authError;
+  bool _isLoading = false;
+  String? _error;
+  UserModel? _currentUser;
   String? _accessToken;
   String? _refreshToken;
 
-  User? get currentUser => _currentUser;
-  bool get isAuthenticated => _isAuthenticated;
-  bool get isAuthLoading => _isAuthLoading;
-  String? get authError => _authError;
-  String? get accessToken => _accessToken;
-  String? get refreshToken => _refreshToken;
-
-  // ============================================================================
   // Accounts State
-  // ============================================================================
+  List<AccountModel> _accounts = [];
+  AccountModel? _selectedAccount;
+  double _totalBalance = 0.0;
 
-  List<Account> _accounts = [];
-  Account? _selectedAccount;
-  bool _isAccountsLoading = false;
-  String? _accountsError;
-
-  List<Account> get accounts => _accounts;
-  List<Account> get activeAccounts => _accounts.where((a) => a.isActive).toList();
-  Account? get selectedAccount => _selectedAccount;
-  bool get isAccountsLoading => _isAccountsLoading;
-  String? get accountsError => _accountsError;
-
-  double get totalBalance =>
-      activeAccounts.where((a) => a.includeInTotal).fold(0.0, (sum, a) => sum + a.balance);
-
-  Map<AccountType, double> get balanceByAccountType {
-    final Map<AccountType, double> result = {};
-    for (final type in AccountType.values) {
-      result[type] = activeAccounts
-          .where((a) => a.type == type && a.includeInTotal)
-          .fold(0.0, (sum, a) => sum + a.balance);
-    }
-    return result;
-  }
-
-  // ============================================================================
-  // Categories State
-  // ============================================================================
-
-  List<Category> _categories = [];
-  bool _isCategoriesLoading = false;
-  String? _categoriesError;
-
-  List<Category> get categories => _categories;
-  List<Category> get incomeCategories => _categories.where((c) => c.type == 'income').toList();
-  List<Category> get expenseCategories => _categories.where((c) => c.type == 'expense').toList();
-  bool get isCategoriesLoading => _isCategoriesLoading;
-  String? get categoriesError => _categoriesError;
-
-  // ============================================================================
   // Transactions State
-  // ============================================================================
-
-  List<Transaction> _transactions = [];
-  TransactionFilter _transactionFilter = const TransactionFilter();
-  bool _isTransactionsLoading = false;
-  String? _transactionsError;
+  List<TransactionModel> _transactions = [];
+  List<TransactionModel> _filteredTransactions = [];
+  TransactionFilter _transactionFilter = TransactionFilter();
   int _transactionPage = 1;
-  int _transactionTotalPages = 1;
   bool _hasMoreTransactions = true;
 
-  List<Transaction> get transactions => _transactions;
-  TransactionFilter get transactionFilter => _transactionFilter;
-  bool get isTransactionsLoading => _isTransactionsLoading;
-  String? get transactionsError => _transactionsError;
-  bool get hasMoreTransactions => _hasMoreTransactions;
+  // Categories State
+  List<CategoryModel> _categories = [];
+  List<CategoryModel> _incomeCategories = [];
+  List<CategoryModel> _expenseCategories = [];
 
-  List<Transaction> get filteredTransactions {
-    var result = _transactions;
-
-    if (_transactionFilter.accountId != null) {
-      result = result.where((t) => t.accountId == _transactionFilter.accountId).toList();
-    }
-    if (_transactionFilter.categoryId != null) {
-      result = result.where((t) => t.categoryId == _transactionFilter.categoryId).toList();
-    }
-    if (_transactionFilter.type != null) {
-      result = result.where((t) => t.type == _transactionFilter.type).toList();
-    }
-    if (_transactionFilter.startDate != null) {
-      result = result.where((t) => !t.date.isBefore(_transactionFilter.startDate!)).toList();
-    }
-    if (_transactionFilter.endDate != null) {
-      result = result.where((t) => !t.date.isAfter(_transactionFilter.endDate!)).toList();
-    }
-    if (_transactionFilter.minAmount != null) {
-      result = result.where((t) => t.amount >= _transactionFilter.minAmount!).toList();
-    }
-    if (_transactionFilter.maxAmount != null) {
-      result = result.where((t) => t.amount <= _transactionFilter.maxAmount!).toList();
-    }
-    if (_transactionFilter.searchQuery != null && _transactionFilter.searchQuery!.isNotEmpty) {
-      final query = _transactionFilter.searchQuery!.toLowerCase();
-      result = result.where((t) =>
-          t.description?.toLowerCase().contains(query) == true ||
-          t.notes?.toLowerCase().contains(query) == true).toList();
-    }
-
-    return result;
-  }
-
-  double get totalMonthlyIncome {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    return _transactions
-        .where((t) => t.type == 'income' && !t.date.isBefore(startOfMonth))
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  double get totalMonthlyExpense {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    return _transactions
-        .where((t) => t.type == 'expense' && !t.date.isBefore(startOfMonth))
-        .fold(0.0, (sum, t) => sum + t.amount);
-  }
-
-  // ============================================================================
   // Savings Goals State
-  // ============================================================================
+  List<SavingsGoalModel> _savingsGoals = [];
+  double _totalSavingsTarget = 0.0;
+  double _totalSavingsCurrent = 0.0;
 
-  List<SavingsGoal> _savingsGoals = [];
-  bool _isSavingsLoading = false;
-  String? _savingsError;
+  // Portfolio State
+  List<PortfolioHoldingModel> _portfolioHoldings = [];
+  double _totalPortfolioValue = 0.0;
+  double _totalPortfolioInvested = 0.0;
+  double _totalPortfolioProfitLoss = 0.0;
+  double _totalPortfolioReturnPercent = 0.0;
 
-  List<SavingsGoal> get savingsGoals => _savingsGoals;
-  List<SavingsGoal> get activeSavingsGoals =>
-      _savingsGoals.where((g) => g.status == GoalStatus.active).toList();
-  List<SavingsGoal> get completedSavingsGoals =>
-      _savingsGoals.where((g) => g.status == GoalStatus.completed).toList();
-  bool get isSavingsLoading => _isSavingsLoading;
-  String? get savingsError => _savingsError;
+  // Watchlist State
+  List<WatchlistItemModel> _watchlist = [];
 
-  double get totalSavingsTarget =>
-      activeSavingsGoals.fold(0.0, (sum, g) => sum + g.targetAmount);
-
-  double get totalSavingsCurrent =>
-      activeSavingsGoals.fold(0.0, (sum, g) => sum + g.currentAmount);
-
-  double get overallSavingsProgress {
-    if (totalSavingsTarget <= 0) return 0.0;
-    return (totalSavingsCurrent / totalSavingsTarget).clamp(0.0, 1.0) * 100;
-  }
-
-  // ============================================================================
-  // Stock Portfolio State
-  // ============================================================================
-
-  List<StockHolding> _portfolioHoldings = [];
-  List<WatchlistItem> _watchlist = [];
-  bool _isPortfolioLoading = false;
-  String? _portfolioError;
-  DateTime? _portfolioLastUpdated;
-
-  List<StockHolding> get portfolioHoldings => _portfolioHoldings;
-  List<WatchlistItem> get watchlist => _watchlist;
-  bool get isPortfolioLoading => _isPortfolioLoading;
-  String? get portfolioError => _portfolioError;
-  DateTime? get portfolioLastUpdated => _portfolioLastUpdated;
-
-  double get totalPortfolioValue =>
-      _portfolioHoldings.fold(0.0, (sum, h) => sum + h.currentValue);
-
-  double get totalPortfolioInvested =>
-      _portfolioHoldings.fold(0.0, (sum, h) => sum + h.totalInvested);
-
-  double get totalPortfolioProfitLoss =>
-      _portfolioHoldings.fold(0.0, (sum, h) => sum + h.profitLoss);
-
-  double get totalPortfolioProfitLossPercent {
-    if (totalPortfolioInvested <= 0) return 0.0;
-    return (totalPortfolioProfitLoss / totalPortfolioInvested) * 100;
-  }
-
-  Map<String, double> get sectorAllocation {
-    final Map<String, double> result = {};
-    final total = totalPortfolioValue;
-    if (total <= 0) return result;
-
-    for (final holding in _portfolioHoldings) {
-      final sector = holding.sector ?? 'Lainnya';
-      result[sector] = (result[sector] ?? 0) + holding.currentValue;
-    }
-
-    for (final key in result.keys.toList()) {
-      result[key] = (result[key]! / total) * 100;
-    }
-
-    return result;
-  }
-
-  // ============================================================================
   // Dashboard State
-  // ============================================================================
+  DashboardModel? _dashboardData;
+  List<CashflowData> _cashflowData = [];
+  List<NetWorthData> _netWorthHistory = [];
+  List<FinancialInsight> _insights = [];
 
-  DashboardSummary _dashboardSummary = const DashboardSummary();
-  bool _isDashboardLoading = false;
-  String? _dashboardError;
+  // Statistics State
+  Map<String, double> _expensesByCategory = {};
+  Map<String, double> _incomeByCategory = {};
+  double _monthlyIncome = 0.0;
+  double _monthlyExpenses = 0.0;
+  double _savingsRate = 0.0;
 
-  DashboardSummary get dashboardSummary => _dashboardSummary;
-  bool get isDashboardLoading => _isDashboardLoading;
-  String? get dashboardError => _dashboardError;
-
-  // ============================================================================
   // Settings State
-  // ============================================================================
+  SettingsModel _settings = SettingsModel();
 
-  AppSettings _settings = const AppSettings();
-  bool _isSettingsLoading = false;
-  String? _settingsError;
-
-  AppSettings get settings => _settings;
-  bool get isSettingsLoading => _isSettingsLoading;
-  String? get settingsError => _settingsError;
-
-  // ============================================================================
-  // Notifications State
-  // ============================================================================
-
-  List<AppNotification> _notifications = [];
-  int _unreadNotificationCount = 0;
-  bool _isNotificationsLoading = false;
-
-  List<AppNotification> get notifications => _notifications;
-  int get unreadNotificationCount => _unreadNotificationCount;
-  bool get isNotificationsLoading => _isNotificationsLoading;
-
-  // ============================================================================
   // Sync State
-  // ============================================================================
-
   SyncStatus _syncStatus = SyncStatus.idle;
   DateTime? _lastSyncTime;
   int _pendingChanges = 0;
-  bool _isOffline = false;
 
-  SyncStatus get syncStatus => _syncStatus;
-  DateTime? get lastSyncTime => _lastSyncTime;
-  int get pendingChanges => _pendingChanges;
-  bool get isOffline => _isOffline;
+  // ==================== CONSTRUCTOR ====================
 
-  // ============================================================================
-  // Global Loading/Error State
-  // ============================================================================
+  AppProvider() {
+    _initializeDefaults();
+  }
 
-  bool _isLoading = false;
-  String? _globalError;
+  void _initializeDefaults() {
+    // Initialize default categories
+    _categories = _getDefaultCategories();
+    _incomeCategories = _categories.where((c) => c.type == 'income').toList();
+    _expenseCategories = _categories.where((c) => c.type == 'expense').toList();
+  }
 
+  // ==================== AUTHENTICATION ====================
+
+  bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
-  String? get globalError => _globalError;
+  String? get error => _error;
+  UserModel? get currentUser => _currentUser;
 
-  // ============================================================================
-  // Authentication Actions
-  // ============================================================================
+  Future<bool> login({
+    required String email,
+    required String password,
+    Map<String, dynamic>? deviceInfo,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // Simulate API call
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      // Mock successful login
+      _currentUser = UserModel(
+        id: _uuid.v4(),
+        email: email,
+        name: email.split('@').first,
+        currency: 'IDR',
+        timezone: 'Asia/Jakarta',
+        language: 'id',
+        createdAt: DateTime.now(),
+      );
+
+      _accessToken = 'mock_access_token_${DateTime.now().millisecondsSinceEpoch}';
+      _refreshToken = 'mock_refresh_token_${DateTime.now().millisecondsSinceEpoch}';
+      _isAuthenticated = true;
+
+      // Load user data
+      await _loadUserData();
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Login failed: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
 
   Future<bool> register({
     required String email,
     required String password,
     required String fullName,
-    String currency = 'IDR',
-    String timezone = 'Asia/Jakarta',
+    String? currency,
+    String? timezone,
   }) async {
-    _isAuthLoading = true;
-    _authError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(milliseconds: 1000));
 
-      final now = DateTime.now();
-      _currentUser = User(
+      _currentUser = UserModel(
         id: _uuid.v4(),
         email: email,
         name: fullName,
-        currency: currency,
-        timezone: timezone,
-        createdAt: now,
-        updatedAt: now,
+        currency: currency ?? 'IDR',
+        timezone: timezone ?? 'Asia/Jakarta',
+        language: 'id',
+        createdAt: DateTime.now(),
       );
 
-      _accessToken = 'access_${_uuid.v4()}';
-      _refreshToken = 'refresh_${_uuid.v4()}';
+      _accessToken = 'mock_access_token_${DateTime.now().millisecondsSinceEpoch}';
+      _refreshToken = 'mock_refresh_token_${DateTime.now().millisecondsSinceEpoch}';
       _isAuthenticated = true;
 
-      _isAuthLoading = false;
+      // Create default account for new user
+      await _createDefaultAccount();
+
       notifyListeners();
       return true;
     } catch (e) {
-      _authError = e.toString();
-      _isAuthLoading = false;
-      notifyListeners();
+      _setError('Registration failed: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
-    _isAuthLoading = true;
-    _authError = null;
-    notifyListeners();
+  Future<bool> loginWithGoogle(String idToken, Map<String, dynamic>? deviceInfo) async {
+    _setLoading(true);
+    _clearError();
 
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(milliseconds: 800));
 
-      final now = DateTime.now();
-      _currentUser = User(
-        id: _uuid.v4(),
-        email: email,
-        name: 'User',
-        createdAt: now,
-        updatedAt: now,
-      );
-
-      _accessToken = 'access_${_uuid.v4()}';
-      _refreshToken = 'refresh_${_uuid.v4()}';
-      _isAuthenticated = true;
-
-      _isAuthLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _authError = e.toString();
-      _isAuthLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> loginWithGoogle(String idToken) async {
-    _isAuthLoading = true;
-    _authError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(seconds: 1));
-
-      final now = DateTime.now();
-      _currentUser = User(
+      // Mock Google login
+      _currentUser = UserModel(
         id: _uuid.v4(),
         email: 'user@gmail.com',
         name: 'Google User',
+        avatarUrl: 'https://lh3.googleusercontent.com/photo.jpg',
+        currency: 'IDR',
+        timezone: 'Asia/Jakarta',
+        language: 'id',
         emailVerified: true,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: DateTime.now(),
       );
 
-      _accessToken = 'access_${_uuid.v4()}';
-      _refreshToken = 'refresh_${_uuid.v4()}';
+      _accessToken = 'mock_google_token_${DateTime.now().millisecondsSinceEpoch}';
+      _refreshToken = 'mock_google_refresh_${DateTime.now().millisecondsSinceEpoch}';
       _isAuthenticated = true;
 
-      _isAuthLoading = false;
+      await _loadUserData();
+
       notifyListeners();
       return true;
     } catch (e) {
-      _authError = e.toString();
-      _isAuthLoading = false;
-      notifyListeners();
+      _setError('Google login failed: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
   Future<void> logout() async {
-    _isAuthLoading = true;
-    notifyListeners();
+    _setLoading(true);
 
     try {
       await Future.delayed(const Duration(milliseconds: 500));
-    } finally {
+
+      _isAuthenticated = false;
       _currentUser = null;
       _accessToken = null;
       _refreshToken = null;
-      _isAuthenticated = false;
-      _isAuthLoading = false;
+
+      // Clear all user data
+      _accounts.clear();
+      _transactions.clear();
+      _filteredTransactions.clear();
+      _savingsGoals.clear();
+      _portfolioHoldings.clear();
+      _watchlist.clear();
+      _dashboardData = null;
+
       notifyListeners();
+    } finally {
+      _setLoading(false);
     }
   }
 
   Future<bool> refreshToken() async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
-      _accessToken = 'access_${_uuid.v4()}';
-      _refreshToken = 'refresh_${_uuid.v4()}';
+      _accessToken = 'refreshed_token_${DateTime.now().millisecondsSinceEpoch}';
       notifyListeners();
       return true;
     } catch (e) {
-      await logout();
+      _setError('Token refresh failed');
       return false;
     }
   }
 
-  Future<bool> verifyPin(String pin) async {
-    // PIN verification logic
+  Future<void> _loadUserData() async {
+    // In real app, fetch from API/DB
     await Future.delayed(const Duration(milliseconds: 300));
-    return pin.length == 6;
   }
 
-  Future<bool> setupPin(String pin) async {
-    if (_currentUser == null) return false;
-    _currentUser = _currentUser!.copyWith(pinEnabled: true);
-    notifyListeners();
-    return true;
+  Future<void> _createDefaultAccount() async {
+    final cashAccount = AccountModel(
+      id: _uuid.v4(),
+      userId: _currentUser!.id,
+      name: 'Tunai',
+      type: AccountType.cash,
+      balance: 0,
+      currency: 'IDR',
+      icon: 'wallet',
+      color: '#10B981',
+      isActive: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    _accounts.add(cashAccount);
   }
 
-  Future<bool> enableBiometric() async {
-    if (_currentUser == null) return false;
-    _currentUser = _currentUser!.copyWith(biometricEnabled: true);
-    notifyListeners();
-    return true;
-  }
+  // ==================== ACCOUNTS CRUD ====================
 
-  Future<bool> disableBiometric() async {
-    if (_currentUser == null) return false;
-    _currentUser = _currentUser!.copyWith(biometricEnabled: false);
-    notifyListeners();
-    return true;
-  }
+  List<AccountModel> get accounts => _accounts;
+  List<AccountModel> get activeAccounts => _accounts.where((a) => a.isActive).toList();
+  AccountModel? get selectedAccount => _selectedAccount;
+  double get totalBalance => _totalBalance;
 
-  // ============================================================================
-  // Account Actions
-  // ============================================================================
-
-  Future<Account?> createAccount({
+  Future<AccountModel?> createAccount({
     required String name,
     required AccountType type,
-    double initialBalance = 0.0,
+    required double initialBalance,
     String currency = 'IDR',
     String? icon,
     String? color,
     String? cardLastDigits,
     bool includeInTotal = true,
   }) async {
-    _isAccountsLoading = true;
-    _accountsError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final now = DateTime.now();
-      final account = Account(
+      final account = AccountModel(
         id: _uuid.v4(),
         userId: _currentUser?.id ?? '',
         name: name,
         type: type,
         balance: initialBalance,
         currency: currency,
-        icon: icon,
-        color: color,
+        icon: icon ?? _getDefaultIconForType(type),
+        color: color ?? _getDefaultColorForType(type),
         cardLastDigits: cardLastDigits,
+        isActive: true,
         includeInTotal: includeInTotal,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       _accounts.add(account);
-      _isAccountsLoading = false;
+      _calculateTotalBalance();
+
+      // If initial balance is set, create a transaction
+      if (initialBalance > 0) {
+        await createTransaction(
+          type: TransactionType.income,
+          amount: initialBalance,
+          categoryId: _categories.firstWhere(
+            (c) => c.type == 'income' && c.name == 'Saldo Awal',
+            orElse: () => _categories.firstWhere((c) => c.type == 'income'),
+          ).id,
+          accountId: account.id,
+          description: 'Saldo awal $name',
+          date: DateTime.now(),
+        );
+      }
+
       notifyListeners();
       return account;
     } catch (e) {
-      _accountsError = e.toString();
-      _isAccountsLoading = false;
-      notifyListeners();
+      _setError('Failed to create account: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<Account?> updateAccount(String id, {
+  Future<AccountModel?> updateAccount({
+    required String accountId,
     String? name,
     AccountType? type,
     String? icon,
     String? color,
-    String? cardLastDigits,
+    bool? isActive,
     bool? includeInTotal,
   }) async {
-    _isAccountsLoading = true;
-    _accountsError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _accounts.indexWhere((a) => a.id == id);
+      final index = _accounts.indexWhere((a) => a.id == accountId);
       if (index == -1) {
-        _accountsError = 'Account not found';
-        _isAccountsLoading = false;
-        notifyListeners();
+        _setError('Account not found');
         return null;
       }
 
-      final updated = _accounts[index].copyWith(
-        name: name,
-        type: type,
-        icon: icon,
-        color: color,
-        cardLastDigits: cardLastDigits,
-        includeInTotal: includeInTotal,
+      final account = _accounts[index];
+      final updatedAccount = AccountModel(
+        id: account.id,
+        userId: account.userId,
+        name: name ?? account.name,
+        type: type ?? account.type,
+        balance: account.balance,
+        currency: account.currency,
+        icon: icon ?? account.icon,
+        color: color ?? account.color,
+        cardLastDigits: account.cardLastDigits,
+        isActive: isActive ?? account.isActive,
+        includeInTotal: includeInTotal ?? account.includeInTotal,
+        createdAt: account.createdAt,
         updatedAt: DateTime.now(),
       );
 
-      _accounts[index] = updated;
-      _isAccountsLoading = false;
+      _accounts[index] = updatedAccount;
+      _calculateTotalBalance();
+
       notifyListeners();
-      return updated;
+      return updatedAccount;
     } catch (e) {
-      _accountsError = e.toString();
-      _isAccountsLoading = false;
-      notifyListeners();
+      _setError('Failed to update account: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<bool> updateAccountBalance(String id, double newBalance) async {
+  Future<bool> deleteAccount(String accountId) async {
+    _setLoading(true);
+    _clearError();
+
     try {
-      final index = _accounts.indexWhere((a) => a.id == id);
+      _accounts.removeWhere((a) => a.id == accountId);
+      _calculateTotalBalance();
+
+      // Also remove transactions for this account
+      _transactions.removeWhere((t) => t.accountId == accountId);
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to delete account: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> updateAccountBalance(String accountId, double newBalance) async {
+    try {
+      final index = _accounts.indexWhere((a) => a.id == accountId);
       if (index == -1) return false;
 
-      _accounts[index] = _accounts[index].copyWith(
+      final account = _accounts[index];
+      _accounts[index] = AccountModel(
+        id: account.id,
+        userId: account.userId,
+        name: account.name,
+        type: account.type,
         balance: newBalance,
+        currency: account.currency,
+        icon: account.icon,
+        color: account.color,
+        cardLastDigits: account.cardLastDigits,
+        isActive: account.isActive,
+        includeInTotal: account.includeInTotal,
+        createdAt: account.createdAt,
         updatedAt: DateTime.now(),
       );
+
+      _calculateTotalBalance();
       notifyListeners();
       return true;
     } catch (e) {
+      _setError('Failed to update balance: ${e.toString()}');
       return false;
     }
   }
 
-  Future<bool> deleteAccount(String id) async {
-    _isAccountsLoading = true;
-    _accountsError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      _accounts.removeWhere((a) => a.id == id);
-      if (_selectedAccount?.id == id) {
-        _selectedAccount = null;
-      }
-
-      _isAccountsLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _accountsError = e.toString();
-      _isAccountsLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  void selectAccount(Account? account) {
+  void selectAccount(AccountModel? account) {
     _selectedAccount = account;
     notifyListeners();
   }
 
-  Future<void> loadAccounts() async {
-    _isAccountsLoading = true;
-    _accountsError = null;
-    notifyListeners();
-
+  AccountModel? getAccountById(String id) {
     try {
-      await Future.delayed(const Duration(seconds: 1));
-      // Load accounts from API/Local DB
-      _isAccountsLoading = false;
-      notifyListeners();
+      return _accounts.firstWhere((a) => a.id == id);
     } catch (e) {
-      _accountsError = e.toString();
-      _isAccountsLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ============================================================================
-  // Category Actions
-  // ============================================================================
-
-  Future<Category?> createCategory({
-    required String name,
-    required String type,
-    required String icon,
-    required String color,
-    String? parentId,
-  }) async {
-    _isCategoriesLoading = true;
-    _categoriesError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final category = Category(
-        id: _uuid.v4(),
-        userId: _currentUser?.id,
-        name: name,
-        type: type,
-        icon: icon,
-        color: color,
-        parentId: parentId,
-        isSystem: false,
-        createdAt: DateTime.now(),
-      );
-
-      _categories.add(category);
-      _isCategoriesLoading = false;
-      notifyListeners();
-      return category;
-    } catch (e) {
-      _categoriesError = e.toString();
-      _isCategoriesLoading = false;
-      notifyListeners();
       return null;
     }
   }
 
-  Future<Category?> updateCategory(String id, {
-    String? name,
-    String? icon,
-    String? color,
-  }) async {
-    _isCategoriesLoading = true;
-    _categoriesError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _categories.indexWhere((c) => c.id == id);
-      if (index == -1) {
-        _categoriesError = 'Category not found';
-        _isCategoriesLoading = false;
-        notifyListeners();
-        return null;
-      }
-
-      final updated = _categories[index].copyWith(
-        name: name,
-        icon: icon,
-        color: color,
-      );
-
-      _categories[index] = updated;
-      _isCategoriesLoading = false;
-      notifyListeners();
-      return updated;
-    } catch (e) {
-      _categoriesError = e.toString();
-      _isCategoriesLoading = false;
-      notifyListeners();
-      return null;
-    }
+  void _calculateTotalBalance() {
+    _totalBalance = _accounts
+        .where((a) => a.isActive && a.includeInTotal)
+        .fold(0.0, (sum, a) => sum + a.balance);
   }
 
-  Future<bool> deleteCategory(String id) async {
-    final category = _categories.firstWhere((c) => c.id == id, orElse: () => throw Exception('Not found'));
-    if (category.isSystem) {
-      _categoriesError = 'Cannot delete system category';
-      notifyListeners();
-      return false;
-    }
+  // ==================== TRANSACTIONS CRUD ====================
 
-    _isCategoriesLoading = true;
-    _categoriesError = null;
-    notifyListeners();
+  List<TransactionModel> get transactions => _filteredTransactions.isEmpty ? _transactions : _filteredTransactions;
+  TransactionFilter get transactionFilter => _transactionFilter;
+  bool get hasMoreTransactions => _hasMoreTransactions;
 
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _categories.removeWhere((c) => c.id == id);
-      _isCategoriesLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _categoriesError = e.toString();
-      _isCategoriesLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<void> loadCategories() async {
-    _isCategoriesLoading = true;
-    _categoriesError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Default categories
-      _categories = [
-        // Income categories
-        Category(id: '1', name: 'Gaji', type: 'income', icon: 'briefcase', color: '#10B981', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '2', name: 'Freelance', type: 'income', icon: 'laptop', color: '#F59E0B', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '3', name: 'Investasi', type: 'income', icon: 'trending-up', color: '#6366F1', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '4', name: 'Hadiah', type: 'income', icon: 'gift', color: '#EC4899', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '5', name: 'Lainnya', type: 'income', icon: 'plus-circle', color: '#94A3B8', isSystem: true, createdAt: DateTime.now()),
-        // Expense categories
-        Category(id: '6', name: 'Makanan', type: 'expense', icon: 'utensils', color: '#EF4444', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '7', name: 'Transportasi', type: 'expense', icon: 'car', color: '#F59E0B', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '8', name: 'Belanja', type: 'expense', icon: 'shopping-bag', color: '#10B981', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '9', name: 'Hiburan', type: 'expense', icon: 'film', color: '#8B5CF6', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '10', name: 'Kesehatan', type: 'expense', icon: 'heart', color: '#EC4899', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '11', name: 'Pendidikan', type: 'expense', icon: 'book', color: '#06B6D4', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '12', name: 'Tagihan', type: 'expense', icon: 'file-text', color: '#6366F1', isSystem: true, createdAt: DateTime.now()),
-        Category(id: '13', name: 'Lainnya', type: 'expense', icon: 'more-horizontal', color: '#94A3B8', isSystem: true, createdAt: DateTime.now()),
-      ];
-
-      _isCategoriesLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _categoriesError = e.toString();
-      _isCategoriesLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // ============================================================================
-  // Transaction Actions
-  // ============================================================================
-
-  Future<Transaction?> createTransaction({
-    required String accountId,
-    required String type,
+  Future<TransactionModel?> createTransaction({
+    required TransactionType type,
     required double amount,
     required String categoryId,
+    required String accountId,
     String? description,
     required DateTime date,
     String? receiptUrl,
@@ -2040,15 +480,11 @@ class AppProvider extends ChangeNotifier {
     String? notes,
     String? location,
   }) async {
-    _isTransactionsLoading = true;
-    _transactionsError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final now = DateTime.now();
-      final transaction = Transaction(
+      final transaction = TransactionModel(
         id: _uuid.v4(),
         userId: _currentUser?.id ?? '',
         accountId: accountId,
@@ -2061,272 +497,489 @@ class AppProvider extends ChangeNotifier {
         tags: tags,
         notes: notes,
         location: location,
-        createdAt: now,
-        updatedAt: now,
+        status: 'completed',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
-      _transactions.insert(0, transaction);
+      _transactions.add(transaction);
+      _applyTransactionFilter();
 
       // Update account balance
-      await _updateAccountBalanceForTransaction(accountId, type, amount);
+      await _updateAccountBalanceFromTransaction(accountId, type, amount);
 
-      _isTransactionsLoading = false;
+      // Recalculate dashboard
+      await _recalculateDashboard();
+
       notifyListeners();
       return transaction;
     } catch (e) {
-      _transactionsError = e.toString();
-      _isTransactionsLoading = false;
-      notifyListeners();
+      _setError('Failed to create transaction: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<Transaction?> updateTransaction(String id, {
-    String? accountId,
-    String? type,
+  Future<TransactionModel?> updateTransaction({
+    required String transactionId,
+    TransactionType? type,
     double? amount,
     String? categoryId,
+    String? accountId,
     String? description,
     DateTime? date,
     String? receiptUrl,
     List<String>? tags,
     String? notes,
-    String? location,
   }) async {
-    _isTransactionsLoading = true;
-    _transactionsError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _transactions.indexWhere((t) => t.id == id);
+      final index = _transactions.indexWhere((t) => t.id == transactionId);
       if (index == -1) {
-        _transactionsError = 'Transaction not found';
-        _isTransactionsLoading = false;
-        notifyListeners();
+        _setError('Transaction not found');
         return null;
       }
 
       final oldTransaction = _transactions[index];
 
-      // Reverse old balance change
-      await _updateAccountBalanceForTransaction(
+      // Reverse old transaction effect
+      await _updateAccountBalanceFromTransaction(
         oldTransaction.accountId,
         oldTransaction.type,
-        oldTransaction.amount,
-        isReverse: true,
+        -oldTransaction.amount,
       );
 
-      final updated = oldTransaction.copyWith(
-        accountId: accountId,
-        type: type,
-        amount: amount,
-        categoryId: categoryId,
-        description: description,
-        date: date,
-        receiptUrl: receiptUrl,
-        tags: tags,
-        notes: notes,
-        location: location,
+      final updatedTransaction = TransactionModel(
+        id: oldTransaction.id,
+        userId: oldTransaction.userId,
+        accountId: accountId ?? oldTransaction.accountId,
+        type: type ?? oldTransaction.type,
+        amount: amount ?? oldTransaction.amount,
+        categoryId: categoryId ?? oldTransaction.categoryId,
+        description: description ?? oldTransaction.description,
+        date: date ?? oldTransaction.date,
+        receiptUrl: receiptUrl ?? oldTransaction.receiptUrl,
+        tags: tags ?? oldTransaction.tags,
+        notes: notes ?? oldTransaction.notes,
+        location: oldTransaction.location,
+        status: oldTransaction.status,
+        createdAt: oldTransaction.createdAt,
         updatedAt: DateTime.now(),
       );
 
-      _transactions[index] = updated;
+      _transactions[index] = updatedTransaction;
+      _applyTransactionFilter();
 
-      // Apply new balance change
-      await _updateAccountBalanceForTransaction(
-        accountId ?? oldTransaction.accountId,
-        type ?? oldTransaction.type,
-        amount ?? oldTransaction.amount,
+      // Apply new transaction effect
+      await _updateAccountBalanceFromTransaction(
+        updatedTransaction.accountId,
+        updatedTransaction.type,
+        updatedTransaction.amount,
       );
 
-      _isTransactionsLoading = false;
+      await _recalculateDashboard();
+
       notifyListeners();
-      return updated;
+      return updatedTransaction;
     } catch (e) {
-      _transactionsError = e.toString();
-      _isTransactionsLoading = false;
-      notifyListeners();
+      _setError('Failed to update transaction: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<bool> deleteTransaction(String id) async {
-    _isTransactionsLoading = true;
-    _transactionsError = null;
-    notifyListeners();
+  Future<bool> deleteTransaction(String transactionId) async {
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _transactions.indexWhere((t) => t.id == id);
+      final index = _transactions.indexWhere((t) => t.id == transactionId);
       if (index == -1) {
-        _transactionsError = 'Transaction not found';
-        _isTransactionsLoading = false;
-        notifyListeners();
+        _setError('Transaction not found');
         return false;
       }
 
       final transaction = _transactions[index];
 
-      // Reverse balance change
-      await _updateAccountBalanceForTransaction(
+      // Reverse transaction effect
+      await _updateAccountBalanceFromTransaction(
         transaction.accountId,
         transaction.type,
-        transaction.amount,
-        isReverse: true,
+        -transaction.amount,
       );
 
       _transactions.removeAt(index);
+      _applyTransactionFilter();
 
-      _isTransactionsLoading = false;
+      await _recalculateDashboard();
+
       notifyListeners();
       return true;
     } catch (e) {
-      _transactionsError = e.toString();
-      _isTransactionsLoading = false;
-      notifyListeners();
+      _setError('Failed to delete transaction: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<bool> _updateAccountBalanceForTransaction(
-    String accountId,
-    String type,
-    double amount, {
-    bool isReverse = false,
+  Future<bool> transferBetweenAccounts({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? date,
+    double fee = 0,
   }) async {
+    _setLoading(true);
+    _clearError();
+
     try {
-      final index = _accounts.indexWhere((a) => a.id == accountId);
-      if (index == -1) return false;
-
-      double balanceChange = 0;
-      if (type == 'income') {
-        balanceChange = isReverse ? -amount : amount;
-      } else if (type == 'expense') {
-        balanceChange = isReverse ? amount : -amount;
-      }
-
-      _accounts[index] = _accounts[index].copyWith(
-        balance: _accounts[index].balance + balanceChange,
-        updatedAt: DateTime.now(),
+      // Create expense from source account
+      final expenseCategory = _categories.firstWhere(
+        (c) => c.name == 'Transfer' && c.type == 'expense',
+        orElse: () => _categories.firstWhere((c) => c.type == 'expense'),
       );
 
+      final incomeCategory = _categories.firstWhere(
+        (c) => c.name == 'Transfer Masuk' && c.type == 'income',
+        orElse: () => _categories.firstWhere((c) => c.type == 'income'),
+      );
+
+      // Expense transaction
+      await createTransaction(
+        type: TransactionType.expense,
+        amount: amount + fee,
+        categoryId: expenseCategory.id,
+        accountId: fromAccountId,
+        description: description ?? 'Transfer ke ${getAccountById(toAccountId)?.name ?? "akun lain"}',
+        date: date ?? DateTime.now(),
+      );
+
+      // Income transaction
+      await createTransaction(
+        type: TransactionType.income,
+        amount: amount,
+        categoryId: incomeCategory.id,
+        accountId: toAccountId,
+        description: description ?? 'Transfer dari ${getAccountById(fromAccountId)?.name ?? "akun lain"}',
+        date: date ?? DateTime.now(),
+      );
+
+      notifyListeners();
       return true;
     } catch (e) {
+      _setError('Failed to transfer: ${e.toString()}');
       return false;
-    }
-  }
-
-  Future<void> loadTransactions({bool refresh = false}) async {
-    if (refresh) {
-      _transactionPage = 1;
-      _hasMoreTransactions = true;
-    }
-
-    _isTransactionsLoading = true;
-    _transactionsError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Add mock transactions for demo
-      if (_transactions.isEmpty) {
-        final now = DateTime.now();
-        final categories = expenseCategories;
-
-        for (var i = 0; i < 20; i++) {
-          final date = now.subtract(Duration(days: i));
-          final category = categories[i % categories.length];
-
-          _transactions.add(Transaction(
-            id: _uuid.v4(),
-            userId: _currentUser?.id ?? '',
-            accountId: _accounts.isNotEmpty ? _accounts.first.id : '',
-            type: i % 3 == 0 ? 'income' : 'expense',
-            amount: (i + 1) * 50000.0,
-            categoryId: category.id,
-            description: 'Transaction ${i + 1}',
-            date: date,
-            createdAt: date,
-            updatedAt: date,
-          ));
-        }
-      }
-
-      _transactionPage++;
-      _hasMoreTransactions = _transactionPage <= _transactionTotalPages;
-
-      _isTransactionsLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _transactionsError = e.toString();
-      _isTransactionsLoading = false;
-      notifyListeners();
+    } finally {
+      _setLoading(false);
     }
   }
 
   void setTransactionFilter(TransactionFilter filter) {
     _transactionFilter = filter;
+    _applyTransactionFilter();
     notifyListeners();
   }
 
   void clearTransactionFilter() {
-    _transactionFilter = const TransactionFilter();
+    _transactionFilter = TransactionFilter();
+    _filteredTransactions.clear();
     notifyListeners();
   }
 
-  // ============================================================================
-  // Savings Goal Actions
-  // ============================================================================
+  void _applyTransactionFilter() {
+    var filtered = List<TransactionModel>.from(_transactions);
 
-  Future<SavingsGoal?> createSavingsGoal({
+    if (_transactionFilter.accountId != null) {
+      filtered = filtered.where((t) => t.accountId == _transactionFilter.accountId).toList();
+    }
+
+    if (_transactionFilter.type != null) {
+      filtered = filtered.where((t) => t.type == _transactionFilter.type).toList();
+    }
+
+    if (_transactionFilter.categoryId != null) {
+      filtered = filtered.where((t) => t.categoryId == _transactionFilter.categoryId).toList();
+    }
+
+    if (_transactionFilter.startDate != null) {
+      filtered = filtered.where((t) => t.date.isAfter(_transactionFilter.startDate!) || 
+        t.date.isAtSameMomentAs(_transactionFilter.startDate!)).toList();
+    }
+
+    if (_transactionFilter.endDate != null) {
+      filtered = filtered.where((t) => t.date.isBefore(_transactionFilter.endDate!) ||
+        t.date.isAtSameMomentAs(_transactionFilter.endDate!)).toList();
+    }
+
+    if (_transactionFilter.minAmount != null) {
+      filtered = filtered.where((t) => t.amount >= _transactionFilter.minAmount!).toList();
+    }
+
+    if (_transactionFilter.maxAmount != null) {
+      filtered = filtered.where((t) => t.amount <= _transactionFilter.maxAmount!).toList();
+    }
+
+    if (_transactionFilter.searchQuery != null && _transactionFilter.searchQuery!.isNotEmpty) {
+      final query = _transactionFilter.searchQuery!.toLowerCase();
+      filtered = filtered.where((t) => 
+        (t.description?.toLowerCase().contains(query) ?? false) ||
+        (t.tags?.any((tag) => tag.toLowerCase().contains(query)) ?? false)
+      ).toList();
+    }
+
+    // Sort by date
+    filtered.sort((a, b) => _transactionFilter.sortOrder == 'asc' 
+      ? a.date.compareTo(b.date) 
+      : b.date.compareTo(a.date));
+
+    _filteredTransactions = filtered;
+  }
+
+  List<TransactionModel> getTransactionsByDateRange(DateTime start, DateTime end) {
+    return _transactions.where((t) => 
+      t.date.isAfter(start) && t.date.isBefore(end.add(const Duration(days: 1)))
+    ).toList();
+  }
+
+  List<TransactionModel> getTransactionsByAccount(String accountId) {
+    return _transactions.where((t) => t.accountId == accountId).toList();
+  }
+
+  Future<void> _updateAccountBalanceFromTransaction(
+    String accountId, 
+    TransactionType type, 
+    double amount,
+  ) async {
+    final index = _accounts.indexWhere((a) => a.id == accountId);
+    if (index == -1) return;
+
+    final account = _accounts[index];
+    final newBalance = type == TransactionType.income 
+      ? account.balance + amount 
+      : account.balance - amount;
+
+    _accounts[index] = AccountModel(
+      id: account.id,
+      userId: account.userId,
+      name: account.name,
+      type: account.type,
+      balance: newBalance,
+      currency: account.currency,
+      icon: account.icon,
+      color: account.color,
+      cardLastDigits: account.cardLastDigits,
+      isActive: account.isActive,
+      includeInTotal: account.includeInTotal,
+      createdAt: account.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    _calculateTotalBalance();
+  }
+
+  // ==================== CATEGORIES CRUD ====================
+
+  List<CategoryModel> get categories => _categories;
+  List<CategoryModel> get incomeCategories => _incomeCategories;
+  List<CategoryModel> get expenseCategories => _expenseCategories;
+
+  Future<CategoryModel?> createCategory({
+    required String name,
+    required CategoryType type,
+    String? icon,
+    String? color,
+    String? parentId,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final category = CategoryModel(
+        id: _uuid.v4(),
+        userId: _currentUser?.id,
+        name: name,
+        type: type,
+        icon: icon ?? 'folder',
+        color: color ?? '#6366F1',
+        parentId: parentId,
+        isSystem: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      _categories.add(category);
+
+      if (type == CategoryType.income) {
+        _incomeCategories.add(category);
+      } else {
+        _expenseCategories.add(category);
+      }
+
+      notifyListeners();
+      return category;
+    } catch (e) {
+      _setError('Failed to create category: ${e.toString()}');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<CategoryModel?> updateCategory({
+    required String categoryId,
+    String? name,
+    String? icon,
+    String? color,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final index = _categories.indexWhere((c) => c.id == categoryId);
+      if (index == -1) {
+        _setError('Category not found');
+        return null;
+      }
+
+      final oldCategory = _categories[index];
+      
+      if (oldCategory.isSystem) {
+        _setError('Cannot modify system category');
+        return null;
+      }
+
+      final updatedCategory = CategoryModel(
+        id: oldCategory.id,
+        userId: oldCategory.userId,
+        name: name ?? oldCategory.name,
+        type: oldCategory.type,
+        icon: icon ?? oldCategory.icon,
+        color: color ?? oldCategory.color,
+        parentId: oldCategory.parentId,
+        isSystem: oldCategory.isSystem,
+        createdAt: oldCategory.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      _categories[index] = updatedCategory;
+
+      // Update in type-specific lists
+      _incomeCategories = _categories.where((c) => c.type == 'income').toList();
+      _expenseCategories = _categories.where((c) => c.type == 'expense').toList();
+
+      notifyListeners();
+      return updatedCategory;
+    } catch (e) {
+      _setError('Failed to update category: ${e.toString()}');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> deleteCategory(String categoryId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final index = _categories.indexWhere((c) => c.id == categoryId);
+      if (index == -1) {
+        _setError('Category not found');
+        return false;
+      }
+
+      final category = _categories[index];
+      
+      if (category.isSystem) {
+        _setError('Cannot delete system category');
+        return false;
+      }
+
+      _categories.removeAt(index);
+      _incomeCategories = _categories.where((c) => c.type == 'income').toList();
+      _expenseCategories = _categories.where((c) => c.type == 'expense').toList();
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to delete category: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  CategoryModel? getCategoryById(String id) {
+    try {
+      return _categories.firstWhere((c) => c.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  List<CategoryModel> getCategoriesByType(CategoryType type) {
+    return _categories.where((c) => c.type == type).toList();
+  }
+
+  // ==================== SAVINGS GOALS CRUD ====================
+
+  List<SavingsGoalModel> get savingsGoals => _savingsGoals;
+  double get totalSavingsTarget => _totalSavingsTarget;
+  double get totalSavingsCurrent => _totalSavingsCurrent;
+  double get overallSavingsProgress => _totalSavingsTarget > 0 
+    ? (_totalSavingsCurrent / _totalSavingsTarget) * 100 
+    : 0;
+
+  Future<SavingsGoalModel?> createSavingsGoal({
     required String name,
     required double targetAmount,
     DateTime? deadline,
     String? icon,
     String? color,
-    int priority = 1,
-    String? notes,
+    int? priority,
+    double? initialAmount,
   }) async {
-    _isSavingsLoading = true;
-    _savingsError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final now = DateTime.now();
-      final goal = SavingsGoal(
+      final goal = SavingsGoalModel(
         id: _uuid.v4(),
         userId: _currentUser?.id ?? '',
         name: name,
         targetAmount: targetAmount,
-        currentAmount: 0,
+        currentAmount: initialAmount ?? 0,
         deadline: deadline,
-        icon: icon,
-        color: color,
-        priority: priority,
-        notes: notes,
-        createdAt: now,
-        updatedAt: now,
+        icon: icon ?? 'target',
+        color: color ?? '#6366F1',
+        priority: priority ?? 1,
+        status: GoalStatus.active,
+        contributions: [],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       _savingsGoals.add(goal);
-      _isSavingsLoading = false;
+      _calculateSavingsTotals();
+
       notifyListeners();
       return goal;
     } catch (e) {
-      _savingsError = e.toString();
-      _isSavingsLoading = false;
-      notifyListeners();
+      _setError('Failed to create savings goal: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<SavingsGoal?> updateSavingsGoal(String id, {
+  Future<SavingsGoalModel?> updateSavingsGoal({
+    required String goalId,
     String? name,
     double? targetAmount,
     DateTime? deadline,
@@ -2334,72 +987,85 @@ class AppProvider extends ChangeNotifier {
     String? color,
     int? priority,
     GoalStatus? status,
-    String? notes,
   }) async {
-    _isSavingsLoading = true;
-    _savingsError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _savingsGoals.indexWhere((g) => g.id == id);
+      final index = _savingsGoals.indexWhere((g) => g.id == goalId);
       if (index == -1) {
-        _savingsError = 'Goal not found';
-        _isSavingsLoading = false;
-        notifyListeners();
-        return null;
-      }
-
-      final updated = _savingsGoals[index].copyWith(
-        name: name,
-        targetAmount: targetAmount,
-        deadline: deadline,
-        icon: icon,
-        color: color,
-        priority: priority,
-        status: status,
-        notes: notes,
-        updatedAt: DateTime.now(),
-      );
-
-      _savingsGoals[index] = updated;
-      _isSavingsLoading = false;
-      notifyListeners();
-      return updated;
-    } catch (e) {
-      _savingsError = e.toString();
-      _isSavingsLoading = false;
-      notifyListeners();
-      return null;
-    }
-  }
-
-  Future<SavingsGoal?> contributeToGoal(String id, {
-    required double amount,
-    String? note,
-    String? accountId,
-  }) async {
-    _isSavingsLoading = true;
-    _savingsError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _savingsGoals.indexWhere((g) => g.id == id);
-      if (index == -1) {
-        _savingsError = 'Goal not found';
-        _isSavingsLoading = false;
-        notifyListeners();
+        _setError('Savings goal not found');
         return null;
       }
 
       final goal = _savingsGoals[index];
-      final newAmount = goal.currentAmount + amount;
-      final newStatus = newAmount >= goal.targetAmount ? GoalStatus.completed : goal.status;
+      final updatedGoal = SavingsGoalModel(
+        id: goal.id,
+        userId: goal.userId,
+        name: name ?? goal.name,
+        targetAmount: targetAmount ?? goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        deadline: deadline ?? goal.deadline,
+        icon: icon ?? goal.icon,
+        color: color ?? goal.color,
+        priority: priority ?? goal.priority,
+        status: status ?? goal.status,
+        contributions: goal.contributions,
+        createdAt: goal.createdAt,
+        updatedAt: DateTime.now(),
+      );
 
-      final contribution = GoalContribution(
+      _savingsGoals[index] = updatedGoal;
+      _calculateSavingsTotals();
+
+      notifyListeners();
+      return updatedGoal;
+    } catch (e) {
+      _setError('Failed to update savings goal: ${e.toString()}');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> deleteSavingsGoal(String goalId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      _savingsGoals.removeWhere((g) => g.id == goalId);
+      _calculateSavingsTotals();
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to delete savings goal: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<SavingsGoalModel?> contributeToGoal({
+    required String goalId,
+    required double amount,
+    String? note,
+    String? accountId,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final index = _savingsGoals.indexWhere((g) => g.id == goalId);
+      if (index == -1) {
+        _setError('Savings goal not found');
+        return null;
+      }
+
+      final goal = _savingsGoals[index];
+
+      // Create contribution record
+      final contribution = SavingsContribution(
         id: _uuid.v4(),
         amount: amount,
         date: DateTime.now(),
@@ -2407,668 +1073,1326 @@ class AppProvider extends ChangeNotifier {
         accountId: accountId,
       );
 
-      final updated = goal.copyWith(
-        currentAmount: newAmount,
-        status: newStatus,
-        contributions: [...?goal.contributions, contribution],
+      final newCurrentAmount = goal.currentAmount + amount;
+      final isCompleted = newCurrentAmount >= goal.targetAmount;
+
+      final updatedGoal = SavingsGoalModel(
+        id: goal.id,
+        userId: goal.userId,
+        name: goal.name,
+        targetAmount: goal.targetAmount,
+        currentAmount: newCurrentAmount,
+        deadline: goal.deadline,
+        icon: goal.icon,
+        color: goal.color,
+        priority: goal.priority,
+        status: isCompleted ? GoalStatus.completed : GoalStatus.active,
+        contributions: [...goal.contributions, contribution],
+        createdAt: goal.createdAt,
         updatedAt: DateTime.now(),
       );
 
-      _savingsGoals[index] = updated;
-      _isSavingsLoading = false;
+      _savingsGoals[index] = updatedGoal;
+      _calculateSavingsTotals();
+
+      // Create expense transaction if account specified
+      if (accountId != null) {
+        final category = _categories.firstWhere(
+          (c) => c.name == 'Tabungan',
+          orElse: () => _categories.firstWhere((c) => c.type == 'expense'),
+        );
+
+        await createTransaction(
+          type: TransactionType.expense,
+          amount: amount,
+          categoryId: category.id,
+          accountId: accountId,
+          description: 'Kontribusi ${goal.name}',
+          date: DateTime.now(),
+        );
+      }
+
       notifyListeners();
-      return updated;
+      return updatedGoal;
     } catch (e) {
-      _savingsError = e.toString();
-      _isSavingsLoading = false;
+      _setError('Failed to contribute to goal: ${e.toString()}');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> withdrawFromGoal({
+    required String goalId,
+    required double amount,
+    String? note,
+    String? accountId,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final index = _savingsGoals.indexWhere((g) => g.id == goalId);
+      if (index == -1) {
+        _setError('Savings goal not found');
+        return false;
+      }
+
+      final goal = _savingsGoals[index];
+
+      if (amount > goal.currentAmount) {
+        _setError('Insufficient funds in goal');
+        return false;
+      }
+
+      final updatedGoal = SavingsGoalModel(
+        id: goal.id,
+        userId: goal.userId,
+        name: goal.name,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount - amount,
+        deadline: goal.deadline,
+        icon: goal.icon,
+        color: goal.color,
+        priority: goal.priority,
+        status: GoalStatus.active,
+        contributions: goal.contributions,
+        createdAt: goal.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      _savingsGoals[index] = updatedGoal;
+      _calculateSavingsTotals();
+
+      // Create income transaction if account specified
+      if (accountId != null) {
+        final category = _categories.firstWhere(
+          (c) => c.name == 'Tabungan',
+          orElse: () => _categories.firstWhere((c) => c.type == 'income'),
+        );
+
+        await createTransaction(
+          type: TransactionType.income,
+          amount: amount,
+          categoryId: category.id,
+          accountId: accountId,
+          description: 'Penarikan ${goal.name}',
+          date: DateTime.now(),
+        );
+      }
+
       notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to withdraw from goal: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  void _calculateSavingsTotals() {
+    _totalSavingsTarget = _savingsGoals
+        .where((g) => g.status == GoalStatus.active)
+        .fold(0.0, (sum, g) => sum + g.targetAmount);
+    
+    _totalSavingsCurrent = _savingsGoals
+        .where((g) => g.status == GoalStatus.active)
+        .fold(0.0, (sum, g) => sum + g.currentAmount);
+  }
+
+  SavingsGoalModel? getSavingsGoalById(String id) {
+    try {
+      return _savingsGoals.firstWhere((g) => g.id == id);
+    } catch (e) {
       return null;
     }
   }
 
-  Future<bool> deleteSavingsGoal(String id) async {
-    _isSavingsLoading = true;
-    _savingsError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _savingsGoals.removeWhere((g) => g.id == id);
-      _isSavingsLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _savingsError = e.toString();
-      _isSavingsLoading = false;
-      notifyListeners();
-      return false;
-    }
+  List<SavingsGoalModel> getActiveGoals() {
+    return _savingsGoals.where((g) => g.status == GoalStatus.active).toList();
   }
 
-  Future<void> loadSavingsGoals() async {
-    _isSavingsLoading = true;
-    _savingsError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(seconds: 1));
-      _isSavingsLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _savingsError = e.toString();
-      _isSavingsLoading = false;
-      notifyListeners();
-    }
+  List<SavingsGoalModel> getCompletedGoals() {
+    return _savingsGoals.where((g) => g.status == GoalStatus.completed).toList();
   }
 
-  // ============================================================================
-  // Portfolio Actions
-  // ============================================================================
+  // ==================== PORTFOLIO CRUD ====================
 
-  Future<StockHolding?> addStockHolding({
+  List<PortfolioHoldingModel> get portfolioHoldings => _portfolioHoldings;
+  double get totalPortfolioValue => _totalPortfolioValue;
+  double get totalPortfolioInvested => _totalPortfolioInvested;
+  double get totalPortfolioProfitLoss => _totalPortfolioProfitLoss;
+  double get totalPortfolioReturnPercent => _totalPortfolioReturnPercent;
+
+  Future<PortfolioHoldingModel?> addStock({
     required String symbol,
     required String companyName,
     required double shares,
     required double buyPrice,
-    required DateTime buyDate,
+    DateTime? buyDate,
     String? sector,
     String? exchange,
     double? fees,
-    String? broker,
   }) async {
-    _isPortfolioLoading = true;
-    _portfolioError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Check if holding already exists
+      final existingIndex = _portfolioHoldings.indexWhere(
+        (h) => h.symbol == symbol.toUpperCase(),
+      );
 
-      final now = DateTime.now();
-      final holding = StockHolding(
+      if (existingIndex != -1) {
+        // Update existing holding with average price
+        return await buyMoreStock(
+          symbol: symbol,
+          additionalShares: shares,
+          price: buyPrice,
+          date: buyDate,
+          fees: fees,
+        );
+      }
+
+      final totalCost = (shares * buyPrice) + (fees ?? 0);
+
+      final holding = PortfolioHoldingModel(
         id: _uuid.v4(),
         userId: _currentUser?.id ?? '',
-        symbol: symbol,
+        symbol: symbol.toUpperCase(),
         companyName: companyName,
         shares: shares,
-        averageBuyPrice: buyPrice,
+        averagePrice: buyPrice,
         currentPrice: buyPrice,
         sector: sector,
-        exchange: exchange,
-        lastUpdated: now,
-        createdAt: now,
-        updatedAt: now,
+        exchange: exchange ?? 'IDX',
+        totalInvested: totalCost,
+        totalValue: totalCost,
+        profitLoss: 0,
+        profitLossPercent: 0,
+        lastUpdated: DateTime.now(),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       _portfolioHoldings.add(holding);
-      _isPortfolioLoading = false;
+      _calculatePortfolioTotals();
+
       notifyListeners();
       return holding;
     } catch (e) {
-      _portfolioError = e.toString();
-      _isPortfolioLoading = false;
-      notifyListeners();
+      _setError('Failed to add stock: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<StockHolding?> updateStockHolding(String id, {
-    double? shares,
-    double? averageBuyPrice,
-    double? currentPrice,
-    String? sector,
-  }) async {
-    _isPortfolioLoading = true;
-    _portfolioError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final index = _portfolioHoldings.indexWhere((h) => h.id == id);
-      if (index == -1) {
-        _portfolioError = 'Holding not found';
-        _isPortfolioLoading = false;
-        notifyListeners();
-        return null;
-      }
-
-      final updated = _portfolioHoldings[index].copyWith(
-        shares: shares,
-        averageBuyPrice: averageBuyPrice,
-        currentPrice: currentPrice,
-        sector: sector,
-        updatedAt: DateTime.now(),
-      );
-
-      _portfolioHoldings[index] = updated;
-      _isPortfolioLoading = false;
-      notifyListeners();
-      return updated;
-    } catch (e) {
-      _portfolioError = e.toString();
-      _isPortfolioLoading = false;
-      notifyListeners();
-      return null;
-    }
-  }
-
-  Future<StockHolding?> buyMoreStock(String id, {
+  Future<PortfolioHoldingModel?> buyMoreStock({
+    required String symbol,
     required double additionalShares,
     required double price,
     DateTime? date,
+    double? fees,
   }) async {
-    _isPortfolioLoading = true;
-    _portfolioError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      final index = _portfolioHoldings.indexWhere(
+        (h) => h.symbol == symbol.toUpperCase(),
+      );
 
-      final index = _portfolioHoldings.indexWhere((h) => h.id == id);
       if (index == -1) {
-        _portfolioError = 'Holding not found';
-        _isPortfolioLoading = false;
-        notifyListeners();
+        _setError('Stock not found in portfolio');
         return null;
       }
 
       final holding = _portfolioHoldings[index];
+      
+      // Calculate new average price
+      final totalOldCost = holding.shares * holding.averagePrice;
+      final totalNewCost = additionalShares * price + (fees ?? 0);
       final totalShares = holding.shares + additionalShares;
-      final totalCost = (holding.shares * holding.averageBuyPrice) + (additionalShares * price);
-      final newAveragePrice = totalCost / totalShares;
+      final newAveragePrice = (totalOldCost + totalNewCost) / totalShares;
+      final newTotalInvested = holding.totalInvested + totalNewCost;
 
-      final updated = holding.copyWith(
+      final updatedHolding = PortfolioHoldingModel(
+        id: holding.id,
+        userId: holding.userId,
+        symbol: holding.symbol,
+        companyName: holding.companyName,
         shares: totalShares,
-        averageBuyPrice: newAveragePrice,
+        averagePrice: newAveragePrice,
+        currentPrice: holding.currentPrice,
+        sector: holding.sector,
+        exchange: holding.exchange,
+        totalInvested: newTotalInvested,
+        totalValue: totalShares * holding.currentPrice,
+        profitLoss: (totalShares * holding.currentPrice) - newTotalInvested,
+        profitLossPercent: ((totalShares * holding.currentPrice - newTotalInvested) / newTotalInvested) * 100,
+        lastUpdated: DateTime.now(),
+        createdAt: holding.createdAt,
         updatedAt: DateTime.now(),
       );
 
-      _portfolioHoldings[index] = updated;
-      _isPortfolioLoading = false;
+      _portfolioHoldings[index] = updatedHolding;
+      _calculatePortfolioTotals();
+
       notifyListeners();
-      return updated;
+      return updatedHolding;
     } catch (e) {
-      _portfolioError = e.toString();
-      _isPortfolioLoading = false;
-      notifyListeners();
+      _setError('Failed to buy more stock: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<StockHolding?> sellStock(String id, {
-    required double sharesToSell,
+  Future<PortfolioHoldingModel?> sellStock({
+    required String symbol,
+    required double shares,
     required double price,
     DateTime? date,
+    double? fees,
   }) async {
-    _isPortfolioLoading = true;
-    _portfolioError = null;
-    notifyListeners();
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      final index = _portfolioHoldings.indexWhere(
+        (h) => h.symbol == symbol.toUpperCase(),
+      );
 
-      final index = _portfolioHoldings.indexWhere((h) => h.id == id);
       if (index == -1) {
-        _portfolioError = 'Holding not found';
-        _isPortfolioLoading = false;
-        notifyListeners();
+        _setError('Stock not found in portfolio');
         return null;
       }
 
       final holding = _portfolioHoldings[index];
-      if (sharesToSell > holding.shares) {
-        _portfolioError = 'Cannot sell more shares than owned';
-        _isPortfolioLoading = false;
-        notifyListeners();
+
+      if (shares > holding.shares) {
+        _setError('Insufficient shares');
         return null;
       }
 
-      final newShares = holding.shares - sharesToSell;
+      final saleValue = (shares * price) - (fees ?? 0);
+      final remainingShares = holding.shares - shares;
 
-      if (newShares <= 0) {
+      if (remainingShares == 0) {
+        // Remove holding completely
         _portfolioHoldings.removeAt(index);
       } else {
-        _portfolioHoldings[index] = holding.copyWith(
-          shares: newShares,
+        // Update holding
+        // Proportionally reduce total invested
+        final proportionSold = shares / holding.shares;
+        final investedReduction = holding.totalInvested * proportionSold;
+
+        final updatedHolding = PortfolioHoldingModel(
+          id: holding.id,
+          userId: holding.userId,
+          symbol: holding.symbol,
+          companyName: holding.companyName,
+          shares: remainingShares,
+          averagePrice: holding.averagePrice, // Average doesn't change
+          currentPrice: holding.currentPrice,
+          sector: holding.sector,
+          exchange: holding.exchange,
+          totalInvested: holding.totalInvested - investedReduction,
+          totalValue: remainingShares * holding.currentPrice,
+          profitLoss: (remainingShares * holding.currentPrice) - (holding.totalInvested - investedReduction),
+          profitLossPercent: (((remainingShares * holding.currentPrice) - (holding.totalInvested - investedReduction)) / (holding.totalInvested - investedReduction)) * 100,
+          lastUpdated: DateTime.now(),
+          createdAt: holding.createdAt,
           updatedAt: DateTime.now(),
         );
+
+        _portfolioHoldings[index] = updatedHolding;
       }
 
-      _isPortfolioLoading = false;
+      _calculatePortfolioTotals();
+
       notifyListeners();
-      return newShares > 0 ? _portfolioHoldings[index] : null;
+      return holding;
     } catch (e) {
-      _portfolioError = e.toString();
-      _isPortfolioLoading = false;
+      _setError('Failed to sell stock: ${e.toString()}');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<PortfolioHoldingModel?> updateStockPrice({
+    required String symbol,
+    required double newPrice,
+  }) async {
+    try {
+      final index = _portfolioHoldings.indexWhere(
+        (h) => h.symbol == symbol.toUpperCase(),
+      );
+
+      if (index == -1) {
+        return null;
+      }
+
+      final holding = _portfolioHoldings[index];
+      final newValue = holding.shares * newPrice;
+
+      final updatedHolding = PortfolioHoldingModel(
+        id: holding.id,
+        userId: holding.userId,
+        symbol: holding.symbol,
+        companyName: holding.companyName,
+        shares: holding.shares,
+        averagePrice: holding.averagePrice,
+        currentPrice: newPrice,
+        sector: holding.sector,
+        exchange: holding.exchange,
+        totalInvested: holding.totalInvested,
+        totalValue: newValue,
+        profitLoss: newValue - holding.totalInvested,
+        profitLossPercent: ((newValue - holding.totalInvested) / holding.totalInvested) * 100,
+        lastUpdated: DateTime.now(),
+        createdAt: holding.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      _portfolioHoldings[index] = updatedHolding;
+      _calculatePortfolioTotals();
+
       notifyListeners();
+      return updatedHolding;
+    } catch (e) {
+      _setError('Failed to update stock price: ${e.toString()}');
       return null;
     }
   }
 
-  Future<bool> removeStockHolding(String id) async {
-    _isPortfolioLoading = true;
-    _portfolioError = null;
-    notifyListeners();
+  Future<bool> removeStock(String holdingId) async {
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _portfolioHoldings.removeWhere((h) => h.id == id);
-      _isPortfolioLoading = false;
+      _portfolioHoldings.removeWhere((h) => h.id == holdingId);
+      _calculatePortfolioTotals();
+
       notifyListeners();
       return true;
     } catch (e) {
-      _portfolioError = e.toString();
-      _isPortfolioLoading = false;
-      notifyListeners();
+      _setError('Failed to remove stock: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<void> updateStockPrices() async {
-    _isPortfolioLoading = true;
-    notifyListeners();
+  void _calculatePortfolioTotals() {
+    _totalPortfolioValue = _portfolioHoldings.fold(0.0, (sum, h) => sum + h.totalValue);
+    _totalPortfolioInvested = _portfolioHoldings.fold(0.0, (sum, h) => sum + h.totalInvested);
+    _totalPortfolioProfitLoss = _totalPortfolioValue - _totalPortfolioInvested;
+    _totalPortfolioReturnPercent = _totalPortfolioInvested > 0 
+      ? (_totalPortfolioProfitLoss / _totalPortfolioInvested) * 100 
+      : 0;
+  }
 
+  PortfolioHoldingModel? getHoldingBySymbol(String symbol) {
     try {
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Simulate price updates
-      for (var i = 0; i < _portfolioHoldings.length; i++) {
-        final holding = _portfolioHoldings[i];
-        final priceChange = ((i % 3) - 1) * 0.02; // -2% to +2%
-        final newPrice = holding.currentPrice * (1 + priceChange);
-
-        _portfolioHoldings[i] = holding.copyWith(
-          currentPrice: newPrice,
-          lastUpdated: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-      }
-
-      _portfolioLastUpdated = DateTime.now();
-      _isPortfolioLoading = false;
-      notifyListeners();
+      return _portfolioHoldings.firstWhere(
+        (h) => h.symbol == symbol.toUpperCase(),
+      );
     } catch (e) {
-      _portfolioError = e.toString();
-      _isPortfolioLoading = false;
-      notifyListeners();
+      return null;
     }
   }
 
-  // ============================================================================
-  // Watchlist Actions
-  // ============================================================================
+  List<PortfolioHoldingModel> getTopPerformers({int limit = 3}) {
+    final sorted = List<PortfolioHoldingModel>.from(_portfolioHoldings)
+      ..sort((a, b) => b.profitLossPercent.compareTo(a.profitLossPercent));
+    return sorted.take(limit).toList();
+  }
 
-  Future<WatchlistItem?> addToWatchlist({
+  List<PortfolioHoldingModel> getWorstPerformers({int limit = 3}) {
+    final sorted = List<PortfolioHoldingModel>.from(_portfolioHoldings)
+      ..sort((a, b) => a.profitLossPercent.compareTo(b.profitLossPercent));
+    return sorted.take(limit).toList();
+  }
+
+  Map<String, double> getSectorAllocation() {
+    final allocation = <String, double>{};
+    
+    for (final holding in _portfolioHoldings) {
+      final sector = holding.sector ?? 'Lainnya';
+      allocation[sector] = (allocation[sector] ?? 0) + holding.totalValue;
+    }
+
+    return allocation;
+  }
+
+  // ==================== WATCHLIST CRUD ====================
+
+  List<WatchlistItemModel> get watchlist => _watchlist;
+
+  Future<WatchlistItemModel?> addToWatchlist({
     required String symbol,
     String? companyName,
     double? targetPrice,
     String? notes,
   }) async {
+    _setLoading(true);
+    _clearError();
+
     try {
       // Check if already in watchlist
-      if (_watchlist.any((w) => w.symbol == symbol)) {
+      if (_watchlist.any((w) => w.symbol == symbol.toUpperCase())) {
+        _setError('Symbol already in watchlist');
         return null;
       }
 
-      final item = WatchlistItem(
+      final item = WatchlistItemModel(
         id: _uuid.v4(),
         userId: _currentUser?.id ?? '',
-        symbol: symbol,
-        companyName: companyName,
+        symbol: symbol.toUpperCase(),
+        companyName: companyName ?? symbol.toUpperCase(),
         targetPrice: targetPrice,
         notes: notes,
+        alertEnabled: targetPrice != null,
         addedAt: DateTime.now(),
       );
 
       _watchlist.add(item);
+
       notifyListeners();
       return item;
     } catch (e) {
+      _setError('Failed to add to watchlist: ${e.toString()}');
       return null;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<bool> removeFromWatchlist(String id) async {
+  Future<WatchlistItemModel?> updateWatchlistItem({
+    required String itemId,
+    double? targetPrice,
+    String? notes,
+    bool? alertEnabled,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
     try {
-      _watchlist.removeWhere((w) => w.id == id);
+      final index = _watchlist.indexWhere((w) => w.id == itemId);
+      if (index == -1) {
+        _setError('Watchlist item not found');
+        return null;
+      }
+
+      final item = _watchlist[index];
+      final updatedItem = WatchlistItemModel(
+        id: item.id,
+        userId: item.userId,
+        symbol: item.symbol,
+        companyName: item.companyName,
+        targetPrice: targetPrice ?? item.targetPrice,
+        notes: notes ?? item.notes,
+        alertEnabled: alertEnabled ?? item.alertEnabled,
+        lastPrice: item.lastPrice,
+        priceChange: item.priceChange,
+        priceChangePercent: item.priceChangePercent,
+        addedAt: item.addedAt,
+        updatedAt: DateTime.now(),
+      );
+
+      _watchlist[index] = updatedItem;
+
+      notifyListeners();
+      return updatedItem;
+    } catch (e) {
+      _setError('Failed to update watchlist item: ${e.toString()}');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> removeFromWatchlist(String itemId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      _watchlist.removeWhere((w) => w.id == itemId);
+
       notifyListeners();
       return true;
     } catch (e) {
+      _setError('Failed to remove from watchlist: ${e.toString()}');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<WatchlistItem?> updateWatchlistAlert(String id, {
-    double? targetPrice,
-    bool? alertEnabled,
-    String? notes,
-  }) async {
-    try {
-      final index = _watchlist.indexWhere((w) => w.id == id);
-      if (index == -1) return null;
-
-      final updated = _watchlist[index].copyWith(
-        targetPrice: targetPrice,
-        alertEnabled: alertEnabled,
-        notes: notes,
-      );
-
-      _watchlist[index] = updated;
-      notifyListeners();
-      return updated;
-    } catch (e) {
-      return null;
-    }
+  Future<bool> isInWatchlist(String symbol) async {
+    return _watchlist.any((w) => w.symbol == symbol.toUpperCase());
   }
 
-  // ============================================================================
-  // Dashboard Actions
-  // ============================================================================
+  // ==================== DASHBOARD & STATISTICS ====================
 
-  Future<void> loadDashboard() async {
-    _isDashboardLoading = true;
-    _dashboardError = null;
-    notifyListeners();
+  DashboardModel? get dashboardData => _dashboardData;
+  List<CashflowData> get cashflowData => _cashflowData;
+  List<NetWorthData> get netWorthHistory => _netWorthHistory;
+  List<FinancialInsight> get insights => _insights;
+
+  double get monthlyIncome => _monthlyIncome;
+  double get monthlyExpenses => _monthlyExpenses;
+  double get savingsRate => _savingsRate;
+  Map<String, double> get expensesByCategory => _expensesByCategory;
+  Map<String, double> get incomeByCategory => _incomeByCategory;
+
+  Future<void> refreshDashboard() async {
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
+      await _recalculateDashboard();
+      await _calculateStatistics();
+      await _generateInsights();
 
-      _dashboardSummary = DashboardSummary(
-        totalBalance: totalBalance,
-        monthlyIncome: totalMonthlyIncome,
-        monthlyExpense: totalMonthlyExpense,
-        totalSavings: totalSavingsCurrent,
-        portfolioValue: totalPortfolioValue,
-        portfolioProfitLoss: totalPortfolioProfitLoss,
-        portfolioProfitLossPercent: totalPortfolioProfitLossPercent,
-        netWorth: totalBalance + totalPortfolioValue,
-        savingsRate: totalMonthlyIncome > 0
-            ? ((totalMonthlyIncome - totalMonthlyExpense) / totalMonthlyIncome * 100).clamp(0, 100)
-            : 0,
-        totalAccounts: activeAccounts.length,
-        activeGoals: activeSavingsGoals.length,
-        topCategories: _getTopCategories(),
-        insights: _generateInsights(),
-      );
-
-      _isDashboardLoading = false;
       notifyListeners();
     } catch (e) {
-      _dashboardError = e.toString();
-      _isDashboardLoading = false;
-      notifyListeners();
+      _setError('Failed to refresh dashboard: ${e.toString()}');
+    } finally {
+      _setLoading(false);
     }
   }
 
-  List<CategorySpending> _getTopCategories() {
-    final categorySpending = <String, CategorySpending>{};
+  Future<void> _recalculateDashboard() async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
 
-    final expenseTransactions = _transactions.where((t) => t.type == 'expense');
-    for (final t in expenseTransactions) {
-      final category = _categories.firstWhere(
-        (c) => c.id == t.categoryId,
-        orElse: () => Category(id: t.categoryId, name: 'Unknown', type: 'expense', icon: 'help', color: '#94A3B8', createdAt: DateTime.now()),
-      );
+    // Get this month's transactions
+    final monthlyTransactions = getTransactionsByDateRange(startOfMonth, endOfMonth);
 
-      if (categorySpending.containsKey(t.categoryId)) {
-        final existing = categorySpending[t.categoryId]!;
-        categorySpending[t.categoryId] = CategorySpending(
-          categoryId: t.categoryId,
-          categoryName: category.name,
-          categoryIcon: category.icon,
-          categoryColor: category.color,
-          amount: existing.amount + t.amount,
-          percentage: 0,
-          transactionCount: existing.transactionCount + 1,
-        );
+    // Calculate monthly income and expenses
+    _monthlyIncome = monthlyTransactions
+        .where((t) => t.type == TransactionType.income)
+        .fold(0.0, (sum, t) => sum + t.amount);
+
+    _monthlyExpenses = monthlyTransactions
+        .where((t) => t.type == TransactionType.expense)
+        .fold(0.0, (sum, t) => sum + t.amount);
+
+    final netFlow = _monthlyIncome - _monthlyExpenses;
+    _savingsRate = _monthlyIncome > 0 ? (netFlow / _monthlyIncome) * 100 : 0;
+
+    // Calculate category breakdown
+    _expensesByCategory = {};
+    _incomeByCategory = {};
+
+    for (final transaction in monthlyTransactions) {
+      final category = getCategoryById(transaction.categoryId);
+      final categoryName = category?.name ?? 'Lainnya';
+
+      if (transaction.type == TransactionType.income) {
+        _incomeByCategory[categoryName] = 
+            (_incomeByCategory[categoryName] ?? 0) + transaction.amount;
       } else {
-        categorySpending[t.categoryId] = CategorySpending(
-          categoryId: t.categoryId,
-          categoryName: category.name,
-          categoryIcon: category.icon,
-          categoryColor: category.color,
-          amount: t.amount,
-          percentage: 0,
-          transactionCount: 1,
-        );
+        _expensesByCategory[categoryName] = 
+            (_expensesByCategory[categoryName] ?? 0) + transaction.amount;
       }
     }
 
-    final totalExpense = categorySpending.values.fold(0.0, (sum, c) => sum + c.amount);
-    final sortedCategories = categorySpending.values.toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    // Update dashboard data
+    _dashboardData = DashboardModel(
+      totalBalance: _totalBalance,
+      monthlyIncome: _monthlyIncome,
+      monthlyExpenses: _monthlyExpenses,
+      netFlow: netFlow,
+      totalSavings: _totalSavingsCurrent,
+      savingsTarget: _totalSavingsTarget,
+      savingsProgress: overallSavingsProgress,
+      portfolioValue: _totalPortfolioValue,
+      portfolioChange: _totalPortfolioProfitLoss,
+      portfolioChangePercent: _totalPortfolioReturnPercent,
+      lastUpdated: DateTime.now(),
+    );
 
-    return sortedCategories.take(5).map((c) {
-      return CategorySpending(
-        categoryId: c.categoryId,
-        categoryName: c.categoryName,
-        categoryIcon: c.categoryIcon,
-        categoryColor: c.categoryColor,
-        amount: c.amount,
-        percentage: totalExpense > 0 ? (c.amount / totalExpense * 100) : 0,
-        transactionCount: c.transactionCount,
-      );
-    }).toList();
+    // Calculate cashflow data for chart (last 6 months)
+    _cashflowData = await _calculateCashflowData(6);
+
+    // Calculate net worth history
+    _netWorthHistory = await _calculateNetWorthHistory();
   }
 
-  List<FinancialInsight> _generateInsights() {
-    final insights = <FinancialInsight>[];
+  Future<void> _calculateStatistics() async {
+    // Statistics are already calculated in _recalculateDashboard
+  }
 
-    // Savings rate insight
-    if (totalMonthlyIncome > 0) {
-      final savingsRate = (totalMonthlyIncome - totalMonthlyExpense) / totalMonthlyIncome * 100;
-      if (savingsRate < 20) {
-        insights.add(FinancialInsight(
-          id: _uuid.v4(),
-          type: 'warning',
-          title: 'Tingkat Tabungan Rendah',
-          message: 'Tingkat tabungan Anda ${savingsRate.toStringAsFixed(1)}%. Pertimbangkan untuk mengurangi pengeluaran non-esensial.',
-          icon: 'alert-triangle',
-          color: '#F59E0B',
-          createdAt: DateTime.now(),
-        ));
-      } else if (savingsRate > 50) {
-        insights.add(FinancialInsight(
-          id: _uuid.v4(),
-          type: 'success',
-          title: 'Tabungan Hebat!',
-          message: 'Tingkat tabungan Anda ${savingsRate.toStringAsFixed(1)}%. Kerja bagus dalam mengelola keuangan!',
-          icon: 'check-circle',
-          color: '#10B981',
-          createdAt: DateTime.now(),
-        ));
-      }
-    }
+  Future<void> _generateInsights() async {
+    _insights = [];
 
-    // Top spending category
-    final topCategories = _getTopCategories();
-    if (topCategories.isNotEmpty) {
-      final top = topCategories.first;
-      insights.add(FinancialInsight(
+    // Spending insights
+    if (_expensesByCategory.isNotEmpty) {
+      final topCategory = _expensesByCategory.entries
+          .reduce((a, b) => a.value > b.value ? a : b);
+      
+      _insights.add(FinancialInsight(
         id: _uuid.v4(),
-        type: 'info',
+        type: InsightType.spending,
         title: 'Pengeluaran Tertinggi',
-        message: '${top.categoryName} adalah kategori pengeluaran tertinggi Anda bulan ini.',
-        icon: 'info',
-        color: '#6366F1',
+        description: 'Kategori "${topCategory.key}" memiliki pengeluaran tertinggi bulan ini sebesar ${_formatCurrency(topCategory.value)}',
+        priority: InsightPriority.medium,
         createdAt: DateTime.now(),
       ));
     }
 
-    return insights;
-  }
+    // Savings insights
+    if (_savingsRate < 20 && _monthlyIncome > 0) {
+      _insights.add(FinancialInsight(
+        id: _uuid.v4(),
+        type: InsightType.savings,
+        title: 'Tingkat Tabungan Rendah',
+        description: 'Tingkat tabungan Anda bulan ini ${_savingsRate.toStringAsFixed(1)}%. Idealnya minimal 20% dari penghasilan.',
+        priority: InsightPriority.high,
+        createdAt: DateTime.now(),
+      ));
+    } else if (_savingsRate >= 20 && _monthlyIncome > 0) {
+      _insights.add(FinancialInsight(
+        id: _uuid.v4(),
+        type: InsightType.savings,
+        title: 'Tabungan Sehat! 🎉',
+        description: 'Tingkat tabungan Anda ${_savingsRate.toStringAsFixed(1)}% bulan ini. Pertahankan!',
+        priority: InsightPriority.low,
+        createdAt: DateTime.now(),
+      ));
+    }
 
-  // ============================================================================
-  // Settings Actions
-  // ============================================================================
+    // Portfolio insights
+    if (_portfolioHoldings.isNotEmpty) {
+      if (_totalPortfolioProfitLoss > 0) {
+        _insights.add(FinancialInsight(
+          id: _uuid.v4(),
+          type: InsightType.investment,
+          title: 'Portfolio Menguntungkan',
+          description: 'Portofolio saham Anda untung ${_formatCurrency(_totalPortfolioProfitLoss)} (${_totalPortfolioReturnPercent.toStringAsFixed(2)}%)',
+          priority: InsightPriority.medium,
+          createdAt: DateTime.now(),
+        ));
+      } else if (_totalPortfolioProfitLoss < 0) {
+        _insights.add(FinancialInsight(
+          id: _uuid.v4(),
+          type: InsightType.investment,
+          title: 'Portfolio Minus',
+          description: 'Portofolio saham Anda rugi ${_formatCurrency(_totalPortfolioProfitLoss.abs())}. Jangan panik, tetap pantau.',
+          priority: InsightPriority.medium,
+          createdAt: DateTime.now(),
+        ));
+      }
+    }
 
-  Future<void> loadSettings() async {
-    _isSettingsLoading = true;
-    _settingsError = null;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _isSettingsLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _settingsError = e.toString();
-      _isSettingsLoading = false;
-      notifyListeners();
+    // Savings goal insights
+    final activeGoals = getActiveGoals();
+    for (final goal in activeGoals) {
+      final progress = (goal.currentAmount / goal.targetAmount) * 100;
+      if (progress >= 75 && progress < 100) {
+        _insights.add(FinancialInsight(
+          id: _uuid.v4(),
+          type: InsightType.goal,
+          title: '${goal.name} Hampir Tercapai!',
+          description: 'Anda sudah mencapai ${progress.toStringAsFixed(0)}% dari target ${goal.name}. Lanjutkan!',
+          priority: InsightPriority.medium,
+          data: {'goalId': goal.id},
+          createdAt: DateTime.now(),
+        ));
+      }
     }
   }
 
-  Future<AppSettings> updateSettings(AppSettings newSettings) async {
-    _settings = newSettings;
-    notifyListeners();
-    return _settings;
+  Future<List<CashflowData>> _calculateCashflowData(int months) async {
+    final data = <CashflowData>[];
+    final now = DateTime.now();
+
+    for (int i = months - 1; i >= 0; i--) {
+      final month = DateTime(now.year, now.month - i, 1);
+      final endOfMonth = DateTime(now.year, now.month - i + 1, 0);
+      
+      final monthTransactions = getTransactionsByDateRange(month, endOfMonth);
+      
+      final income = monthTransactions
+          .where((t) => t.type == TransactionType.income)
+          .fold(0.0, (sum, t) => sum + t.amount);
+      
+      final expense = monthTransactions
+          .where((t) => t.type == TransactionType.expense)
+          .fold(0.0, (sum, t) => sum + t.amount);
+
+      data.add(CashflowData(
+        month: month,
+        income: income,
+        expense: expense,
+        netFlow: income - expense,
+      ));
+    }
+
+    return data;
+  }
+
+  Future<List<NetWorthData>> _calculateNetWorthHistory() async {
+    final data = <NetWorthData>[];
+    final now = DateTime.now();
+
+    // Last 6 months history
+    for (int i = 5; i >= 0; i--) {
+      final month = DateTime(now.year, now.month - i, 1);
+      
+      data.add(NetWorthData(
+        date: month,
+        totalAssets: _totalBalance + _totalPortfolioValue + _totalSavingsCurrent,
+        totalLiabilities: 0,
+        netWorth: _totalBalance + _totalPortfolioValue + _totalSavingsCurrent,
+      ));
+    }
+
+    return data;
+  }
+
+  // ==================== SETTINGS ====================
+
+  SettingsModel get settings => _settings;
+
+  Future<void> updateSettings(SettingsModel newSettings) async {
+    _setLoading(true);
+
+    try {
+      _settings = newSettings;
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
   }
 
   Future<void> updateTheme(String theme) async {
-    _settings = _settings.copyWith(theme: theme);
+    _settings = SettingsModel(
+      theme: theme,
+      currency: _settings.currency,
+      language: _settings.language,
+      dateFormat: _settings.dateFormat,
+      notificationsEnabled: _settings.notificationsEnabled,
+      biometricEnabled: _settings.biometricEnabled,
+    );
     notifyListeners();
   }
 
   Future<void> updateCurrency(String currency) async {
-    _settings = _settings.copyWith(currency: currency);
+    _settings = SettingsModel(
+      theme: _settings.theme,
+      currency: currency,
+      language: _settings.language,
+      dateFormat: _settings.dateFormat,
+      notificationsEnabled: _settings.notificationsEnabled,
+      biometricEnabled: _settings.biometricEnabled,
+    );
     notifyListeners();
   }
 
-  Future<void> updateLanguage(String language) async {
-    _settings = _settings.copyWith(language: language);
-    notifyListeners();
-  }
+  // ==================== SYNC ====================
 
-  // ============================================================================
-  // Notification Actions
-  // ============================================================================
-
-  Future<void> loadNotifications() async {
-    _isNotificationsLoading = true;
-    notifyListeners();
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      _unreadNotificationCount = _notifications.where((n) => !n.isRead).length;
-      _isNotificationsLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isNotificationsLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> markNotificationAsRead(String id) async {
-    try {
-      final index = _notifications.indexWhere((n) => n.id == id);
-      if (index != -1) {
-        _notifications[index] = _notifications[index].copyWith(isRead: true);
-        _unreadNotificationCount = _notifications.where((n) => !n.isRead).length;
-        notifyListeners();
-      }
-    } catch (e) {
-      // Handle error
-    }
-  }
-
-  Future<void> markAllNotificationsAsRead() async {
-    try {
-      _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
-      _unreadNotificationCount = 0;
-      notifyListeners();
-    } catch (e) {
-      // Handle error
-    }
-  }
-
-  // ============================================================================
-  // Sync Actions
-  // ============================================================================
+  SyncStatus get syncStatus => _syncStatus;
+  DateTime? get lastSyncTime => _lastSyncTime;
+  int get pendingChanges => _pendingChanges;
 
   Future<void> syncData() async {
+    if (_syncStatus == SyncStatus.syncing) return;
+
     _syncStatus = SyncStatus.syncing;
     notifyListeners();
 
     try {
+      // Simulate sync
       await Future.delayed(const Duration(seconds: 2));
-      _syncStatus = SyncStatus.idle;
+
       _lastSyncTime = DateTime.now();
       _pendingChanges = 0;
+      _syncStatus = SyncStatus.synced;
+
       notifyListeners();
     } catch (e) {
       _syncStatus = SyncStatus.error;
+      _setError('Sync failed: ${e.toString()}');
       notifyListeners();
     }
   }
 
-  void setOfflineMode(bool offline) {
-    _isOffline = offline;
+  void addPendingChange() {
+    _pendingChanges++;
     notifyListeners();
   }
 
-  // ============================================================================
-  // Utility Actions
-  // ============================================================================
-
-  void clearErrors() {
-    _authError = null;
-    _accountsError = null;
-    _categoriesError = null;
-    _transactionsError = null;
-    _savingsError = null;
-    _portfolioError = null;
-    _dashboardError = null;
-    _settingsError = null;
-    _globalError = null;
+  void setOfflineMode() {
+    _syncStatus = SyncStatus.offline;
     notifyListeners();
   }
 
-  String formatCurrency(double amount, {String? currency}) {
-    final curr = currency ?? _settings.currency;
-    final symbol = curr == 'IDR' ? 'Rp' : curr == 'USD' ? '\$' : curr;
-    final formatted = amount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (match) => '${match[1]}.',
-    );
-    return '$symbol $formatted';
-  }
+  // ==================== USER PROFILE ====================
 
-  String formatCompactCurrency(double amount) {
-    if (amount >= 1000000000) {
-      return '${(amount / 1000000000).toStringAsFixed(1)}B';
-    } else if (amount >= 1000000) {
-      return '${(amount / 1000000).toStringAsFixed(1)}M';
-    } else if (amount >= 1000) {
-      return '${(amount / 1000).toStringAsFixed(1)}K';
-    }
-    return amount.toStringAsFixed(0);
-  }
-
-  String formatPercentage(double value, {bool showSign = true}) {
-    final sign = showSign && value > 0 ? '+' : '';
-    return '$sign${value.toStringAsFixed(2)}%';
-  }
-
-  // ============================================================================
-  // Initialize Data
-  // ============================================================================
-
-  Future<void> initializeApp() async {
-    _isLoading = true;
-    notifyListeners();
+  Future<bool> updateProfile({
+    String? name,
+    String? phone,
+    String? avatarUrl,
+  }) async {
+    _setLoading(true);
+    _clearError();
 
     try {
-      await Future.wait([
-        loadCategories(),
-        loadAccounts(),
-        loadTransactions(),
-        loadSavingsGoals(),
-        loadSettings(),
-        loadDashboard(),
-      ]);
-    } finally {
-      _isLoading = false;
+      if (_currentUser == null) {
+        _setError('User not found');
+        return false;
+      }
+
+      _currentUser = UserModel(
+        id: _currentUser!.id,
+        email: _currentUser!.email,
+        name: name ?? _currentUser!.name,
+        avatarUrl: avatarUrl ?? _currentUser!.avatarUrl,
+        phone: phone ?? _currentUser!.phone,
+        currency: _currentUser!.currency,
+        timezone: _currentUser!.timezone,
+        language: _currentUser!.language,
+        createdAt: _currentUser!.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
       notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to update profile: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
     }
+  }
+
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 500));
+      // In real app, verify current password and update
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to change password: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> deleteAccount(String password) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await Future.delayed(const Duration(seconds: 1));
+      
+      // Clear all user data
+      _accounts.clear();
+      _transactions.clear();
+      _savingsGoals.clear();
+      _portfolioHoldings.clear();
+      _watchlist.clear();
+      
+      // Logout
+      await logout();
+
+      return true;
+    } catch (e) {
+      _setError('Failed to delete account: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ==================== UTILITY METHODS ====================
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  void _setError(String message) {
+    _error = message;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _error = null;
+  }
+
+  String _formatCurrency(double amount) {
+    if (amount >= 1000000) {
+      return 'Rp ${(amount / 1000000).toStringAsFixed(1)}jt';
+    } else if (amount >= 1000) {
+      return 'Rp ${(amount / 1000).toStringAsFixed(0)}rb';
+    }
+    return 'Rp ${amount.toStringAsFixed(0)}';
+  }
+
+  String _getDefaultIconForType(AccountType type) {
+    switch (type) {
+      case AccountType.cash:
+        return 'wallet';
+      case AccountType.bank:
+        return 'account_balance';
+      case AccountType.ewallet:
+        return 'phone_android';
+      case AccountType.savings:
+        return 'savings';
+      case AccountType.investment:
+        return 'trending_up';
+    }
+  }
+
+  String _getDefaultColorForType(AccountType type) {
+    switch (type) {
+      case AccountType.cash:
+        return '#10B981';
+      case AccountType.bank:
+        return '#2563EB';
+      case AccountType.ewallet:
+        return '#8B5CF6';
+      case AccountType.savings:
+        return '#F59E0B';
+      case AccountType.investment:
+        return '#EC4899';
+    }
+  }
+
+  List<CategoryModel> _getDefaultCategories() {
+    return [
+      // Income categories
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Gaji',
+        type: CategoryType.income,
+        icon: 'briefcase',
+        color: '#10B981',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Freelance',
+        type: CategoryType.income,
+        icon: 'laptop',
+        color: '#F59E0B',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Investasi',
+        type: CategoryType.income,
+        icon: 'trending_up',
+        color: '#6366F1',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Hadiah',
+        type: CategoryType.income,
+        icon: 'gift',
+        color: '#EC4899',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Saldo Awal',
+        type: CategoryType.income,
+        icon: 'play_arrow',
+        color: '#06B6D4',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Transfer Masuk',
+        type: CategoryType.income,
+        icon: 'call_received',
+        color: '#14B8A6',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Lainnya',
+        type: CategoryType.income,
+        icon: 'plus_circle',
+        color: '#94A3B8',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      // Expense categories
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Makanan & Minuman',
+        type: CategoryType.expense,
+        icon: 'restaurant',
+        color: '#EF4444',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Transportasi',
+        type: CategoryType.expense,
+        icon: 'directions_car',
+        color: '#F59E0B',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Belanja',
+        type: CategoryType.expense,
+        icon: 'shopping_bag',
+        color: '#10B981',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Hiburan',
+        type: CategoryType.expense,
+        icon: 'movie',
+        color: '#8B5CF6',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Kesehatan',
+        type: CategoryType.expense,
+        icon: 'favorite',
+        color: '#EC4899',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Pendidikan',
+        type: CategoryType.expense,
+        icon: 'school',
+        color: '#06B6D4',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Tagihan',
+        type: CategoryType.expense,
+        icon: 'receipt',
+        color: '#6366F1',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Tabungan',
+        type: CategoryType.expense,
+        icon: 'savings',
+        color: '#14B8A6',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Transfer',
+        type: CategoryType.expense,
+        icon: 'call_made',
+        color: '#F97316',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+      CategoryModel(
+        id: _uuid.v4(),
+        name: 'Lainnya',
+        type: CategoryType.expense,
+        icon: 'more_horiz',
+        color: '#94A3B8',
+        isSystem: true,
+        createdAt: DateTime.now(),
+      ),
+    ];
+  }
+
+  // ==================== EXPORT/IMPORT ====================
+
+  Map<String, dynamic> exportData() {
+    return {
+      'version': '1.0',
+      'exportedAt': DateTime.now().toIso8601String(),
+      'user': _currentUser?.toJson(),
+      'accounts': _accounts.map((a) => a.toJson()).toList(),
+      'transactions': _transactions.map((t) => t.toJson()).toList(),
+      'categories': _categories.map((c) => c.toJson()).toList(),
+      'savingsGoals': _savingsGoals.map((g) => g.toJson()).toList(),
+      'portfolio': _portfolioHoldings.map((h) => h.toJson()).toList(),
+      'watchlist': _watchlist.map((w) => w.toJson()).toList(),
+      'settings': _settings.toJson(),
+    };
+  }
+
+  Future<bool> importData(Map<String, dynamic> data) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // Validate version
+      if (data['version'] == null) {
+        _setError('Invalid data format');
+        return false;
+      }
+
+      // Import accounts
+      if (data['accounts'] != null) {
+        _accounts = (data['accounts'] as List)
+            .map((a) => AccountModel.fromJson(a))
+            .toList();
+      }
+
+      // Import transactions
+      if (data['transactions'] != null) {
+        _transactions = (data['transactions'] as List)
+            .map((t) => TransactionModel.fromJson(t))
+            .toList();
+      }
+
+      // Import categories
+      if (data['categories'] != null) {
+        _categories = (data['categories'] as List)
+            .map((c) => CategoryModel.fromJson(c))
+            .toList();
+        _incomeCategories = _categories.where((c) => c.type == 'income').toList();
+        _expenseCategories = _categories.where((c) => c.type == 'expense').toList();
+      }
+
+      // Import savings goals
+      if (data['savingsGoals'] != null) {
+        _savingsGoals = (data['savingsGoals'] as List)
+            .map((g) => SavingsGoalModel.fromJson(g))
+            .toList();
+      }
+
+      // Import portfolio
+      if (data['portfolio'] != null) {
+        _portfolioHoldings = (data['portfolio'] as List)
+            .map((h) => PortfolioHoldingModel.fromJson(h))
+            .toList();
+      }
+
+      // Import watchlist
+      if (data['watchlist'] != null) {
+        _watchlist = (data['watchlist'] as List)
+            .map((w) => WatchlistItemModel.fromJson(w))
+            .toList();
+      }
+
+      // Recalculate totals
+      _calculateTotalBalance();
+      _calculateSavingsTotals();
+      _calculatePortfolioTotals();
+      await _recalculateDashboard();
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to import data: ${e.toString()}');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ==================== CLEANUP ====================
+
+  @override
+  void dispose() {
+    _accounts.clear();
+    _transactions.clear();
+    _filteredTransactions.clear();
+    _categories.clear();
+    _incomeCategories.clear();
+    _expenseCategories.clear();
+    _savingsGoals.clear();
+    _portfolioHoldings.clear();
+    _watchlist.clear();
+    _cashflowData.clear();
+    _netWorthHistory.clear();
+    _insights.clear();
+    super.dispose();
+  }
+}
+
+// ==================== FILTER & ENUM CLASSES ====================
+
+enum SyncStatus { idle, syncing, synced, error, offline }
+
+class TransactionFilter {
+  String? accountId;
+  TransactionType? type;
+  String? categoryId;
+  DateTime? startDate;
+  DateTime? endDate;
+  double? minAmount;
+  double? maxAmount;
+  String? searchQuery;
+  String sortBy;
+  String sortOrder;
+
+  TransactionFilter({
+    this.accountId,
+    this.type,
+    this.categoryId,
+    this.startDate,
+    this.endDate,
+    this.minAmount,
+    this.maxAmount,
+    this.searchQuery,
+    this.sortBy = 'date',
+    this.sortOrder = 'desc',
+  });
+
+  void clear() {
+    accountId = null;
+    type = null;
+    categoryId = null;
+    startDate = null;
+    endDate = null;
+    minAmount = null;
+    maxAmount = null;
+    searchQuery = null;
+    sortBy = 'date';
+    sortOrder = 'desc';
+  }
+
+  bool get hasActiveFilters {
+    return accountId != null ||
+        type != null ||
+        categoryId != null ||
+        startDate != null ||
+        endDate != null ||
+        minAmount != null ||
+        maxAmount != null ||
+        (searchQuery != null && searchQuery!.isNotEmpty);
   }
 }
