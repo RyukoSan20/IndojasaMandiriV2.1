@@ -69,6 +69,7 @@ class DashboardModel {
   final double portfolioChange;
   final double portfolioChangePercent;
   final double netFlow;
+  final DateTime? lastUpdated;
   final List<FinancialInsight> insights;
   final List<CashflowData> cashflow;
 
@@ -84,6 +85,7 @@ class DashboardModel {
     double? portfolioChange,
     double? portfolioChangePercent,
     double? netFlow,
+    this.lastUpdated,
     required this.insights,
     required this.cashflow,
   })  : monthlyExpense = monthlyExpense ?? monthlyExpenses ?? 0.0,
