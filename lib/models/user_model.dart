@@ -1021,80 +1021,8 @@ enum AccountType {
   creditCard,
   loan,
   other;
-
-  String get displayName {
-    switch (this) {
-      case AccountType.cash:
-        return 'Tunai';
-      case AccountType.bank:
-        return 'Bank';
-      case AccountType.eWallet:
-        return 'E-Wallet';
-      case AccountType.investment:
-        return 'Investasi';
-      case AccountType.creditCard:
-        return 'Kartu Kredit';
-      case AccountType.loan:
-        return 'Pinjaman';
-      case AccountType.other:
-        return 'Lainnya';
-    }
-  }
-
-  String get value {
-    switch (this) {
-      case AccountType.cash:
-        return 'cash';
-      case AccountType.bank:
-        return 'bank';
-      case AccountType.eWallet:
-        return 'ewallet';
-      case AccountType.investment:
-        return 'investment';
-      case AccountType.creditCard:
-        return 'credit_card';
-      case AccountType.loan:
-        return 'loan';
-      case AccountType.other:
-        return 'other';
-    }
-  }
-
-  static AccountType fromString(String value) {
-    switch (value.toLowerCase()) {
-      case 'cash':
-        return AccountType.cash;
-      case 'bank':
-        return AccountType.bank;
-      case 'ewallet':
-        return AccountType.eWallet;
-      case 'investment':
-        return AccountType.investment;
-      case 'credit_card':
-        return AccountType.creditCard;
-      case 'loan':
-        return AccountType.loan;
-      default:
-        return AccountType.other;
-    }
-  }
-
-  /// Whether this account type typically has a positive balance
-  bool get hasPositiveBalance {
-    switch (this) {
-      case AccountType.cash:
-      case AccountType.bank:
-      case AccountType.eWallet:
-      case AccountType.investment:
-        return true;
-      case AccountType.creditCard:
-      case AccountType.loan:
-      case AccountType.other:
-        return false;
-    }
-  }
 }
-
+  
 /// Financial Account model (cash, bank, investment accounts)
 class FinancialAccount {
   final String id;
