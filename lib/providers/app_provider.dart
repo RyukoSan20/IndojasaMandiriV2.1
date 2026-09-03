@@ -1,3 +1,7 @@
+import 'package:indojasamandiriv21/models/category_model.dart';
+import 'package:indojasamandiriv21/models/savings_goal_model.dart';
+import 'package:indojasamandiriv21/models/portfolio_holding_model.dart';
+import 'package:indojasamandiriv21/models/watchlist_item_model.dart;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/user_model.dart';

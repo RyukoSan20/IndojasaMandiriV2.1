@@ -60,9 +60,9 @@ class User {
 
   String get initials {
     final parts = fullName.trim().split(' ');
-    if (parts.isEmpty) return '';
+    if (parts.isEmpty || parts[0].isEmpty) return '';
     if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}toUpperCase();
+    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
   }
 
   String get displayName => fullName.isNotEmpty ? fullName : email.split('@').first;
