@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'account_model.dart';
 
 class User {
   final String id;
@@ -1010,17 +1011,6 @@ class RecurringConfig {
       maxOccurrences: doc['max_occurrences'] as int?,
     );
   }
-}
-
-/// Account types enumeration
-enum AccountType {
-  cash,
-  bank,
-  eWallet,
-  investment,
-  creditCard,
-  loan,
-  other;
 }
   
 /// Financial Account model (cash, bank, investment accounts)
