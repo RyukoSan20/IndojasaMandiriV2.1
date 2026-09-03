@@ -1,9 +1,12 @@
+enum AccountType { cash, bank, ewallet, savings, investment, creditCard, other }
+
 class AccountModel {
   final String id;
   final String? userId;
   final String name;
-  final String type;
+  final dynamic type;
   final double balance;
+  final String currency;
   final bool isActive;
   final bool includeInTotal;
   final String? accountNumber;
@@ -16,6 +19,7 @@ class AccountModel {
     required this.name,
     required this.type,
     required this.balance,
+    this.currency = 'IDR',
     this.isActive = true,
     this.includeInTotal = true,
     this.accountNumber,
@@ -28,8 +32,9 @@ class AccountModel {
       id: json['id'] ?? '',
       userId: json['userId'],
       name: json['name'] ?? '',
-      type: json['type'] ?? 'general',
+      type: json['type'] ?? AccountType.bank,
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'] ?? 'IDR',
       isActive: json['isActive'] ?? true,
       includeInTotal: json['includeInTotal'] ?? true,
       accountNumber: json['accountNumber'],
@@ -43,8 +48,9 @@ class AccountModel {
       'id': id,
       'userId': userId,
       'name': name,
-      'type': type,
+      'type': type is AccountType ? (type as AccountType).name : type,
       'balance': balance,
+      'currency': currency,
       'isActive': isActive,
       'includeInTotal': includeInTotal,
       'accountNumber': accountNumber,

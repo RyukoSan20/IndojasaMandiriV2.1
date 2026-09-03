@@ -1,5 +1,3 @@
-import 'user_model.dart';
-
 class TransactionModel {
   final String id;
   final String? userId;
@@ -8,6 +6,7 @@ class TransactionModel {
   final dynamic type;
   final String categoryId;
   final String? description;
+  final String? receiptUrl;
   final DateTime date;
   final List<String>? tags;
 
@@ -19,6 +18,7 @@ class TransactionModel {
     required this.type,
     required this.categoryId,
     this.description,
+    this.receiptUrl,
     required this.date,
     this.tags,
   });
@@ -32,6 +32,7 @@ class TransactionModel {
       type: json['type'] ?? 'expense',
       categoryId: json['categoryId'] ?? '',
       description: json['description'],
+      receiptUrl: json['receiptUrl'],
       date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
       tags: json['tags'] != null ? List<String>.from(json['tags']) : null,
     );
@@ -46,6 +47,7 @@ class TransactionModel {
       'type': type,
       'categoryId': categoryId,
       'description': description,
+      'receiptUrl': receiptUrl,
       'date': date.toIso8601String(),
       'tags': tags,
     };

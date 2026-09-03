@@ -15,9 +15,12 @@ class SavingsGoalModel {
     required this.name,
     required this.targetAmount,
     this.currentAmount = 0.0,
-    required this.targetDate,
+    DateTime? targetDate,
+    DateTime? deadline,
     this.status = GoalStatus.active,
-  });
+  }) : targetDate = targetDate ?? deadline ?? DateTime.now();
+
+  DateTime get deadline => targetDate;
 
   factory SavingsGoalModel.fromJson(Map<String, dynamic> json) {
     return SavingsGoalModel(
@@ -26,7 +29,9 @@ class SavingsGoalModel {
       name: json['name'] ?? '',
       targetAmount: (json['targetAmount'] as num?)?.toDouble() ?? 0.0,
       currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
-      targetDate: json['targetDate'] != null ? DateTime.parse(json['targetDate']) : DateTime.now(),
+      targetDate: json['targetDate'] != null
+          ? DateTime.parse(json['targetDate'])
+          : (json['deadline'] != null ? DateTime.parse(json['deadline']) : DateTime.now()),
       status: GoalStatus.values.firstWhere(
         (e) => e.name == json['status'],
         orElse: () => GoalStatus.active,
@@ -42,6 +47,7 @@ class SavingsGoalModel {
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
       'targetDate': targetDate.toIso8601String(),
+      'deadline': targetDate.toIso8601String(),
       'status': status.name,
     };
   }

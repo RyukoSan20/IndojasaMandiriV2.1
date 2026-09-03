@@ -1,8 +1,12 @@
+enum CategoryType { income, expense, transfer }
+
 class CategoryModel {
   final String id;
   final String? userId;
   final String name;
-  final String type;
+  final dynamic type;
+  final String? parentId;
+  final bool isSystem;
   final String? icon;
   final String? color;
 
@@ -11,6 +15,8 @@ class CategoryModel {
     this.userId,
     required this.name,
     required this.type,
+    this.parentId,
+    this.isSystem = false,
     this.icon,
     this.color,
   });
@@ -20,7 +26,9 @@ class CategoryModel {
       id: json['id'] ?? '',
       userId: json['userId'],
       name: json['name'] ?? '',
-      type: json['type'] ?? 'expense',
+      type: json['type'] ?? CategoryType.expense,
+      parentId: json['parentId'],
+      isSystem: json['isSystem'] ?? false,
       icon: json['icon'],
       color: json['color'],
     );
@@ -31,7 +39,9 @@ class CategoryModel {
       'id': id,
       'userId': userId,
       'name': name,
-      'type': type,
+      'type': type is CategoryType ? (type as CategoryType).name : type,
+      'parentId': parentId,
+      'isSystem': isSystem,
       'icon': icon,
       'color': color,
     };
