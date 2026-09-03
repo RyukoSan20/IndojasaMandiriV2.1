@@ -9,6 +9,7 @@ class TransactionModel {
   final String? notes;
   final String? receiptUrl;
   final String? location;
+  final String status;
   final DateTime date;
   final List<String>? tags;
 
@@ -23,6 +24,7 @@ class TransactionModel {
     String? notes,
     this.receiptUrl,
     this.location,
+    this.status = 'completed',
     required this.date,
     this.tags,
   }) : notes = notes ?? description;
@@ -39,6 +41,7 @@ class TransactionModel {
       notes: json['notes'] ?? json['description'],
       receiptUrl: json['receiptUrl'],
       location: json['location'],
+      status: json['status'] ?? 'completed',
       date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
       tags: json['tags'] != null ? List<String>.from(json['tags']) : null,
     );
@@ -56,6 +59,7 @@ class TransactionModel {
       'notes': notes,
       'receiptUrl': receiptUrl,
       'location': location,
+      'status': status,
       'date': date.toIso8601String(),
       'tags': tags,
     };

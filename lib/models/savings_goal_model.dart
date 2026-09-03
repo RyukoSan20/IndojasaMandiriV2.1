@@ -10,6 +10,7 @@ class SavingsGoalModel {
   final GoalStatus status;
   final String? icon;
   final String? color;
+  final int priority;
 
   SavingsGoalModel({
     required this.id,
@@ -22,6 +23,7 @@ class SavingsGoalModel {
     this.status = GoalStatus.active,
     this.icon,
     this.color,
+    this.priority = 1,
   }) : targetDate = targetDate ?? deadline ?? DateTime.now();
 
   DateTime get deadline => targetDate;
@@ -42,6 +44,7 @@ class SavingsGoalModel {
       ),
       icon: json['icon'],
       color: json['color'],
+      priority: json['priority'] ?? 1,
     );
   }
 
@@ -57,6 +60,7 @@ class SavingsGoalModel {
       'status': status.name,
       'icon': icon,
       'color': color,
+      'priority': priority,
     };
   }
 }

@@ -2309,14 +2309,14 @@ class SavingsContribution {
   final String? accountId;
   final String? transactionId;
   final Map<String, dynamic>? metadata;
-  final DateTime createdAt;
+  final DateTime date;
 
   const SavingsContribution({
     required this.id,
     required this.savingsTargetId,
     required this.userId,
     required this.amount,
-    required this.contributionDate,
+    required this.date,
     this.notes,
     this.accountId,
     this.transactionId,
