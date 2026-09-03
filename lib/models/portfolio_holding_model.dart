@@ -9,6 +9,7 @@ class PortfolioHoldingModel {
   final double averagePrice;
   final double currentPrice;
   final String sector;
+  final double? totalInvested;
 
   PortfolioHoldingModel({
     required this.id,
@@ -21,11 +22,11 @@ class PortfolioHoldingModel {
     required this.averagePrice,
     required this.currentPrice,
     this.sector = 'General',
+    this.totalInvested,
   }) : companyName = companyName ?? name;
 
   double get totalValue => shares * currentPrice;
-  double get totalCost => shares * averagePrice;
-  double get totalInvested => totalCost;
+  double get totalCost => totalInvested ?? (shares * averagePrice);
   double get profitLoss => totalValue - totalCost;
   double get profitLossPercent => totalCost > 0 ? (profitLoss / totalCost) * 100 : 0.0;
 
@@ -41,6 +42,7 @@ class PortfolioHoldingModel {
       averagePrice: (json['averagePrice'] as num?)?.toDouble() ?? 0.0,
       currentPrice: (json['currentPrice'] as num?)?.toDouble() ?? 0.0,
       sector: json['sector'] ?? 'General',
+      totalInvested: (json['totalInvested'] as num?)?.toDouble(),
     );
   }
 
@@ -56,6 +58,7 @@ class PortfolioHoldingModel {
       'averagePrice': averagePrice,
       'currentPrice': currentPrice,
       'sector': sector,
+      'totalInvested': totalInvested,
     };
   }
 }

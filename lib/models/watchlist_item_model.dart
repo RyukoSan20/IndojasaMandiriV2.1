@@ -5,6 +5,7 @@ class WatchlistItemModel {
   final String name;
   final String companyName;
   final double currentPrice;
+  final double? targetPrice;
 
   WatchlistItemModel({
     required this.id,
@@ -13,6 +14,7 @@ class WatchlistItemModel {
     required this.name,
     String? companyName,
     required this.currentPrice,
+    this.targetPrice,
   }) : companyName = companyName ?? name;
 
   factory WatchlistItemModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class WatchlistItemModel {
       name: json['name'] ?? '',
       companyName: json['companyName'] ?? json['name'] ?? '',
       currentPrice: (json['currentPrice'] as num?)?.toDouble() ?? 0.0,
+      targetPrice: (json['targetPrice'] as num?)?.toDouble(),
     );
   }
 
@@ -34,6 +37,7 @@ class WatchlistItemModel {
       'name': name,
       'companyName': companyName,
       'currentPrice': currentPrice,
+      'targetPrice': targetPrice,
     };
   }
 }
