@@ -2,13 +2,12 @@ enum AccountType {
   cash,
   bank,
   eWallet,
+  ewallet,
   savings,
   investment,
   creditCard,
   loan,
   other;
-
-  String get ewallet => 'ewallet';
 
   String get value {
     switch (this) {
@@ -17,6 +16,7 @@ enum AccountType {
       case AccountType.bank:
         return 'bank';
       case AccountType.eWallet:
+      case AccountType.ewallet:
         return 'ewallet';
       case AccountType.savings:
         return 'savings';
@@ -39,7 +39,7 @@ enum AccountType {
         return AccountType.bank;
       case 'ewallet':
       case 'e-wallet':
-        return AccountType.eWallet;
+        return AccountType.ewallet;
       case 'savings':
         return AccountType.savings;
       case 'investment':
@@ -52,11 +52,6 @@ enum AccountType {
         return AccountType.other;
     }
   }
-}
-
-// Alias untuk kompatibilitas jika dipanggil dengan ewallet
-extension AccountTypeAlias on AccountType {
-  static AccountType get ewallet => AccountType.eWallet;
 }
 
 class AccountModel {
