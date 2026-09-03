@@ -1,60 +1,73 @@
-enum InsightPriority { low, medium, high }
-enum InsightType { general, savings, investment, goal }
+import 'package:flutter/foundation.dart';
 
 class FinancialInsight {
   final String id;
   final String title;
-  final String? message;
-  final String? description;
-  final InsightPriority priority;
-  final InsightType? type;
+  final String message;
+  final String type;
+  final DateTime? createdAt;
+  final Map<String, dynamic>? data;
 
   FinancialInsight({
     required this.id,
     required this.title,
-    this.message,
-    this.description,
-    required this.priority,
-    this.type,
+    required this.message,
+    required this.type,
+    this.createdAt,
+    this.data,
   });
-}
 
-class CashflowData {
-  final dynamic month;
-  final double income;
-  final double expense;
-  final double? netFlow;
+  factory FinancialInsight.fromJson(Map<String, dynamic> json) {
+    return FinancialInsight(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      message: json['message'] ?? '',
+      type: json['type'] ?? 'info',
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      data: json['data'] as Map<String, dynamic>?,
+    );
+  }
 
-  CashflowData({
-    required this.month,
-    required this.income,
-    required this.expense,
-    this.netFlow,
-  });
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'message': message,
+      'type': type,
+      'createdAt': createdAt?.toIso8601String(),
+      'data': data,
+    };
+  }
 }
 
 class NetWorthData {
-  final String date;
-  final double amount;
-  final double? totalAssets;
-  final double? totalLiabilities;
+  final double netWorth;
+  final double totalAssets;
+  final double totalLiabilities;
+  final DateTime date;
 
   NetWorthData({
+    required this.netWorth,
+    required this.totalAssets,
+    required this.totalLiabilities,
     required this.date,
-    required this.amount,
-    this.totalAssets,
-    this.totalLiabilities,
   });
-}
 
-class DashboardModel {
-  final double totalBalance;
-  final double monthlyIncome;
-  final double monthlyExpense;
+  factory NetWorthData.fromJson(Map<String, dynamic> json) {
+    return NetWorthData(
+      netWorth: (json['netWorth'] as num?)?.toDouble() ?? 0.0,
+      totalAssets: (json['totalAssets'] as num?)?.toDouble() ?? 0.0,
+      totalLiabilities: (json['totalLiabilities'] as num?)?.toDouble() ?? 0.0,
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+    );
+  }
 
-  DashboardModel({
-    required this.totalBalance,
-    required this.monthlyIncome,
-    required this.monthlyExpense,
-  });
+  Map<String, dynamic> toJson() {
+    return {
+      'netWorth': netWorth,
+      'totalAssets': totalAssets,
+      'totalLiabilities': totalLiabilities,
+      'date': date.toIso8601String(),
+    };
+  }
 }
