@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/user_model.dart';
+import '../models/dashboard_model.dart'
 import '../models/account_model.dart';
 import '../models/transaction_model.dart';
 import '../models/category_model.dart';
