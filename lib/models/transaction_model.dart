@@ -11,6 +11,7 @@ class TransactionModel {
   final String? location;
   final String status;
   final DateTime date;
+  final DateTime? createdAt;
   final List<String>? tags;
 
   TransactionModel({
@@ -26,6 +27,7 @@ class TransactionModel {
     this.location,
     this.status = 'completed',
     required this.date,
+    this.createdAt,
     this.tags,
   }) : notes = notes ?? description;
 
@@ -43,6 +45,7 @@ class TransactionModel {
       location: json['location'],
       status: json['status'] ?? 'completed',
       date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       tags: json['tags'] != null ? List<String>.from(json['tags']) : null,
     );
   }
@@ -61,6 +64,7 @@ class TransactionModel {
       'location': location,
       'status': status,
       'date': date.toIso8601String(),
+      'createdAt': createdAt?.toIso8601String(),
       'tags': tags,
     };
   }

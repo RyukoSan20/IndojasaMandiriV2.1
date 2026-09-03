@@ -1,3 +1,5 @@
+import 'user_model.dart';
+
 enum GoalStatus { active, completed, cancelled }
 
 class SavingsGoalModel {
@@ -11,6 +13,7 @@ class SavingsGoalModel {
   final String? icon;
   final String? color;
   final int priority;
+  final List<SavingsContribution> contributions;
 
   SavingsGoalModel({
     required this.id,
@@ -24,7 +27,9 @@ class SavingsGoalModel {
     this.icon,
     this.color,
     this.priority = 1,
-  }) : targetDate = targetDate ?? deadline ?? DateTime.now();
+    List<SavingsContribution>? contributions,
+  })  : targetDate = targetDate ?? deadline ?? DateTime.now(),
+        contributions = contributions ?? [];
 
   DateTime get deadline => targetDate;
 
@@ -45,6 +50,11 @@ class SavingsGoalModel {
       icon: json['icon'],
       color: json['color'],
       priority: json['priority'] ?? 1,
+      contributions: json['contributions'] != null
+          ? (json['contributions'] as List)
+              .map((e) => SavingsContribution.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : [],
     );
   }
 
@@ -61,6 +71,7 @@ class SavingsGoalModel {
       'icon': icon,
       'color': color,
       'priority': priority,
+      'contributions': contributions.map((e) => e.toJson()).toList(),
     };
   }
 }
