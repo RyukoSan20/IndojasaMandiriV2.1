@@ -4,6 +4,7 @@ class FinancialInsight {
   final String id;
   final String title;
   final String message;
+  final String? description;
   final String type;
   final DateTime? createdAt;
   final Map<String, dynamic>? data;
@@ -12,6 +13,7 @@ class FinancialInsight {
     required this.id,
     required this.title,
     required this.message,
+    this.description,
     required this.type,
     this.createdAt,
     this.data,
@@ -21,22 +23,12 @@ class FinancialInsight {
     return FinancialInsight(
       id: json['id'] ?? '',
       title: json['title'] ?? '',
-      message: json['message'] ?? '',
+      message: json['message'] ?? json['description'] ?? '',
+      description: json['description'],
       type: json['type'] ?? 'info',
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       data: json['data'] as Map<String, dynamic>?,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'message': message,
-      'type': type,
-      'createdAt': createdAt?.toIso8601String(),
-      'data': data,
-    };
   }
 }
 
@@ -52,22 +44,32 @@ class NetWorthData {
     required this.totalLiabilities,
     required this.date,
   });
+}
 
-  factory NetWorthData.fromJson(Map<String, dynamic> json) {
-    return NetWorthData(
-      netWorth: (json['netWorth'] as num?)?.toDouble() ?? 0.0,
-      totalAssets: (json['totalAssets'] as num?)?.toDouble() ?? 0.0,
-      totalLiabilities: (json['totalLiabilities'] as num?)?.toDouble() ?? 0.0,
-      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
-    );
-  }
+class CashflowData {
+  final String period;
+  final double income;
+  final double expense;
 
-  Map<String, dynamic> toJson() {
-    return {
-      'netWorth': netWorth,
-      'totalAssets': totalAssets,
-      'totalLiabilities': totalLiabilities,
-      'date': date.toIso8601String(),
-    };
-  }
+  CashflowData({
+    required this.period,
+    required this.income,
+    required this.expense,
+  });
+}
+
+class DashboardModel {
+  final double totalBalance;
+  final double monthlyIncome;
+  final double monthlyExpense;
+  final List<FinancialInsight> insights;
+  final List<CashflowData> cashflow;
+
+  DashboardModel({
+    required this.totalBalance,
+    required this.monthlyIncome,
+    required this.monthlyExpense,
+    required this.insights,
+    required this.cashflow,
+  });
 }

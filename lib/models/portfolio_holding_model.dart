@@ -1,35 +1,26 @@
 class PortfolioHoldingModel {
   final String id;
+  final String? userId;
   final String symbol;
   final String name;
-  final double shares;
+  final int shares;
   final double averagePrice;
+  final double currentPrice;
+  final String sector;
 
   PortfolioHoldingModel({
     required this.id,
+    this.userId,
     required this.symbol,
     required this.name,
     required this.shares,
     required this.averagePrice,
+    required this.currentPrice,
+    this.sector = 'General',
   });
 
-  factory PortfolioHoldingModel.fromJson(Map<String, dynamic> json) {
-    return PortfolioHoldingModel(
-      id: json['id'] ?? '',
-      symbol: json['symbol'] ?? '',
-      name: json['name'] ?? '',
-      shares: (json['shares'] ?? 0).toDouble(),
-      averagePrice: (json['averagePrice'] ?? 0).toDouble(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'symbol': symbol,
-      'name': name,
-      'shares': shares,
-      'averagePrice': averagePrice,
-    };
-  }
+  double get totalValue => shares * currentPrice;
+  double get totalCost => shares * averagePrice;
+  double get totalInvested => totalCost;
+  double get profitLoss => totalValue - totalCost;
 }
