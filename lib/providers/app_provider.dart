@@ -9,6 +9,9 @@ import '../models/portfolio_model.dart';
 import '../models/watchlist_model.dart';
 import '../models/dashboard_model.dart';
 import '../models/settings_model.dart';
+import '../models/portfolio_holding_model.dart';
+import '../models/watchlist_item_model.dart';
+import '../models/savings_goal_model.dart';
 
 /// AppProvider - Central state management for FinTrack application
 /// Handles all CRUD operations for accounts, transactions, savings goals,

@@ -9,6 +9,7 @@ class CategoryModel {
   final String icon;
   final CategoryType type;
   final String? color;
+  final bool isSystem;
 
   CategoryModel({
     required this.id,
@@ -16,6 +17,7 @@ class CategoryModel {
     required this.icon,
     required this.type,
     this.color,
+    this.isSystem = false,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class CategoryModel {
       icon: json['icon'] ?? '',
       type: json['type'] == 'income' ? CategoryType.income : CategoryType.expense,
       color: json['color'],
+      isSystem: json['isSystem'] ?? false,
     );
   }
 
@@ -35,6 +38,7 @@ class CategoryModel {
       'icon': icon,
       'type': type == CategoryType.income ? 'income' : 'expense',
       'color': color,
+      'isSystem': isSystem,
     };
   }
 }
