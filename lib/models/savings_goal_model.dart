@@ -9,6 +9,7 @@ class SavingsGoalModel {
   final DateTime targetDate;
   final GoalStatus status;
   final String? icon;
+  final String? color;
 
   SavingsGoalModel({
     required this.id,
@@ -20,6 +21,7 @@ class SavingsGoalModel {
     DateTime? deadline,
     this.status = GoalStatus.active,
     this.icon,
+    this.color,
   }) : targetDate = targetDate ?? deadline ?? DateTime.now();
 
   DateTime get deadline => targetDate;
@@ -39,6 +41,7 @@ class SavingsGoalModel {
         orElse: () => GoalStatus.active,
       ),
       icon: json['icon'],
+      color: json['color'],
     );
   }
 
@@ -53,6 +56,7 @@ class SavingsGoalModel {
       'deadline': targetDate.toIso8601String(),
       'status': status.name,
       'icon': icon,
+      'color': color,
     };
   }
 }

@@ -25,6 +25,7 @@ class AccountModel {
   final String? color;
   final String? icon;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   AccountModel({
     required this.id,
@@ -40,6 +41,7 @@ class AccountModel {
     this.color,
     this.icon,
     this.createdAt,
+    this.updatedAt,
   });
 
   factory AccountModel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +59,7 @@ class AccountModel {
       color: json['color'],
       icon: json['icon'],
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
     );
   }
 
@@ -75,6 +78,7 @@ class AccountModel {
       'color': color,
       'icon': icon,
       'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 }

@@ -42,7 +42,7 @@ class NetWorthData {
 
 class CashflowData {
   final String period;
-  final String? month;
+  final dynamic month;
   final double income;
   final double expense;
   final double netFlow;
@@ -53,7 +53,7 @@ class CashflowData {
     required this.income,
     required this.expense,
     double? netFlow,
-  })  : period = period ?? month ?? 'Monthly',
+  })  : period = period ?? (month != null ? month.toString() : 'Monthly'),
         netFlow = netFlow ?? (income - expense);
 }
 
@@ -63,6 +63,7 @@ class DashboardModel {
   final double monthlyExpense;
   final double monthlyExpenses;
   final double totalSavings;
+  final double savingsTarget;
   final double netFlow;
   final List<FinancialInsight> insights;
   final List<CashflowData> cashflow;
@@ -73,11 +74,13 @@ class DashboardModel {
     double? monthlyExpense,
     double? monthlyExpenses,
     double? totalSavings,
+    double? savingsTarget,
     double? netFlow,
     required this.insights,
     required this.cashflow,
   })  : monthlyExpense = monthlyExpense ?? monthlyExpenses ?? 0.0,
         monthlyExpenses = monthlyExpenses ?? monthlyExpense ?? 0.0,
         totalSavings = totalSavings ?? 0.0,
+        savingsTarget = savingsTarget ?? 0.0,
         netFlow = netFlow ?? 0.0;
 }
