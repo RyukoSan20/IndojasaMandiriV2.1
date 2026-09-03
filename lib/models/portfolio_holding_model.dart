@@ -4,6 +4,7 @@ class PortfolioHoldingModel {
   final String symbol;
   final String name;
   final String companyName;
+  final String exchange;
   final int shares;
   final double averagePrice;
   final double currentPrice;
@@ -15,6 +16,7 @@ class PortfolioHoldingModel {
     required this.symbol,
     required this.name,
     String? companyName,
+    this.exchange = 'IDX',
     required this.shares,
     required this.averagePrice,
     required this.currentPrice,
@@ -34,6 +36,7 @@ class PortfolioHoldingModel {
       symbol: json['symbol'] ?? '',
       name: json['name'] ?? '',
       companyName: json['companyName'] ?? json['name'] ?? '',
+      exchange: json['exchange'] ?? 'IDX',
       shares: (json['shares'] as num?)?.toInt() ?? 0,
       averagePrice: (json['averagePrice'] as num?)?.toDouble() ?? 0.0,
       currentPrice: (json['currentPrice'] as num?)?.toDouble() ?? 0.0,
@@ -48,6 +51,7 @@ class PortfolioHoldingModel {
       'symbol': symbol,
       'name': name,
       'companyName': companyName,
+      'exchange': exchange,
       'shares': shares,
       'averagePrice': averagePrice,
       'currentPrice': currentPrice,

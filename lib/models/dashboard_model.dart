@@ -15,20 +15,21 @@ class FinancialInsight {
   FinancialInsight({
     required this.id,
     required this.title,
-    required this.message,
-    this.description,
+    String? message,
+    String? description,
     required this.type,
     this.priority = InsightPriority.medium,
     this.createdAt,
     this.data,
-  });
+  })  : message = message ?? description ?? '',
+        description = description ?? message;
 
   factory FinancialInsight.fromJson(Map<String, dynamic> json) {
     return FinancialInsight(
       id: json['id'] ?? '',
       title: json['title'] ?? '',
       message: json['message'] ?? json['description'] ?? '',
-      description: json['description'],
+      description: json['description'] ?? json['message'],
       type: json['type'] ?? 'info',
       priority: InsightPriority.values.firstWhere(
         (e) => e.name == json['priority'],
@@ -121,14 +122,17 @@ class DashboardModel {
   final double totalBalance;
   final double monthlyIncome;
   final double monthlyExpense;
+  final double monthlyExpenses;
   final List<FinancialInsight> insights;
   final List<CashflowData> cashflow;
 
   DashboardModel({
     required this.totalBalance,
     required this.monthlyIncome,
-    required this.monthlyExpense,
+    double? monthlyExpense,
+    double? monthlyExpenses,
     required this.insights,
     required this.cashflow,
-  });
+  })  : monthlyExpense = monthlyExpense ?? monthlyExpenses ?? 0.0,
+        monthlyExpenses = monthlyExpenses ?? monthlyExpense ?? 0.0;
 }

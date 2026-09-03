@@ -1985,7 +1985,7 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deleteAccount(String password) async {
+  Future<bool> deleteAccountWithPassword(String password) async {
     _setLoading(true);
     _clearError();
 
@@ -2001,7 +2001,7 @@ class AppProvider extends ChangeNotifier {
       
       // Logout
       await logout();
-
+      _setLoading(false);
       return true;
     } catch (e) {
       _setError('Failed to delete account: ${e.toString()}');
