@@ -48,12 +48,13 @@ class CashflowData {
   final double netFlow;
 
   CashflowData({
-    required this.period,
+    String? period,
     this.month,
     required this.income,
     required this.expense,
     double? netFlow,
-  }) : netFlow = netFlow ?? (income - expense);
+  })  : period = period ?? month ?? 'Monthly',
+        netFlow = netFlow ?? (income - expense);
 }
 
 class DashboardModel {
@@ -61,6 +62,7 @@ class DashboardModel {
   final double monthlyIncome;
   final double monthlyExpense;
   final double monthlyExpenses;
+  final double totalSavings;
   final double netFlow;
   final List<FinancialInsight> insights;
   final List<CashflowData> cashflow;
@@ -70,10 +72,12 @@ class DashboardModel {
     required this.monthlyIncome,
     double? monthlyExpense,
     double? monthlyExpenses,
+    double? totalSavings,
     double? netFlow,
     required this.insights,
     required this.cashflow,
   })  : monthlyExpense = monthlyExpense ?? monthlyExpenses ?? 0.0,
         monthlyExpenses = monthlyExpenses ?? monthlyExpense ?? 0.0,
+        totalSavings = totalSavings ?? 0.0,
         netFlow = netFlow ?? 0.0;
 }

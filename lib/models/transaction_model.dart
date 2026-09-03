@@ -6,6 +6,7 @@ class TransactionModel {
   final dynamic type;
   final String categoryId;
   final String? description;
+  final String? notes;
   final String? receiptUrl;
   final DateTime date;
   final List<String>? tags;
@@ -18,10 +19,11 @@ class TransactionModel {
     required this.type,
     required this.categoryId,
     this.description,
+    String? notes,
     this.receiptUrl,
     required this.date,
     this.tags,
-  });
+  }) : notes = notes ?? description;
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
     return TransactionModel(
@@ -32,6 +34,7 @@ class TransactionModel {
       type: json['type'] ?? 'expense',
       categoryId: json['categoryId'] ?? '',
       description: json['description'],
+      notes: json['notes'] ?? json['description'],
       receiptUrl: json['receiptUrl'],
       date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
       tags: json['tags'] != null ? List<String>.from(json['tags']) : null,
@@ -47,6 +50,7 @@ class TransactionModel {
       'type': type,
       'categoryId': categoryId,
       'description': description,
+      'notes': notes,
       'receiptUrl': receiptUrl,
       'date': date.toIso8601String(),
       'tags': tags,

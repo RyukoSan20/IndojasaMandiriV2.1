@@ -9,6 +9,7 @@ class CategoryModel {
   final bool isSystem;
   final String? icon;
   final String? color;
+  final DateTime? createdAt;
 
   CategoryModel({
     required this.id,
@@ -19,6 +20,7 @@ class CategoryModel {
     this.isSystem = false,
     this.icon,
     this.color,
+    this.createdAt,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,7 @@ class CategoryModel {
       isSystem: json['isSystem'] ?? false,
       icon: json['icon'],
       color: json['color'],
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
     );
   }
 
@@ -44,6 +47,7 @@ class CategoryModel {
       'isSystem': isSystem,
       'icon': icon,
       'color': color,
+      'createdAt': createdAt?.toIso8601String(),
     };
   }
 }
