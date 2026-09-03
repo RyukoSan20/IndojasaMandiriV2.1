@@ -66,6 +66,7 @@ class DashboardModel {
   final double savingsTarget;
   final double savingsProgress;
   final double portfolioValue;
+  final double portfolioChange;
   final double netFlow;
   final List<FinancialInsight> insights;
   final List<CashflowData> cashflow;
@@ -79,6 +80,7 @@ class DashboardModel {
     double? savingsTarget,
     double? savingsProgress,
     double? portfolioValue,
+    double? portfolioChange,
     double? netFlow,
     required this.insights,
     required this.cashflow,
@@ -88,5 +90,6 @@ class DashboardModel {
         savingsTarget = savingsTarget ?? 0.0,
         savingsProgress = savingsProgress ?? 0.0,
         portfolioValue = portfolioValue ?? 0.0,
+        portfolioChange = portfolioChange ?? 0.0,
         netFlow = netFlow ?? 0.0;
 }

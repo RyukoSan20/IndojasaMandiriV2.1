@@ -2301,6 +2301,7 @@ class SavingsTarget {
 /// Individual savings contribution record
 class SavingsContribution {
   final String id;
+  final String? accountId;
   final double amount;
   final DateTime date;
   final DateTime contributionDate;
@@ -2309,6 +2310,7 @@ class SavingsContribution {
 
   const SavingsContribution({
     required this.id,
+    this.accountId,
     required this.amount,
     required this.date,
     DateTime? contributionDate,
@@ -2317,27 +2319,10 @@ class SavingsContribution {
   })  : contributionDate = contributionDate ?? date,
         createdAt = createdAt ?? date;
 
-  SavingsContribution copyWith({
-    String? id,
-    double? amount,
-    DateTime? date,
-    DateTime? contributionDate,
-    DateTime? createdAt,
-    String? note,
-  }) {
-    return SavingsContribution(
-      id: id ?? this.id,
-      amount: amount ?? this.amount,
-      date: date ?? this.date,
-      contributionDate: contributionDate ?? this.contributionDate,
-      createdAt: createdAt ?? this.createdAt,
-      note: note ?? this.note,
-    );
-  }
-
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'accountId': accountId,
       'amount': amount,
       'date': date.toIso8601String(),
       'contribution_date': contributionDate.toIso8601String(),
@@ -2346,12 +2331,15 @@ class SavingsContribution {
     };
   }
 
+  Map<String, dynamic> toFirestore() => toJson();
+
   factory SavingsContribution.fromJson(Map<String, dynamic> json) {
     final parsedDate = json['date'] != null
         ? DateTime.parse(json['date'] as String)
         : DateTime.now();
     return SavingsContribution(
       id: json['id'] as String? ?? '',
+      accountId: json['accountId'] as String?,
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       date: parsedDate,
       contributionDate: json['contribution_date'] != null
@@ -2363,4 +2351,7 @@ class SavingsContribution {
       note: json['note'] as String?,
     );
   }
+
+  factory SavingsContribution.fromFirestore(Map<String, dynamic> json) =>
+      SavingsContribution.fromJson(json);
 }

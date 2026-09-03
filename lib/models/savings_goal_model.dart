@@ -13,6 +13,7 @@ class SavingsGoalModel {
   final String? icon;
   final String? color;
   final int priority;
+  final DateTime? createdAt;
   final List<SavingsContribution> contributions;
 
   SavingsGoalModel({
@@ -27,6 +28,7 @@ class SavingsGoalModel {
     this.icon,
     this.color,
     this.priority = 1,
+    this.createdAt,
     List<SavingsContribution>? contributions,
   })  : targetDate = targetDate ?? deadline ?? DateTime.now(),
         contributions = contributions ?? [];
@@ -50,6 +52,7 @@ class SavingsGoalModel {
       icon: json['icon'],
       color: json['color'],
       priority: json['priority'] ?? 1,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
       contributions: json['contributions'] != null
           ? (json['contributions'] as List)
               .map((e) => SavingsContribution.fromJson(e as Map<String, dynamic>))
@@ -71,6 +74,7 @@ class SavingsGoalModel {
       'icon': icon,
       'color': color,
       'priority': priority,
+      'createdAt': createdAt?.toIso8601String(),
       'contributions': contributions.map((e) => e.toJson()).toList(),
     };
   }
