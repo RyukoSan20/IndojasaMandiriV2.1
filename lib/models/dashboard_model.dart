@@ -4,21 +4,23 @@ enum InsightType { general, savings, investment, goal }
 class FinancialInsight {
   final String id;
   final String title;
-  final String message;
+  final String? message;
+  final String? description;
   final InsightPriority priority;
   final InsightType? type;
 
   FinancialInsight({
     required this.id,
     required this.title,
-    required this.message,
+    this.message,
+    this.description,
     required this.priority,
     this.type,
   });
 }
 
 class CashflowData {
-  final String month;
+  final dynamic month;
   final double income;
   final double expense;
   final double? netFlow;
@@ -35,11 +37,13 @@ class NetWorthData {
   final String date;
   final double amount;
   final double? totalAssets;
+  final double? totalLiabilities;
 
   NetWorthData({
     required this.date,
     required this.amount,
     this.totalAssets,
+    this.totalLiabilities,
   });
 }
 
