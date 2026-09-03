@@ -1,4 +1,4 @@
-lass SettingsModel {
+class SettingsModel {
   final String currency;
   final String language;
   final String dateFormat;
