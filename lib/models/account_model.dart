@@ -1,7 +1,16 @@
+enum AccountType {
+  bank,
+  ewallet,
+  cash,
+  savings,
+  investment,
+  other,
+}
+
 class AccountModel {
   final String id;
   final String name;
-  final String type;
+  final AccountType type;
   final double balance;
   final String? accountNumber;
 
@@ -17,7 +26,10 @@ class AccountModel {
     return AccountModel(
       id: json['id'] ?? '',
       name: json['name'] ?? '',
-      type: json['type'] ?? '',
+      type: AccountType.values.firstWhere(
+        (e) => e.toString().split('.').last == json['type'],
+        orElse: () => AccountType.other,
+      ),
       balance: (json['balance'] ?? 0).toDouble(),
       accountNumber: json['accountNumber'],
     );
@@ -27,7 +39,7 @@ class AccountModel {
     return {
       'id': id,
       'name': name,
-      'type': type,
+      'type': type.toString().split('.').last,
       'balance': balance,
       'accountNumber': accountNumber,
     };
