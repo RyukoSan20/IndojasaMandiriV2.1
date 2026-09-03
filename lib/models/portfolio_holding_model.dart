@@ -11,6 +11,7 @@ class PortfolioHoldingModel {
   final String sector;
   final double totalInvested;
   final double? customTotalValue;
+  final double? customProfitLoss;
 
   PortfolioHoldingModel({
     required this.id,
@@ -25,13 +26,15 @@ class PortfolioHoldingModel {
     this.sector = 'General',
     double? totalInvested,
     double? totalValue,
+    double? profitLoss,
   })  : companyName = companyName ?? name,
         totalInvested = totalInvested ?? (shares * averagePrice),
-        customTotalValue = totalValue;
+        customTotalValue = totalValue,
+        customProfitLoss = profitLoss;
 
   double get totalValue => customTotalValue ?? (shares * currentPrice);
   double get totalCost => totalInvested;
-  double get profitLoss => totalValue - totalCost;
+  double get profitLoss => customProfitLoss ?? (totalValue - totalCost);
   double get profitLossPercent => totalCost > 0 ? (profitLoss / totalCost) * 100 : 0.0;
 
   factory PortfolioHoldingModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +51,7 @@ class PortfolioHoldingModel {
       sector: json['sector'] ?? 'General',
       totalInvested: (json['totalInvested'] as num?)?.toDouble(),
       totalValue: (json['totalValue'] as num?)?.toDouble(),
+      profitLoss: (json['profitLoss'] as num?)?.toDouble(),
     );
   }
 
@@ -65,6 +69,7 @@ class PortfolioHoldingModel {
       'sector': sector,
       'totalInvested': totalInvested,
       'totalValue': totalValue,
+      'profitLoss': profitLoss,
     };
   }
 }

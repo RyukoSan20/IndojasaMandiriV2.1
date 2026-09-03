@@ -7,6 +7,7 @@ class WatchlistItemModel {
   final double currentPrice;
   final double? targetPrice;
   final String? notes;
+  final bool alertEnabled;
 
   WatchlistItemModel({
     required this.id,
@@ -17,6 +18,7 @@ class WatchlistItemModel {
     required this.currentPrice,
     this.targetPrice,
     this.notes,
+    this.alertEnabled = false,
   }) : companyName = companyName ?? name;
 
   factory WatchlistItemModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class WatchlistItemModel {
       currentPrice: (json['currentPrice'] as num?)?.toDouble() ?? 0.0,
       targetPrice: (json['targetPrice'] as num?)?.toDouble(),
       notes: json['notes'],
+      alertEnabled: json['alertEnabled'] ?? false,
     );
   }
 
@@ -42,6 +45,7 @@ class WatchlistItemModel {
       'currentPrice': currentPrice,
       'targetPrice': targetPrice,
       'notes': notes,
+      'alertEnabled': alertEnabled,
     };
   }
 }
