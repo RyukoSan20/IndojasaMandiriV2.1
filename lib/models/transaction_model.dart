@@ -1,43 +1,53 @@
+import 'user_model.dart';
+
 class TransactionModel {
   final String id;
-  final String title;
+  final String? userId;
+  final String accountId;
   final double amount;
-  final String type;
+  final dynamic type;
   final String categoryId;
+  final String? description;
   final DateTime date;
-  final String? note;
+  final List<String>? tags;
 
   TransactionModel({
     required this.id,
-    required this.title,
+    this.userId,
+    required this.accountId,
     required this.amount,
     required this.type,
     required this.categoryId,
+    this.description,
     required this.date,
-    this.note,
+    this.tags,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
     return TransactionModel(
       id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      amount: (json['amount'] ?? 0).toDouble(),
-      type: json['type'] ?? '',
+      userId: json['userId'],
+      accountId: json['accountId'] ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      type: json['type'] ?? 'expense',
       categoryId: json['categoryId'] ?? '',
+      description: json['description'],
       date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
-      note: json['note'],
+      tags: json['tags'] != null ? List<String>.from(json['tags']) : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'title': title,
+      'userId': userId,
+      'accountId': accountId,
       'amount': amount,
       'type': type,
       'categoryId': categoryId,
+      'description': description,
       'date': date.toIso8601String(),
-      'note': note,
+      'tags': tags,
     };
   }
 }

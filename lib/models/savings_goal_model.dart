@@ -1,35 +1,48 @@
+enum GoalStatus { active, completed, cancelled }
+
 class SavingsGoalModel {
   final String id;
-  final String title;
+  final String? userId;
+  final String name;
   final double targetAmount;
   final double currentAmount;
-  final DateTime? targetDate;
+  final DateTime targetDate;
+  final GoalStatus status;
 
   SavingsGoalModel({
     required this.id,
-    required this.title,
+    this.userId,
+    required this.name,
     required this.targetAmount,
-    required this.currentAmount,
-    this.targetDate,
+    this.currentAmount = 0.0,
+    required this.targetDate,
+    this.status = GoalStatus.active,
   });
 
   factory SavingsGoalModel.fromJson(Map<String, dynamic> json) {
     return SavingsGoalModel(
       id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      targetAmount: (json['targetAmount'] ?? 0).toDouble(),
-      currentAmount: (json['currentAmount'] ?? 0).toDouble(),
-      targetDate: json['targetDate'] != null ? DateTime.parse(json['targetDate']) : null,
+      userId: json['userId'],
+      name: json['name'] ?? '',
+      targetAmount: (json['targetAmount'] as num?)?.toDouble() ?? 0.0,
+      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
+      targetDate: json['targetDate'] != null ? DateTime.parse(json['targetDate']) : DateTime.now(),
+      status: GoalStatus.values.firstWhere(
+        (e) => e.name == json['status'],
+        orElse: () => GoalStatus.active,
+      ),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'title': title,
+      'userId': userId,
+      'name': name,
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
-      'targetDate': targetDate?.toIso8601String(),
+      'targetDate': targetDate.toIso8601String(),
+      'status': status.name,
     };
   }
 }

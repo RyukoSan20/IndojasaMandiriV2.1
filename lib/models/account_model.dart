@@ -1,93 +1,55 @@
-enum AccountType {
-  cash,
-  bank,
-  eWallet,
-  ewallet,
-  savings,
-  investment,
-  creditCard,
-  loan,
-  other;
-
-  String get value {
-    switch (this) {
-      case AccountType.cash:
-        return 'cash';
-      case AccountType.bank:
-        return 'bank';
-      case AccountType.eWallet:
-      case AccountType.ewallet:
-        return 'ewallet';
-      case AccountType.savings:
-        return 'savings';
-      case AccountType.investment:
-        return 'investment';
-      case AccountType.creditCard:
-        return 'credit_card';
-      case AccountType.loan:
-        return 'loan';
-      case AccountType.other:
-        return 'other';
-    }
-  }
-
-  static AccountType fromString(String value) {
-    switch (value.toLowerCase()) {
-      case 'cash':
-        return AccountType.cash;
-      case 'bank':
-        return AccountType.bank;
-      case 'ewallet':
-      case 'e-wallet':
-        return AccountType.ewallet;
-      case 'savings':
-        return AccountType.savings;
-      case 'investment':
-        return AccountType.investment;
-      case 'credit_card':
-        return AccountType.creditCard;
-      case 'loan':
-        return AccountType.loan;
-      default:
-        return AccountType.other;
-    }
-  }
-}
-
 class AccountModel {
   final String id;
+  final String? userId;
   final String name;
-  final AccountType type;
+  final String type;
   final double balance;
+  final bool isActive;
+  final bool includeInTotal;
   final String? accountNumber;
+  final String? color;
+  final String? icon;
 
   AccountModel({
     required this.id,
+    this.userId,
     required this.name,
     required this.type,
     required this.balance,
+    this.isActive = true,
+    this.includeInTotal = true,
     this.accountNumber,
+    this.color,
+    this.icon,
   });
 
   factory AccountModel.fromJson(Map<String, dynamic> json) {
     return AccountModel(
       id: json['id'] ?? '',
+      userId: json['userId'],
       name: json['name'] ?? '',
-      type: json['type'] != null 
-          ? AccountType.fromString(json['type'].toString()) 
-          : AccountType.other,
-      balance: (json['balance'] ?? 0).toDouble(),
+      type: json['type'] ?? 'general',
+      balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      isActive: json['isActive'] ?? true,
+      includeInTotal: json['includeInTotal'] ?? true,
       accountNumber: json['accountNumber'],
+      color: json['color'],
+      icon: json['icon'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'userId': userId,
       'name': name,
-      'type': type.value,
+      'type': type,
       'balance': balance,
+      'isActive': isActive,
+      'includeInTotal': includeInTotal,
       'accountNumber': accountNumber,
+      'color': color,
+      'icon': icon,
     };
   }
 }

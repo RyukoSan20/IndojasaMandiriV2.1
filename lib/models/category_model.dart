@@ -1,48 +1,39 @@
-enum CategoryType {
-  income,
-  expense,
-}
-
 class CategoryModel {
   final String id;
+  final String? userId;
   final String name;
-  final String icon;
-  final CategoryType type;
+  final String type;
+  final String? icon;
   final String? color;
-  final bool isSystem;
-  final DateTime? createdAt;
 
   CategoryModel({
     required this.id,
+    this.userId,
     required this.name,
-    required this.icon,
     required this.type,
+    this.icon,
     this.color,
-    this.isSystem = false,
-    this.createdAt,
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(
       id: json['id'] ?? '',
+      userId: json['userId'],
       name: json['name'] ?? '',
-      icon: json['icon'] ?? '',
-      type: json['type'] == 'income' ? CategoryType.income : CategoryType.expense,
+      type: json['type'] ?? 'expense',
+      icon: json['icon'],
       color: json['color'],
-      isSystem: json['isSystem'] ?? false,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'userId': userId,
       'name': name,
+      'type': type,
       'icon': icon,
-      'type': type == CategoryType.income ? 'income' : 'expense',
       'color': color,
-      'isSystem': isSystem,
-      'createdAt': createdAt?.toIso8601String(),
     };
   }
 }
