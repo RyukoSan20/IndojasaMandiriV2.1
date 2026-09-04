@@ -1,3 +1,4 @@
+// ignore_for_file: use_super_parameters
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
@@ -10,7 +11,7 @@ void main() {
 }
 
 class EnterpriseApp extends StatelessWidget {
-  const EnterpriseApp({Key? key}) : super(key: key);
+  const EnterpriseApp({super.key});
 
   @override
   Widget build(BuildContext context) {

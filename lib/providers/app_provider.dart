@@ -1,3 +1,5 @@
+import '../models/transaction_type.dart';
+// ignore_for_file: unused_field, dead_null_aware_expression, unused_local_variable, prefer_final_fields
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/user_model.dart';
@@ -115,7 +117,8 @@ class AppProvider extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 800));
 
       // Mock successful login - using standard UserModel constructor
-      _currentUser = UserModel(
+      _currentUser = UserModel(displayName: "User",
+
         id: _uuid.v4(),
         email: email,
         fullName: email.split('@').first,
@@ -152,7 +155,8 @@ class AppProvider extends ChangeNotifier {
     try {
       await Future.delayed(const Duration(milliseconds: 1000));
 
-      _currentUser = UserModel(
+      _currentUser = UserModel(displayName: "User",
+
         id: _uuid.v4(),
         email: email,
         fullName: fullName,
@@ -184,7 +188,8 @@ class AppProvider extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 800));
 
       // Mock Google login - using standard UserModel constructor
-      _currentUser = UserModel(
+      _currentUser = UserModel(displayName: "User",
+
         id: _uuid.v4(),
         email: 'user@gmail.com',
         fullName: 'Google User',
@@ -1258,7 +1263,7 @@ class AppProvider extends ChangeNotifier {
         shares: shares,
         averagePrice: buyPrice,
         currentPrice: buyPrice,
-        sector: sector,
+        sector: sector ?? "",
         exchange: exchange ?? 'IDX',
         totalInvested: totalCost,
         totalValue: totalCost,
@@ -1948,6 +1953,7 @@ class AppProvider extends ChangeNotifier {
         id: _currentUser!.id,
         email: _currentUser!.email,
         fullName: fullName ?? _currentUser!.fullName,
+        displayName: "User",
         avatarUrl: avatarUrl ?? _currentUser!.avatarUrl,
         phone: phone ?? _currentUser!.phone,
         emailVerified: _currentUser!.emailVerified,

@@ -1,7 +1,6 @@
+// ignore_for_file: unnecessary_import, unused_import
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 /// Settings Provider - Central state management for app settings
 /// Handles theme, language, currency, and notification preferences

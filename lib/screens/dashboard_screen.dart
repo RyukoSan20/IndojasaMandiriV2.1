@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, deprecated_member_use, prefer_const_declarations
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
