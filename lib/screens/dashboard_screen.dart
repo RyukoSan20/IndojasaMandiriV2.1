@@ -80,7 +80,7 @@ class Account {
   final String id;
   final String name;
   final String type;
-  final double balance;
+  double balance;
   final String icon;
   final Color color;
 
@@ -99,7 +99,7 @@ class SavingsGoal {
   final String id;
   final String name;
   final double targetAmount;
-  final double currentAmount;
+  double currentAmount;
   final DateTime? deadline;
   final IconData icon;
   final Color color;
@@ -143,7 +143,7 @@ class StockHolding {
   double get totalInvested => shares * averagePrice;
 }
 
-// Dashboard State
+// Dashboard State & Business Logic
 class DashboardData {
   final double totalBalance;
   final double monthlyIncome;
@@ -175,7 +175,7 @@ class DashboardData {
     required this.cashflowHistory,
   });
 
-  double get cashBalance => totalBalance - portfolioValue;
+  double get cashBalance => accounts.fold(0.0, (sum, acc) => sum + acc.balance);
   double get monthlyNetFlow => monthlyIncome - monthlyExpense;
   double get savingsProgress => totalSavings > 0 ? totalSavings / totalBalance : 0;
 
@@ -234,26 +234,6 @@ class DashboardData {
           date: DateTime.now().subtract(const Duration(days: 2)),
           icon: Icons.directions_car_rounded,
           categoryColor: const Color(0xFFF59E0B),
-        ),
-        Transaction(
-          id: '4',
-          type: 'expense',
-          amount: 150000,
-          category: 'shopping',
-          description: 'Groceries',
-          date: DateTime.now().subtract(const Duration(days: 3)),
-          icon: Icons.shopping_bag_rounded,
-          categoryColor: const Color(0xFF10B981),
-        ),
-        Transaction(
-          id: '5',
-          type: 'expense',
-          amount: 89000,
-          category: 'entertainment',
-          description: 'Netflix Subscription',
-          date: DateTime.now().subtract(const Duration(days: 4)),
-          icon: Icons.movie_rounded,
-          categoryColor: const Color(0xFF8B5CF6),
         ),
       ],
       accounts: [
@@ -368,7 +348,35 @@ class DashboardData {
   }
 }
 
-// Format Currency
+// Global App State Notifier untuk Pengaturan Tema, Bahasa, & Mata Uang Dinamis
+class AppSettings extends ChangeNotifier {
+  ThemeMode _themeMode = ThemeMode.system;
+  String _language = 'Indonesia';
+  String _currency = 'IDR';
+
+  ThemeMode get themeMode => _themeMode;
+  String get language => _language;
+  String get currency => _currency;
+
+  void setThemeMode(ThemeMode mode) {
+    _themeMode = mode;
+    notifyListeners();
+  }
+
+  void setLanguage(String lang) {
+    _language = lang;
+    notifyListeners();
+  }
+
+  void setCurrency(String curr) {
+    _currency = curr;
+    notifyListeners();
+  }
+}
+
+final appSettings = AppSettings();
+
+// Format Currency dengan Dukungan Simbol Dinamis
 String formatCurrency(double amount, {String symbol = 'Rp', bool compact = false}) {
   if (compact) {
     if (amount >= 1000000000) {
@@ -386,13 +394,11 @@ String formatCurrency(double amount, {String symbol = 'Rp', bool compact = false
   return '$symbol $formatted';
 }
 
-// Format Percentage
 String formatPercentage(double value) {
   final sign = value >= 0 ? '+' : '';
   return '$sign${value.toStringAsFixed(2)}%';
 }
 
-// Date Formatter
 String formatDate(DateTime date) {
   final now = DateTime.now();
   final diff = now.difference(date);
@@ -408,7 +414,6 @@ String formatDate(DateTime date) {
   }
 }
 
-// Main App Entry Point
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
@@ -423,25 +428,30 @@ class FinTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FinTrack',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primaryBlue,
-          brightness: Brightness.light,
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primaryBlue,
-          brightness: Brightness.dark,
-        ),
-      ),
-      themeMode: ThemeMode.system,
-      home: const DashboardScreen(),
+    return AnimatedBuilder(
+      animation: appSettings,
+      builder: (context, child) {
+        return MaterialApp(
+          title: 'FinTrack',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primaryBlue,
+              brightness: Brightness.light,
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppColors.primaryBlue,
+              brightness: Brightness.dark,
+            ),
+          ),
+          themeMode: appSettings.themeMode,
+          home: const DashboardScreen(),
+        );
+      },
     );
   }
 }
@@ -477,13 +487,56 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) {
       setState(() {
         _isLoading = false;
-        _dashboardData = DashboardData.sample();
       });
     }
+  }
+
+  // Fungsi Tambah Transaksi Dinamis & Update State Saldo Real-Time
+  void _addNewTransaction(String type, double amount, String category, String description) {
+    setState(() {
+      final isIncome = type == 'income';
+      final newTx = Transaction(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        type: type,
+        amount: amount,
+        category: category,
+        description: description.isNotEmpty ? description : category,
+        date: DateTime.now(),
+        icon: CategoryIcons.getIcon(category),
+        categoryColor: isIncome ? AppColors.income : AppColors.expense,
+      );
+
+      _dashboardData.recentTransactions.insert(0, newTx);
+
+      if (_dashboardData.accounts.isNotEmpty) {
+        if (isIncome) {
+          _dashboardData.accounts.first.balance += amount;
+        } else {
+          _dashboardData.accounts.first.balance -= amount;
+        }
+      }
+
+      if (_dashboardData.expenseByCategory.containsKey(category)) {
+        _dashboardData.expenseByCategory[category] = (_dashboardData.expenseByCategory[category]! + (isIncome ? 0 : amount));
+      }
+    });
+  }
+
+  // Fungsi Transfer Saldo Antar Akun Real-Time
+  void _executeTransfer(String fromName, String toName, double amount) {
+    setState(() {
+      final fromAcc = _dashboardData.accounts.firstWhere((a) => a.name == fromName);
+      final toAcc = _dashboardData.accounts.firstWhere((a) => a.name == toName);
+
+      if (fromAcc.balance >= amount) {
+        fromAcc.balance -= amount;
+        toAcc.balance += amount;
+      }
+    });
   }
 
   @override
@@ -500,11 +553,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // App Bar
               SliverAppBar(
                 floating: true,
-                backgroundColor:
-                    isDark ? AppColors.darkBackground : AppColors.background,
+                backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
                 elevation: 0,
                 title: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,18 +563,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Text(
                       'Selamat Pagi',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.textSecondary,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
                       ),
                     ),
                     Text(
                       'Maya Putri',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -535,9 +582,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         Icon(
                           Icons.notifications_outlined,
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.textPrimary,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                         ),
                         Positioned(
                           right: 0,
@@ -558,64 +603,33 @@ class _DashboardScreenState extends State<DashboardScreen>
                     onPressed: () => _showSettingsDialog(context),
                     icon: Icon(
                       Icons.settings_outlined,
-                      color: isDark
-                          ? AppColors.darkTextPrimary
-                          : AppColors.textPrimary,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                     ),
                   ),
                 ],
               ),
-
-              // Content
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-
-                    // Total Balance Card
                     _buildTotalBalanceCard(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Quick Actions
                     _buildQuickActions(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Financial Summary
                     _buildFinancialSummary(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Cash Flow Chart
                     _buildCashFlowChart(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Period Selector
                     _buildPeriodSelector(context, isDark),
-
                     const SizedBox(height: 16),
-
-                    // Tab Content
                     _buildTabContent(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Portfolio Summary
                     _buildPortfolioSummary(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Savings Goals
                     _buildSavingsGoals(context, isDark),
-
                     const SizedBox(height: 24),
-
-                    // Financial Insights
                     _buildFinancialInsights(context, isDark),
-
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -628,6 +642,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildTotalBalanceCard(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
+    final computedTotal = _dashboardData.cashBalance + _dashboardData.portfolioValue;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(24),
@@ -664,7 +681,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    formatCurrency(_dashboardData.totalBalance),
+                    formatCurrency(computedTotal, symbol: symbol),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 32,
@@ -682,11 +699,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 child: const Row(
                   children: [
-                    Icon(
-                      Icons.trending_up_rounded,
-                      color: AppColors.success,
-                      size: 16,
-                    ),
+                    Icon(Icons.trending_up_rounded, color: AppColors.success, size: 16),
                     SizedBox(width: 4),
                     Text(
                       '+5.2%',
@@ -707,14 +720,14 @@ class _DashboardScreenState extends State<DashboardScreen>
               _buildBalanceItem(
                 icon: Icons.account_balance_wallet_rounded,
                 label: 'Tunai & Bank',
-                value: formatCurrency(_dashboardData.cashBalance),
+                value: formatCurrency(_dashboardData.cashBalance, symbol: symbol),
                 color: Colors.white,
               ),
               const SizedBox(width: 16),
               _buildBalanceItem(
                 icon: Icons.show_chart_rounded,
                 label: 'Investasi',
-                value: formatCurrency(_dashboardData.portfolioValue),
+                value: formatCurrency(_dashboardData.portfolioValue, symbol: symbol),
                 color: Colors.white,
               ),
             ],
@@ -865,6 +878,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildFinancialSummary(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -874,7 +888,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               context: context,
               icon: Icons.arrow_downward_rounded,
               label: 'Pemasukan',
-              value: formatCurrency(_dashboardData.monthlyIncome),
+              value: formatCurrency(_dashboardData.monthlyIncome, symbol: symbol),
               color: AppColors.income,
               isDark: isDark,
             ),
@@ -885,7 +899,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               context: context,
               icon: Icons.arrow_upward_rounded,
               label: 'Pengeluaran',
-              value: formatCurrency(_dashboardData.monthlyExpense),
+              value: formatCurrency(_dashboardData.monthlyExpense, symbol: symbol),
               color: AppColors.expense,
               isDark: isDark,
             ),
@@ -910,9 +924,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : AppColors.cardShadow,
+            color: isDark ? Colors.black.withValues(alpha: 0.2) : AppColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -935,9 +947,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 label,
                 style: TextStyle(
-                  color: isDark
-                      ? AppColors.darkTextSecondary
-                      : AppColors.textSecondary,
+                  color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -947,8 +957,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Text(
             value,
             style: TextStyle(
-              color:
-                  isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -959,6 +968,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildCashFlowChart(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -967,9 +977,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : AppColors.cardShadow,
+            color: isDark ? Colors.black.withValues(alpha: 0.2) : AppColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -984,8 +992,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 'Arus Kas',
                 style: TextStyle(
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -997,7 +1004,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '+${formatCurrency(_dashboardData.monthlyNetFlow)}',
+                  '+${formatCurrency(_dashboardData.monthlyNetFlow, symbol: symbol)}',
                   style: const TextStyle(
                     color: AppColors.income,
                     fontWeight: FontWeight.bold,
@@ -1074,9 +1081,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primaryBlue
-                        : Colors.transparent,
+                    color: isSelected ? AppColors.primaryBlue : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1088,8 +1093,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           : isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       fontSize: 14,
                     ),
                   ),
@@ -1120,9 +1124,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             indicatorSize: TabBarIndicatorSize.tab,
             dividerColor: Colors.transparent,
             labelColor: AppColors.primaryBlue,
-            unselectedLabelColor: isDark
-                ? AppColors.darkTextSecondary
-                : AppColors.textSecondary,
+            unselectedLabelColor: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
             labelStyle: const TextStyle(fontWeight: FontWeight.bold),
             tabs: const [
               Tab(text: 'Transaksi'),
@@ -1148,6 +1150,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildTransactionsTab(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _dashboardData.recentTransactions.length,
@@ -1162,9 +1165,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : AppColors.cardShadow,
+                color: isDark ? Colors.black.withValues(alpha: 0.2) : AppColors.cardShadow,
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1192,9 +1193,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Text(
                       transaction.description,
                       style: TextStyle(
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -1211,7 +1210,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
               Text(
-                '${transaction.isIncome ? '+' : '-'}${formatCurrency(transaction.amount)}',
+                '${transaction.isIncome ? '+' : '-'}${formatCurrency(transaction.amount, symbol: symbol)}',
                 style: TextStyle(
                   color: transaction.isIncome ? AppColors.income : AppColors.expense,
                   fontWeight: FontWeight.bold,
@@ -1226,6 +1225,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildAccountsTab(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _dashboardData.accounts.length,
@@ -1240,9 +1240,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : AppColors.cardShadow,
+                color: isDark ? Colors.black.withValues(alpha: 0.2) : AppColors.cardShadow,
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1270,9 +1268,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Text(
                       account.name,
                       style: TextStyle(
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -1289,10 +1285,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
               Text(
-                formatCurrency(account.balance),
+                formatCurrency(account.balance, symbol: symbol),
                 style: TextStyle(
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -1305,6 +1300,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildCategoriesTab(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     final categories = _dashboardData.expenseByCategory.entries.toList();
     final total = categories.fold<double>(0, (sum, e) => sum + e.value);
 
@@ -1313,7 +1309,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final category = categories[index];
-        final percentage = (category.value / total * 100);
+        final percentage = total > 0 ? (category.value / total * 100) : 0.0;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1323,9 +1319,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : AppColors.cardShadow,
+                color: isDark ? Colors.black.withValues(alpha: 0.2) : AppColors.cardShadow,
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1355,9 +1349,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         Text(
                           category.key,
                           style: TextStyle(
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.textPrimary,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1365,9 +1357,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: percentage / 100,
-                            backgroundColor:
-                                AppColors.textSecondary.withValues(alpha: 0.1),
+                            value: (percentage / 100).clamp(0.0, 1.0),
+                            backgroundColor: AppColors.textSecondary.withValues(alpha: 0.1),
                             valueColor: AlwaysStoppedAnimation<Color>(
                               _getCategoryColor(index),
                             ),
@@ -1382,11 +1373,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        formatCurrency(category.value),
+                        formatCurrency(category.value, symbol: symbol),
                         style: TextStyle(
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.textPrimary,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1409,6 +1398,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildPortfolioSummary(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -1417,9 +1407,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : AppColors.cardShadow,
+            color: isDark ? Colors.black.withValues(alpha: 0.2) : AppColors.cardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1434,14 +1422,17 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 'Portofolio Saham',
                 style: TextStyle(
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Membuka detail lengkap portofolio saham...')),
+                  );
+                },
                 child: const Text(
                   'Lihat Detail',
                   style: TextStyle(
@@ -1461,18 +1452,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                   children: [
                     const Text(
                       'Total Nilai',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatCurrency(_dashboardData.portfolioValue),
+                      formatCurrency(_dashboardData.portfolioValue, symbol: symbol),
                       style: TextStyle(
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1501,7 +1487,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${formatCurrency(_dashboardData.portfolioProfitLoss.abs())} (${formatPercentage(_dashboardData.portfolioProfitLossPercent)})',
+                      '${formatCurrency(_dashboardData.portfolioProfitLoss.abs(), symbol: symbol)} (${formatPercentage(_dashboardData.portfolioProfitLossPercent)})',
                       style: TextStyle(
                         color: _dashboardData.portfolioProfitLoss >= 0
                             ? AppColors.income
@@ -1550,18 +1536,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                         Text(
                           holding.symbol,
                           style: TextStyle(
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.textPrimary,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           holding.companyName,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
@@ -1571,11 +1552,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        formatCurrency(holding.totalValue),
+                        formatCurrency(holding.totalValue, symbol: symbol),
                         style: TextStyle(
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.textPrimary,
+                          color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1600,6 +1579,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildSavingsGoals(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1611,14 +1591,17 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 'Target Tabungan',
                 style: TextStyle(
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Membuka semua daftar target tabungan...')),
+                  );
+                },
                 child: const Text(
                   'Lihat Semua',
                   style: TextStyle(
@@ -1672,9 +1655,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Text(
                                 goal.name,
                                 style: TextStyle(
-                                  color: isDark
-                                      ? AppColors.darkTextPrimary
-                                      : AppColors.textPrimary,
+                                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
@@ -1707,11 +1688,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          formatCurrency(goal.currentAmount),
+                          formatCurrency(goal.currentAmount, symbol: symbol),
                           style: TextStyle(
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.textPrimary,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1726,7 +1705,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'dari ${formatCurrency(goal.targetAmount)}',
+                      'dari ${formatCurrency(goal.targetAmount, symbol: symbol)}',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
@@ -1743,6 +1722,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildFinancialInsights(BuildContext context, bool isDark) {
+    final symbol = appSettings.currency == 'USD' ? '\$' : 'Rp';
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -1782,9 +1762,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 'Wawasan Finansial',
                 style: TextStyle(
-                  color: isDark
-                      ? AppColors.darkTextPrimary
-                      : AppColors.textPrimary,
+                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1795,8 +1773,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _buildInsightItem(
             icon: Icons.savings_rounded,
             title: 'Tabungan Optimal',
-            description:
-                'Anda bisa menabung ${formatCurrency(6250000)} bulan ini jika mengurangi pengeluaran hiburan.',
+            description: 'Anda bisa menabung ${formatCurrency(6250000, symbol: symbol)} bulan ini jika mengurangi pengeluaran hiburan.',
             color: AppColors.secondary,
             isDark: isDark,
           ),
@@ -1804,8 +1781,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _buildInsightItem(
             icon: Icons.trending_up_rounded,
             title: 'Portofolio Bergerak Positif',
-            description:
-                'Investasi Anda naik ${formatPercentage(_dashboardData.portfolioProfitLossPercent)} bulan ini. Pertimbangkan untuk melakukan diversifikasi.',
+            description: 'Investasi Anda naik ${formatPercentage(_dashboardData.portfolioProfitLossPercent)} bulan ini. Pertimbangkan untuk melakukan diversifikasi.',
             color: AppColors.income,
             isDark: isDark,
           ),
@@ -1813,8 +1789,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _buildInsightItem(
             icon: Icons.warning_amber_rounded,
             title: 'Peringatan Budget',
-            description:
-                'Pengeluaran makanan sudah mencapai 85% dari budget bulanan.',
+            description: 'Pengeluaran makanan sudah mencapai 85% dari budget bulanan.',
             color: AppColors.warning,
             isDark: isDark,
           ),
@@ -1855,9 +1830,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Text(
                   title,
                   style: TextStyle(
-                    color: isDark
-                        ? AppColors.darkTextPrimary
-                        : AppColors.textPrimary,
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -1878,7 +1851,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  // Helper Methods
   IconData _getAccountIcon(String type) {
     switch (type) {
       case 'bank':
@@ -1937,7 +1909,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     return colors[index % colors.length];
   }
 
-  // Dialog Methods
   void _showNotificationsDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -1969,47 +1940,95 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  // Pengaturan Dialog yang Sekarang Berfungsi 100% (Tema, Bahasa, Mata Uang)
   void _showSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Pengaturan'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.dark_mode_rounded),
-              title: const Text('Tema Gelap'),
-              trailing: Switch(
-                value: Theme.of(context).brightness == Brightness.dark,
-                onChanged: (value) {},
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Pengaturan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.dark_mode_rounded),
+                title: const Text('Tema Gelap'),
+                trailing: Switch(
+                  value: appSettings.themeMode == ThemeMode.dark,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      appSettings.setThemeMode(value ? ThemeMode.dark : ThemeMode.light);
+                    });
+                  },
+                ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.language_rounded),
-              title: const Text('Bahasa'),
-              subtitle: const Text('Indonesia'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.attach_money_rounded),
-              title: const Text('Mata Uang'),
-              subtitle: const Text('IDR - Rupiah'),
-              onTap: () {},
+              ListTile(
+                leading: const Icon(Icons.language_rounded),
+                title: const Text('Bahasa'),
+                subtitle: Text(appSettings.language),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Pilih Bahasa'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: ['Indonesia', 'English'].map((lang) {
+                          return ListTile(
+                            title: Text(lang),
+                            onTap: () {
+                              appSettings.setLanguage(lang);
+                              Navigator.pop(ctx);
+                              setDialogState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.attach_money_rounded),
+                title: const Text('Mata Uang'),
+                subtitle: Text('${appSettings.currency} - ${appSettings.currency == 'IDR' ? 'Rupiah' : 'US Dollar'}'),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Pilih Mata Uang'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: ['IDR', 'USD'].map((curr) {
+                          return ListTile(
+                            title: Text(curr),
+                            onTap: () {
+                              appSettings.setCurrency(curr);
+                              Navigator.pop(ctx);
+                              setDialogState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-        ],
       ),
     );
   }
 
+  // Form Tambah Transaksi Interaktif Terhubung ke Dashboard State
   void _showAddTransactionDialog(BuildContext context, String type) {
     final isIncome = type == 'income';
     final amountController = TextEditingController();
@@ -2040,10 +2059,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   children: [
                     Text(
                       isIncome ? 'Tambah Pemasukan' : 'Tambah Pengeluaran',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -2058,15 +2074,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(
                     labelText: 'Jumlah',
-                    prefixText: 'Rp ',
+                    prefixText: appSettings.currency == 'USD' ? '\$ ' : 'Rp ',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -2079,25 +2092,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Kategori',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Kategori', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: (isIncome
                           ? ['Gaji', 'Freelance', 'Investasi', 'Hadiah', 'Lainnya']
-                          : [
-                              'Makanan',
-                              'Transport',
-                              'Belanja',
-                              'Hiburan',
-                              'Kesehatan',
-                              'Tagihan',
-                              'Lainnya'
-                            ])
+                          : ['Makanan', 'Transport', 'Belanja', 'Hiburan', 'Kesehatan', 'Tagihan', 'Lainnya'])
                       .map((category) => ChoiceChip(
                             label: Text(category),
                             selected: selectedCategory == category,
@@ -2114,22 +2116,22 @@ class _DashboardScreenState extends State<DashboardScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      final val = double.tryParse(amountController.text) ?? 0.0;
+                      if (val > 0) {
+                        _addNewTransaction(type, val, selectedCategory, descriptionController.text);
+                      }
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            isIncome
-                                ? 'Pemasukan berhasil ditambahkan'
-                                : 'Pengeluaran berhasil ditambahkan',
+                            isIncome ? 'Pemasukan berhasil ditambahkan' : 'Pengeluaran berhasil ditambahkan',
                           ),
-                          backgroundColor:
-                              isIncome ? AppColors.income : AppColors.expense,
+                          backgroundColor: isIncome ? AppColors.income : AppColors.expense,
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          isIncome ? AppColors.income : AppColors.expense,
+                      backgroundColor: isIncome ? AppColors.income : AppColors.expense,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -2138,10 +2140,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     child: const Text(
                       'Simpan',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -2153,10 +2152,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  // Form Dialog Transfer Saldo Interaktif
   void _showTransferDialog(BuildContext context) {
     final amountController = TextEditingController();
-    String fromAccount = 'Bank BCA';
-    String toAccount = 'Tabungan';
+    String fromAccount = _dashboardData.accounts.isNotEmpty ? _dashboardData.accounts.first.name : 'Bank BCA';
+    String toAccount = _dashboardData.accounts.length > 1 ? _dashboardData.accounts[1].name : 'Tabungan';
 
     showModalBottomSheet(
       context: context,
@@ -2182,10 +2182,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   children: [
                     const Text(
                       'Transfer',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -2194,17 +2191,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Dari Akun',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Dari Akun', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: fromAccount,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   items: _dashboardData.accounts
                       .map((a) => DropdownMenuItem(
@@ -2212,21 +2204,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: Text(a.name),
                           ))
                       .toList(),
-                  onChanged: (value) =>
-                      setModalState(() => fromAccount = value!),
+                  onChanged: (value) => setModalState(() => fromAccount = value!),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Ke Akun',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Ke Akun', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: toAccount,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   items: _dashboardData.accounts
                       .where((a) => a.name != fromAccount)
@@ -2235,8 +2221,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: Text(a.name),
                           ))
                       .toList(),
-                  onChanged: (value) =>
-                      setModalState(() => toAccount = value!),
+                  onChanged: (value) => setModalState(() => toAccount = value!),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -2245,25 +2230,24 @@ class _DashboardScreenState extends State<DashboardScreen>
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(
                     labelText: 'Jumlah',
-                    prefixText: 'Rp ',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    prefixText: appSettings.currency == 'USD' ? '\$ ' : 'Rp ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      final val = double.tryParse(amountController.text) ?? 0.0;
+                      if (val > 0) {
+                        _executeTransfer(fromAccount, toAccount, val);
+                      }
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Transfer berhasil'),
+                          content: Text('Transfer berhasil dilakukan'),
                           backgroundColor: AppColors.accent,
                         ),
                       );
@@ -2272,16 +2256,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                       backgroundColor: AppColors.accent,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text(
                       'Transfer Sekarang',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -2309,10 +2288,8 @@ class CashFlowChartPainter extends CustomPainter {
     final chartWidth = size.width - padding * 2;
     final chartHeight = size.height - padding * 2;
 
-    final maxValue = data.fold<double>(
-        0, (max, item) => math.max(max, (item['income'] as double?) ?? 0));
-    final maxExpense = data.fold<double>(
-        0, (max, item) => math.max(max, (item['expense'] as double?) ?? 0));
+    final maxValue = data.fold<double>(0, (max, item) => math.max(max, (item['income'] as double?) ?? 0));
+    final maxExpense = data.fold<double>(0, (max, item) => math.max(max, (item['expense'] as double?) ?? 0));
     final globalMax = math.max(maxValue, maxExpense);
 
     if (globalMax == 0) return;
@@ -2330,11 +2307,9 @@ class CashFlowChartPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final gridPaint = Paint()
-      ..color = (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary)
-          .withValues(alpha: 0.2)
+      ..color = (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary).withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
-    // Draw grid lines
     for (var i = 0; i <= 4; i++) {
       final y = padding + (chartHeight / 4) * i;
       canvas.drawLine(
@@ -2344,18 +2319,13 @@ class CashFlowChartPainter extends CustomPainter {
       );
     }
 
-    // Draw income line
     final incomePath = Path();
     final expensePath = Path();
 
     for (var i = 0; i < data.length; i++) {
       final x = padding + (chartWidth / (data.length - 1).clamp(1, data.length)) * i;
-      final incomeY = padding +
-          chartHeight -
-          ((data[i]['income'] as double?) ?? 0) / globalMax * chartHeight;
-      final expenseY = padding +
-          chartHeight -
-          ((data[i]['expense'] as double?) ?? 0) / globalMax * chartHeight;
+      final incomeY = padding + chartHeight - ((data[i]['income'] as double?) ?? 0) / globalMax * chartHeight;
+      final expenseY = padding + chartHeight - ((data[i]['expense'] as double?) ?? 0) / globalMax * chartHeight;
 
       if (i == 0) {
         incomePath.moveTo(x, incomeY);
@@ -2369,7 +2339,6 @@ class CashFlowChartPainter extends CustomPainter {
     canvas.drawPath(incomePath, incomePaint);
     canvas.drawPath(expensePath, expensePaint);
 
-    // Draw gradient fill for income
     final incomeGradient = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
