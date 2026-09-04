@@ -19,9 +19,13 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final themeStr = prefs.getString('theme_mode') ?? 'system';
-    if (themeStr == 'dark') _themeMode = ThemeMode.dark;
-    else if (themeStr == 'light') _themeMode = ThemeMode.light;
-    else _themeMode = ThemeMode.system;
+    if (themeStr == 'dark') {
+      _themeMode = ThemeMode.dark;
+    } else if (themeStr == 'light') {
+      _themeMode = ThemeMode.light;
+    } else {
+      _themeMode = ThemeMode.system;
+    }
 
     _languageCode = prefs.getString('language_code') ?? 'id';
     _currency = prefs.getString('currency') ?? 'IDR';

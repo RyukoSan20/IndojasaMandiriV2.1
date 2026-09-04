@@ -7,7 +7,7 @@ import '../utils/currency_formatter.dart';
 import '../models/transaction_type.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   void _showTransactionModal(BuildContext context, TransactionType type) {
     final amountController = TextEditingController();
@@ -72,7 +72,7 @@ class DashboardScreen extends StatelessWidget {
                         );
                       }
                     }
-                    Navigator.pop(ctx);
+                    if (!context.mounted) return; Navigator.pop(ctx);
                   },
                   child: const Text('Simpan Transaksi', style: TextStyle(color: Colors.white)),
                 ),
