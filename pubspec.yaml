@@ -8,6 +8,10 @@ environment:
   sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
+  flutter_local_notifications: ^17.0.0
+  permission_handler: ^11.3.0
+  path: ^1.8.3
+  sqflite: ^2.3.0
   dio: ^5.4.0
   flutter:
     sdk: flutter

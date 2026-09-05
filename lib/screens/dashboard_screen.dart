@@ -2,6 +2,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+
+String formatCurrency(double amount, {String symbol = 'Rp '}) {
+  try {
+    dynamic settings = appSettings;
+    return settings.formatConverted(amount);
+  } catch (e) {
+    final formatted = amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return '$symbol$formatted';
+  }
+}
+
+
+
 
 // Color Constants
 class AppColors {
@@ -377,39 +396,77 @@ class AppSettings extends ChangeNotifier {
 final appSettings = AppSettings();
 
 // Format Currency dengan Dukungan Simbol Dinamis
-String formatCurrency(double amount, {String symbol = 'Rp', bool compact = false}) {
-  if (compact) {
-    if (amount >= 1000000000) {
-      return '$symbol ${(amount / 1000000000).toStringAsFixed(1)}B';
-    } else if (amount >= 1000000) {
-      return '$symbol ${(amount / 1000000).toStringAsFixed(1)}jt';
-    } else if (amount >= 1000) {
-      return '$symbol ${(amount / 1000).toStringAsFixed(0)}rb';
+// 1. Service API CurrencyFreaks untuk Kurs Mata Uang Real-Time
+class CurrencyApiService {
+  static const String apiKey = '1f64fafa938447949ffc4f520bf1549e';
+  static const String baseUrl = 'https://api.currencyfreaks.com/v2.0/rates/latest';
+
+  static Future<Map<String, double>> fetchLatestRates() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl?apikey=$apiKey'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final ratesMap = data['rates'] as Map<String, dynamic>;
+        return ratesMap.map((key, value) => MapEntry(key, double.tryParse(value.toString()) ?? 1.0));
+      }
+    } catch (e) {
+      debugPrint('Gagal mengambil data CurrencyFreaks: $e');
     }
+    // Fallback rate cadangan jika offline / error
+    return {
+      'IDR': 15500.0,
+      'USD': 1.0,
+      'EUR': 0.92,
+      'JPY': 150.0,
+      'GBP': 0.79,
+      'SAR': 3.75,
+      'MYR': 4.70,
+    };
   }
-  final formatted = amount.toStringAsFixed(0).replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (Match m) => '${m[1]}.',
-      );
-  return '$symbol $formatted';
+
+  static double convert({
+    required double amount,
+    required String fromCurrency,
+    required String toCurrency,
+    required Map<String, double> rates,
+  }) {
+    if (rates.isEmpty) return amount;
+    // CurrencyFreaks default base adalah USD
+    double amountInUSD = fromCurrency == 'USD' ? amount : amount / (rates[fromCurrency] ?? 1.0);
+    double targetRate = rates[toCurrency] ?? 1.0;
+    return amountInUSD * targetRate;
+  }
 }
 
+// 2. Global App State Notifier (Reaktif untuk Tema, Bahasa, & Konversi Mata Uang API)
+
+
+// Format Percentage
 String formatPercentage(double value) {
   final sign = value >= 0 ? '+' : '';
   return '$sign${value.toStringAsFixed(2)}%';
 }
 
-String formatDate(DateTime date) {
+// Format Date dengan Terjemahan Bahasa Dinamis (Indonesia / English / Japanese)
+String formatDate(DateTime date, String language) {
   final now = DateTime.now();
   final diff = now.difference(date);
 
-  if (diff.inMinutes < 60) {
-    return '${diff.inMinutes} menit lalu';
-  } else if (diff.inHours < 24) {
-    return '${diff.inHours} jam lalu';
-  } else if (diff.inDays < 7) {
-    return '${diff.inDays} hari lalu';
+  if (language == 'English') {
+    if (diff.inMinutes < 60) return '${diff.inMinutes} mins ago';
+    if (diff.inHours < 24) return '${diff.inHours} hours ago';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    return '${date.day}/${date.month}/${date.year}';
+  } else if (language == 'Japanese') {
+    if (diff.inMinutes < 60) return '${diff.inMinutes}分前';
+    if (diff.inHours < 24) return '${diff.inHours}時間前';
+    if (diff.inDays < 7) return '${diff.inDays}日前';
+    return '${date.year}/${date.month}/${date.day}';
   } else {
+    // Default Indonesia
+    if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
+    if (diff.inHours < 24) return '${diff.inHours} jam lalu';
+    if (diff.inDays < 7) return '${diff.inDays} hari lalu';
     return '${date.day}/${date.month}/${date.year}';
   }
 }
@@ -456,6 +513,7 @@ class FinTrackApp extends StatelessWidget {
   }
 }
 
+
 // Dashboard Screen
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -467,7 +525,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  DashboardData _dashboardData = DashboardData.sample();
+  final DashboardData _dashboardData = DashboardData.empty();
   bool _isLoading = false;
   int _selectedPeriodIndex = 1;
 
@@ -1200,7 +1258,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${transaction.category} • ${formatDate(transaction.date)}',
+                      '${transaction.category} • ${formatDate(transaction.date, appSettings.language)}',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
@@ -1941,89 +1999,108 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // Pengaturan Dialog yang Sekarang Berfungsi 100% (Tema, Bahasa, Mata Uang)
-  void _showSettingsDialog(BuildContext context) {
+void _showSettingsDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Pengaturan'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.dark_mode_rounded),
-                title: const Text('Tema Gelap'),
-                trailing: Switch(
+        builder: (context, setDialogState) {
+          // Kamus terjemahan konkrit berbasis state bahasa aktif
+          bool isEn = appSettings.language == 'English';
+          bool isJp = appSettings.language == 'Japanese';
+          
+          String titleSettings = isEn ? 'Settings' : (isJp ? '設定' : 'Pengaturan');
+          String titleDarkTheme = isEn ? 'Dark Theme' : (isJp ? 'ダークテーマ' : 'Tema Gelap');
+          String titleLanguage = isEn ? 'Language' : (isJp ? '言語' : 'Bahasa');
+          String titleCurrency = isEn ? 'Currency' : (isJp ? '通貨' : 'Mata Uang');
+          String liveRatesLabel = isEn ? 'Live Exchange Rates' : (isJp ? 'リアルタイム為替レート' : 'Kurs Valas Real-Time');
+          String btnClose = isEn ? 'Close' : (isJp ? '閉じる' : 'Tutup');
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(titleSettings),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. Elemen Konkret: Toggle Tema Gelap / Terang
+                SwitchListTile(
+                  secondary: const Icon(Icons.dark_mode_rounded),
+                  title: Text(titleDarkTheme),
                   value: appSettings.themeMode == ThemeMode.dark,
                   onChanged: (value) {
-                    setDialogState(() {
-                      appSettings.setThemeMode(value ? ThemeMode.dark : ThemeMode.light);
-                    });
+                    appSettings.setThemeMode(value ? ThemeMode.dark : ThemeMode.light);
+                    setDialogState(() {});
                   },
                 ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.language_rounded),
-                title: const Text('Bahasa'),
-                subtitle: Text(appSettings.language),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Pilih Bahasa'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: ['Indonesia', 'English'].map((lang) {
-                          return ListTile(
-                            title: Text(lang),
-                            onTap: () {
-                              appSettings.setLanguage(lang);
-                              Navigator.pop(ctx);
-                              setDialogState(() {});
-                            },
-                          );
-                        }).toList(),
+                const Divider(),
+                // 2. Elemen Konkret: Menu Pemilihan Bahasa (i18n)
+                ListTile(
+                  leading: const Icon(Icons.language_rounded),
+                  title: Text(titleLanguage),
+                  subtitle: Text(appSettings.language),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Select Language / Pilih Bahasa'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: ['Indonesia', 'English', 'Japanese'].map((lang) {
+                            return ListTile(
+                              title: Text(lang),
+                              onTap: () {
+                                appSettings.setLanguage(lang);
+                                Navigator.pop(ctx); 
+                                Navigator.pop(context); // Tutup dialog utama untuk me-refresh UI screen
+                                setState(() {}); 
+                              },
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.attach_money_rounded),
-                title: const Text('Mata Uang'),
-                subtitle: Text('${appSettings.currency} - ${appSettings.currency == 'IDR' ? 'Rupiah' : 'US Dollar'}'),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Pilih Mata Uang'),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: ['IDR', 'USD'].map((curr) {
-                          return ListTile(
-                            title: Text(curr),
-                            onTap: () {
-                              appSettings.setCurrency(curr);
-                              Navigator.pop(ctx);
-                              setDialogState(() {});
-                            },
-                          );
-                        }).toList(),
+                    );
+                  },
+                ),
+                const Divider(),
+                // 3. Elemen Konkret: Menu Pemilihan Mata Uang (CurrencyFreaks API)
+                ListTile(
+                  leading: const Icon(Icons.attach_money_rounded),
+                  title: Text(titleCurrency),
+                  subtitle: Text('${appSettings.currency} ($liveRatesLabel)'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Pilih Mata Uang (Currency)'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: ['IDR', 'USD', 'EUR', 'JPY', 'SAR', 'MYR'].map((curr) {
+                            return ListTile(
+                              title: Text(curr),
+                              onTap: () {
+                                appSettings.setCurrency(curr);
+                                Navigator.pop(ctx); 
+                                Navigator.pop(context); 
+                                setState(() {}); // Refresh dashboard untuk mengkalkulasi ulang kurs API
+                              },
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(btnClose),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Tutup'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
