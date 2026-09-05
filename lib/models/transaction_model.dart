@@ -1,75 +1,43 @@
-class TransactionModel {
+class Transaction {
   final String id;
-  final String? userId;
-  final String accountId;
+  final String title;
   final double amount;
-  final dynamic type;
-  final String categoryId;
-  final String? description;
-  final String? notes;
-  final String? receiptUrl;
-  final String? location;
-  final String status;
+  final bool isIncome;
+  final String category;
   final DateTime date;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  final List<String>? tags;
+  final String? accountId;
 
-  TransactionModel({
+  Transaction({
     required this.id,
-    this.userId,
-    required this.accountId,
+    required this.title,
     required this.amount,
-    required this.type,
-    required this.categoryId,
-    this.description,
-    String? notes,
-    this.receiptUrl,
-    this.location,
-    this.status = 'completed',
+    required this.isIncome,
+    required this.category,
     required this.date,
-    this.createdAt,
-    this.updatedAt,
-    this.tags,
-  }) : notes = notes ?? description;
+    this.accountId,
+  });
 
-  factory TransactionModel.fromJson(Map<String, dynamic> json) {
-    return TransactionModel(
-      id: json['id'] ?? '',
-      userId: json['userId'],
-      accountId: json['accountId'] ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      type: json['type'] ?? 'expense',
-      categoryId: json['categoryId'] ?? '',
-      description: json['description'],
-      notes: json['notes'] ?? json['description'],
-      receiptUrl: json['receiptUrl'],
-      location: json['location'],
-      status: json['status'] ?? 'completed',
-      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
-      tags: json['tags'] != null ? List<String>.from(json['tags']) : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'userId': userId,
-      'accountId': accountId,
+      'title': title,
       'amount': amount,
-      'type': type,
-      'categoryId': categoryId,
-      'description': description,
-      'notes': notes,
-      'receiptUrl': receiptUrl,
-      'location': location,
-      'status': status,
+      'type': isIncome ? 'income' : 'expense',
+      'category': category,
       'date': date.toIso8601String(),
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-      'tags': tags,
+      'account_id': accountId,
     };
+  }
+
+  factory Transaction.fromMap(Map<String, dynamic> map) {
+    return Transaction(
+      id: map['id'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      isIncome: map['type'] == 'income' || map['isIncome'] == true,
+      category: map['category'] as String? ?? 'Lainnya',
+      date: map['date'] != null ? DateTime.tryParse(map['date'] as String) ?? DateTime.now() : DateTime.now(),
+      accountId: map['account_id'] as String?,
+    );
   }
 }

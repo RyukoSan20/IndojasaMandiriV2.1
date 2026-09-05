@@ -1,3 +1,5 @@
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 // ignore_for_file: unused_field, deprecated_member_use, prefer_const_declarations
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -625,7 +627,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ),
                     Text(
-                      'Maya Putri',
+                      Provider.of<AppProvider>(context, listen: false).userName,
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
@@ -1983,8 +1985,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             ListTile(
               leading: Icon(Icons.trending_up_rounded, color: AppColors.income),
-              title: Text('BBCA naik 3%'),
-              subtitle: Text('Portofolio Anda untung'),
+              title: Text('Belum ada notifikasi baru'),
+              subtitle: Text('Sistem beroperasi normal'),
             ),
           ],
         ),

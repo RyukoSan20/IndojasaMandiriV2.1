@@ -1,85 +1,81 @@
-import 'user_model.dart';
-
-enum GoalStatus { active, completed, cancelled }
-
-class SavingsGoalModel {
+class SavingsContribution {
   final String id;
-  final String? userId;
-  final String name;
-  final double targetAmount;
-  final double currentAmount;
-  final DateTime targetDate;
-  final GoalStatus status;
-  final String? icon;
-  final String? color;
-  final int priority;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-  final List<SavingsContribution> contributions;
+  final double amount;
+  final DateTime date;
+  final String? note;
 
-  SavingsGoalModel({
+  SavingsContribution({
     required this.id,
-    this.userId,
-    required this.name,
-    required this.targetAmount,
-    this.currentAmount = 0.0,
-    DateTime? targetDate,
-    DateTime? deadline,
-    this.status = GoalStatus.active,
-    this.icon,
-    this.color,
-    this.priority = 1,
-    this.createdAt,
-    this.updatedAt,
-    List<SavingsContribution>? contributions,
-  })  : targetDate = targetDate ?? deadline ?? DateTime.now(),
-        contributions = contributions ?? [];
-
-  DateTime get deadline => targetDate;
-
-  factory SavingsGoalModel.fromJson(Map<String, dynamic> json) {
-    return SavingsGoalModel(
-      id: json['id'] ?? '',
-      userId: json['userId'],
-      name: json['name'] ?? '',
-      targetAmount: (json['targetAmount'] as num?)?.toDouble() ?? 0.0,
-      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
-      targetDate: json['targetDate'] != null
-          ? DateTime.parse(json['targetDate'])
-          : (json['deadline'] != null ? DateTime.parse(json['deadline']) : DateTime.now()),
-      status: GoalStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => GoalStatus.active,
-      ),
-      icon: json['icon'],
-      color: json['color'],
-      priority: json['priority'] ?? 1,
-      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : null,
-      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
-      contributions: json['contributions'] != null
-          ? (json['contributions'] as List)
-              .map((e) => SavingsContribution.fromJson(e as Map<String, dynamic>))
-              .toList()
-          : [],
-    );
-  }
+    required this.amount,
+    required this.date,
+    this.note,
+  });
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'userId': userId,
-      'name': name,
+      'amount': amount,
+      'date': date.toIso8601String(),
+      'note': note,
+    };
+  }
+
+  factory SavingsContribution.fromJson(Map<String, dynamic> json) {
+    return SavingsContribution(
+      id: json['id'] as String? ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      date: json['date'] != null ? DateTime.tryParse(json['date'] as String) ?? DateTime.now() : DateTime.now(),
+      note: json['note'] as String?,
+    );
+  }
+}
+
+class SavingsGoal {
+  final String id;
+  final String title;
+  final double targetAmount;
+  final double currentAmount;
+  final DateTime targetDate;
+  final List<SavingsContribution> contributions;
+
+  SavingsGoal({
+    required this.id,
+    required this.title,
+    required this.targetAmount,
+    required this.currentAmount,
+    required this.targetDate,
+    List<SavingsContribution>? contributions,
+  }) : contributions = contributions ?? [];
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
       'targetDate': targetDate.toIso8601String(),
-      'deadline': targetDate.toIso8601String(),
-      'status': status.name,
-      'icon': icon,
-      'color': color,
-      'priority': priority,
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-      'contributions': contributions.map((e) => e.toJson()).toList(),
+      'contributions': contributions.map((c) => c.toJson()).toList(),
     };
+  }
+
+  factory SavingsGoal.fromJson(Map<String, dynamic> json) {
+    var rawList = json['contributions'] as List?;
+    List<SavingsContribution> parsedContributions = [];
+    if (rawList != null) {
+      parsedContributions = rawList
+          .map((item) => SavingsContribution.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+
+    return SavingsGoal(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      targetAmount: (json['targetAmount'] as num?)?.toDouble() ?? 0.0,
+      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
+      targetDate: json['targetDate'] != null
+          ? DateTime.tryParse(json['targetDate'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      contributions: parsedContributions,
+    );
   }
 }
