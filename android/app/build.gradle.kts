@@ -11,7 +11,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // Pindahkan properti desugaring ke sini
         isCoreLibraryDesugaringEnabled = true
     }
 
