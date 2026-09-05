@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    // The Flutter Gradle Plugin must be applied after the Android plugin
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -12,6 +11,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Pindahkan properti desugaring ke sini
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -20,9 +21,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        // Enabled to support flutter_local_notifications desugaring requirement
-        isCoreLibraryDesugaringEnabled = true
     }
 
     buildTypes {
@@ -43,6 +41,5 @@ flutter {
 }
 
 dependencies {
-    // Required core library desugaring dependency
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
