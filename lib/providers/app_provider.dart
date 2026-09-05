@@ -34,20 +34,22 @@ class AppProvider extends ChangeNotifier {
   List<String> get expenseCategories => ['Makanan', 'Transportasi', 'Kebutuhan Pokok', 'Konsumtif', 'Tagihan', 'Lainnya'];
 
   double get totalBalance => _accounts.fold(0.0, (sum, acc) => sum + acc.balance);
+  double get cashAndBankBalance => _accounts
+      .where((a) => a.category != AccountCategory.investment)
+      .fold(0.0, (sum, a) => sum + a.balance);
+  double get totalPortfolioValue => _accounts
+      .where((a) => a.category == AccountCategory.investment)
+      .fold(0.0, (sum, a) => sum + a.balance);
 
   double get monthlyIncome => _transactions
       .where((t) => t.isIncome)
       .fold(0.0, (sum, t) => sum + t.amount);
 
   double get monthlyExpenses => _transactions
+      .where((t) => !t.isIncome)
       .fold(0.0, (sum, t) => sum + t.amount);
 
-  double get monthlyIncomeSummary => monthlyIncome;
-  double get monthlyExpenseSummary => monthlyExpenses;
-  double get totalPortfolioValue => _accounts
-      .where((a) => a.category == AccountCategory.investment)
-      .fold(0.0, (sum, a) => sum + a.balance);
-
+  double get cashFlow => monthlyIncome - monthlyExpenses;
   double get monthlyIncomeValue => _monthlyIncomeValue;
 
   Future<void> refreshDashboard() async {
@@ -63,6 +65,8 @@ class AppProvider extends ChangeNotifier {
       _currency = userRes.first['currency'] as String? ?? 'IDR';
       _monthlyIncomeValue = (userRes.first['monthly_income'] as num?)?.toDouble() ?? 0.0;
       _isOnboarded = true;
+    } else {
+      _isOnboarded = false;
     }
 
     final accRes = await db.query('accounts');
@@ -80,6 +84,7 @@ class AppProvider extends ChangeNotifier {
     required double income,
     required bool hasIncome,
     required bool useFormula,
+    required String goalType,
   }) async {
     final db = await dbHelper.database;
     _userName = name;
@@ -94,10 +99,14 @@ class AppProvider extends ChangeNotifier {
       'monthly_income': income,
       'has_monthly_income': hasIncome ? 1 : 0,
       'use_allocation_hack': useFormula ? 1 : 0,
+      'goal_type': goalType,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
     _accounts.clear();
+    await db.delete('accounts');
+
     if (useFormula && income > 0) {
+      // FORMULA HACK 50/5/30/15
       _accounts = [
         AccountModel(id: 'acc_needs', name: 'Kebutuhan Pokok (50%)', balance: income * 0.50, category: AccountCategory.bank, currency: currency),
         AccountModel(id: 'acc_wants', name: 'Konsumtif (5%)', balance: income * 0.05, category: AccountCategory.ewallet, currency: currency),
@@ -106,8 +115,10 @@ class AppProvider extends ChangeNotifier {
       ];
     } else {
       _accounts = [
-        AccountModel(id: 'acc_cash', name: 'Tunai / Kas Utama', balance: income, category: AccountCategory.cash, currency: currency),
-        AccountModel(id: 'acc_bank', name: 'Bank Utama', balance: 0.0, category: AccountCategory.bank, currency: currency),
+        AccountModel(id: 'acc_cash', name: 'Kas Utama / Tunai', balance: income, category: AccountCategory.cash, currency: currency),
+        AccountModel(id: 'acc_bank', name: 'Bank Konvensional', balance: 0.0, category: AccountCategory.bank, currency: currency),
+        AccountModel(id: 'acc_ewallet', name: 'E-Wallet (Gopay/OVO)', balance: 0.0, category: AccountCategory.ewallet, currency: currency),
+        AccountModel(id: 'acc_valas', name: 'Akun Valas (USD/SAR)', balance: 0.0, category: AccountCategory.valas, currency: currency),
       ];
     }
 
@@ -116,22 +127,6 @@ class AppProvider extends ChangeNotifier {
     }
 
     await loadInitialData();
-  }
-
-  Future<void> createTransaction({
-    required String accountId,
-    required String title,
-    required double amount,
-    required bool isIncome,
-    required String category,
-  }) async {
-    await addTransaction(
-      accountId: accountId,
-      title: title,
-      amount: amount,
-      isIncome: isIncome,
-      category: category,
-    );
   }
 
   Future<void> addTransaction({
@@ -159,7 +154,6 @@ class AppProvider extends ChangeNotifier {
       final acc = _accounts[accIndex];
       final newBalance = isIncome ? acc.balance + amount : acc.balance - amount;
       acc.balance = newBalance;
-
       await db.update('accounts', {'balance': newBalance}, where: 'id = ?', whereArgs: [accountId]);
     }
 

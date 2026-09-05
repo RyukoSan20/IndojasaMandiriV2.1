@@ -1,37 +1,60 @@
-class AllocationResult {
-  final double needs;      // 50% Kebutuhan Pokok
-  final double wants;      // 5% Konsumtif
-  final double investment; // 30% Investasi
-  final double emergency;  // 15% Dana Darurat
+class FinancialAllocationResult {
+  final double needsAmount;      // 50% Kebutuhan Pokok
+  final double wantsAmount;      // 5% Konsumtif
+  final double investmentAmount; // 30% Investasi
+  final double emergencyAmount;  // 15% Dana Darurat
 
-  AllocationResult({
-    required this.needs,
-    required this.wants,
-    required this.investment,
-    required this.emergency,
+  FinancialAllocationResult({
+    required this.needsAmount,
+    required this.wantsAmount,
+    required this.investmentAmount,
+    required this.emergencyAmount,
   });
 
-  factory AllocationResult.calculateStandard(double initialAmount) {
-    return AllocationResult(
-      needs: initialAmount * 0.50,
-      wants: initialAmount * 0.05,
-      investment: initialAmount * 0.30,
-      emergency: initialAmount * 0.15,
+  Map<String, double> toMap() {
+    return {
+      'needs': needsAmount,
+      'wants': wantsAmount,
+      'investment': investmentAmount,
+      'emergency': emergencyAmount,
+    };
+  }
+}
+
+class FinancialAllocationEngine {
+  // Hitung alokasi bawaan (50/5/30/15)
+  static FinancialAllocationResult calculateDefaultAllocation(double totalIncome) {
+    return calculateCustomAllocation(
+      totalIncome: totalIncome,
+      needsRatio: 0.50,
+      wantsRatio: 0.05,
+      investmentRatio: 0.30,
+      emergencyRatio: 0.15,
     );
   }
 
-  factory AllocationResult.calculateCustom(
-    double initialAmount, {
+  // Hitung alokasi kustom sesuai input persentase dari user
+  static FinancialAllocationResult calculateCustomAllocation({
+    required double totalIncome,
     required double needsRatio,
     required double wantsRatio,
-    required double investRatio,
+    required double investmentRatio,
     required double emergencyRatio,
   }) {
-    return AllocationResult(
-      needs: initialAmount * needsRatio,
-      wants: initialAmount * wantsRatio,
-      investment: initialAmount * investRatio,
-      emergency: initialAmount * emergencyRatio,
+    final totalRatio = needsRatio + wantsRatio + investmentRatio + emergencyRatio;
+    if ((totalRatio - 1.0).abs() > 0.001 && totalRatio > 0) {
+      // Normalisasi rasio jika total persentase tidak pas 100%
+      needsRatio /= totalRatio;
+      wantsRatio /= totalRatio;
+      investmentRatio /= totalRatio;
+      emergencyRatio /= totalRatio;
+    }
+
+    return FinancialAllocationResult(
+      needsAmount: totalIncome * needsRatio,
+      wantsAmount: totalIncome * wantsRatio,
+      investmentAmount: totalIncome * investmentRatio,
+      emergencyAmount: totalIncome * emergencyRatio,
     );
   }
 }

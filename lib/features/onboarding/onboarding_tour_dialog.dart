@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 
 class OnboardingTourDialog extends StatefulWidget {
-  final Function(String name, String currency, double income, bool hasIncome, bool useFormula) onComplete;
+  final Function({
+    required String name,
+    required String currency,
+    required double income,
+    required bool hasIncome,
+    required bool useFormula,
+    required String goalType,
+  }) onComplete;
 
-  const OnboardingTourDialog({super.key, required this.onComplete});
+  const OnboardingTourDialog({super.key, required onComplete}) : onComplete = onComplete;
 
   @override
   State<OnboardingTourDialog> createState() => _OnboardingTourDialogState();
@@ -14,84 +21,113 @@ class _OnboardingTourDialogState extends State<OnboardingTourDialog> {
   final _nameController = TextEditingController();
   final _incomeController = TextEditingController();
   String _selectedCurrency = 'IDR';
+  String _selectedGoal = 'Monthly';
   bool _hasIncome = true;
   bool _useFormula = true;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_step == 0) ...[
-              const Text('Selamat Datang di FinTrack', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              const Text('Mari atur preferensi dan profil keuangan awal Anda secara bersih.'),
-              const SizedBox(height: 15),
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Nama Lengkap', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCurrency,
-                items: const [
-                  DropdownMenuItem(value: 'IDR', child: Text('IDR - Rupiah')),
-                  DropdownMenuItem(value: 'USD', child: Text('USD - Dollar')),
-                  DropdownMenuItem(value: 'JPY', child: Text('JPY - Yen')),
-                ],
-                onChanged: (val) => setState(() => _selectedCurrency = val!),
-                decoration: const InputDecoration(labelText: 'Mata Uang Utama', border: OutlineInputBorder()),
-              ),
-            ] else if (_step == 1) ...[
-              const Text('Status Penghasilan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 15),
-              SwitchListTile(
-                title: const Text('Sudah Memiliki Penghasilan Bulanan?'),
-                value: _hasIncome,
-                onChanged: (val) => setState(() => _hasIncome = val),
-              ),
-              if (_hasIncome)
-                TextField(
-                  controller: _incomeController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Nominal Penghasilan Bulanan', border: OutlineInputBorder()),
-                ),
-            ] else ...[
-              const Text('Alokasi Otomatis (Smart Hack)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                title: const Text('Bagi penghasilan otomatis ke rumus 50/5/30/15 (Kebutuhan, Konsumtif, Investasi, Dana Darurat)?'),
-                value: _useFormula,
-                onChanged: (val) => setState(() => _useFormula = val),
-              ),
+    return AlertDialog(
+      title: Text('Selamat Datang di FinTrack! (Langkah ${_step + 1}/3)'),
+      content: SingleChildScrollView(
+        child: _buildStepContent(),
+      ),
+      actions: [
+        if (_step > 0)
+          TextButton(
+            onPressed: () => setState(() => _step--),
+            child: const Text('Kembali'),
+          ),
+        ElevatedButton(
+          onPressed: () {
+            if (_step < 2) {
+              setState(() => _step++);
+            } else {
+              final income = double.tryParse(_incomeController.text) ?? 0.0;
+              widget.onComplete(
+                name: _nameController.text.isEmpty ? 'Pengguna Baru' : _nameController.text,
+                currency: _selectedCurrency,
+                income: income,
+                hasIncome: _hasIncome,
+                useFormula: _useFormula,
+                goalType: _selectedGoal,
+              );
+              Navigator.of(context).pop();
+            }
+          },
+          child: Text(_step == 2 ? 'Mulai FinTrack' : 'Lanjut'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepContent() {
+    if (_step == 0) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Mari atur profil keuangan dasar Anda.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Nama Lengkap'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedCurrency,
+            items: ['IDR', 'USD', 'EUR', 'SAR', 'JPY', 'MYR']
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (val) => setState(() => _selectedCurrency = val ?? 'IDR'),
+            decoration: const InputDecoration(labelText: 'Mata Utama'),
+          ),
+        ],
+      );
+    } else if (_step == 1) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Pilih Target Planning Keuangan Anda:'),
+          const SizedBox(height: 12),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'Weekly', label: Text('Mingguan')),
+              ButtonSegment(value: 'Monthly', label: Text('Bulanan')),
+              ButtonSegment(value: 'Yearly', label: Text('Tahunan')),
             ],
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (_step > 0)
-                  TextButton(onPressed: () => setState(() => _step--), child: const Text('Kembali')),
-                ElevatedButton(
-                  onPressed: () {
-                    if (_step < 2) {
-                      setState(() => _step++);
-                    } else {
-                      final inc = double.tryParse(_incomeController.text) ?? 0.0;
-                      widget.onComplete(_nameController.text, _selectedCurrency, inc, _hasIncome, _useFormula);
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: Text(_step == 2 ? 'Selesai' : 'Lanjut'),
-                ),
-              ],
+            selected: {_selectedGoal},
+            onSelectionChanged: (val) => setState(() => _selectedGoal = val.first),
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SwitchListTile(
+            title: const Text('Sudah Memiliki Penghasilan Bulanan?'),
+            value: _hasIncome,
+            onChanged: (val) => setState(() => _hasIncome = val),
+          ),
+          if (_hasIncome) ...[
+            TextField(
+              controller: _incomeController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Jumlah Penghasilan Bulanan',
+                prefixText: 'Rp ',
+              ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              title: const Text('Gunakan Hack Alokasi 50/5/30/15?'),
+              subtitle: const Text('50% Kebutuhan, 5% Konsumtif, 30% Investasi, 15% Darurat'),
+              value: _useFormula,
+              onChanged: (val) => setState(() => _useFormula = val),
             ),
           ],
-        ),
-      ),
-    );
+        ],
+      );
+    }
   }
 }

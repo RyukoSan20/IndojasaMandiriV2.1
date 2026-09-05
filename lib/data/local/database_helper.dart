@@ -16,12 +16,7 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+    return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -32,28 +27,21 @@ class DatabaseHelper {
         currency TEXT NOT NULL,
         monthly_income REAL NOT NULL,
         has_monthly_income INTEGER NOT NULL,
-        use_allocation_hack INTEGER NOT NULL
+        use_allocation_hack INTEGER NOT NULL,
+        goal_type TEXT
       )
     ''');
 
     await db.execute('''
       CREATE TABLE accounts (
         id TEXT PRIMARY KEY,
-        user_id TEXT,
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         category TEXT NOT NULL,
         balance REAL NOT NULL,
         currency TEXT NOT NULL,
-        currency_code TEXT,
-        icon TEXT,
-        color INTEGER,
-        card_last_digits TEXT,
         bank_name TEXT,
-        is_active INTEGER DEFAULT 1,
-        include_in_total INTEGER DEFAULT 1,
-        created_at TEXT,
-        updated_at TEXT
+        is_active INTEGER DEFAULT 1
       )
     ''');
 
@@ -71,12 +59,12 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE allocation_rules (
+      CREATE TABLE savings_goals (
         id TEXT PRIMARY KEY,
-        needs_ratio REAL NOT NULL,
-        wants_ratio REAL NOT NULL,
-        invest_ratio REAL NOT NULL,
-        emergency_ratio REAL NOT NULL
+        title TEXT NOT NULL,
+        target_amount REAL NOT NULL,
+        current_amount REAL NOT NULL,
+        target_date TEXT NOT NULL
       )
     ''');
   }
