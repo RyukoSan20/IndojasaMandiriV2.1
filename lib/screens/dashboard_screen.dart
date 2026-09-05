@@ -16,7 +16,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // PEMICU POP-UP ONBOARDING (Wajib muncul jika database masih kosong)
+    // PEMICU POP-UP ONBOARDING (Wajib muncul jika database kosong)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<AppProvider>(context, listen: false);
       if (!provider.isOnboarded) {
@@ -34,7 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 goalType: goalType,
               );
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profil dan Alokasi Dana Berhasil Dibuat!')),
+                const SnackBar(content: Text('Profil & Alokasi Dana 50/5/30/15 Berhasil Dibuat!')),
               );
             },
           ),
@@ -45,10 +45,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // UI REAKTIF: Mendengarkan perubahan langsung dari SQLite
     final provider = Provider.of<AppProvider>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121826),
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -60,7 +61,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         actions: [
-          // FITUR CALENDAR PLANNER
           IconButton(
             icon: const Icon(Icons.calendar_month, color: Colors.white),
             onPressed: () async {
@@ -74,14 +74,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
-          // FITUR BACKUP KE LOCAL STORAGE
           IconButton(
             icon: const Icon(Icons.save_alt, color: Colors.white),
             onPressed: () async {
               final path = await BackupRestoreService.exportBackup();
               if (path != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Backup berhasil disimpan di: $path')),
+                  SnackBar(content: Text('Backup disimpan di: $path')),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.blueAccent,
+        color: const Color(0xFF2563EB),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -160,9 +159,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildActionButton(context, Icons.add, 'Pemasukan', Colors.teal, () => _showTransactionDialog(context, provider, true)),
-        _buildActionButton(context, Icons.remove, 'Pengeluaran', Colors.redAccent, () => _showTransactionDialog(context, provider, false)),
-        _buildActionButton(context, Icons.swap_horiz, 'Transfer', Colors.orange, () => _showTransferDialog(context, provider)),
+        _buildActionButton(context, Icons.add, 'Pemasukan', const Color(0xFF10B981), () => _showTransactionDialog(context, provider, true)),
+        _buildActionButton(context, Icons.remove, 'Pengeluaran', const Color(0xFFEF4444), () => _showTransactionDialog(context, provider, false)),
+        _buildActionButton(context, Icons.swap_horiz, 'Transfer', const Color(0xFFF59E0B), () => _showTransferDialog(context, provider)),
       ],
     );
   }
@@ -189,10 +188,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // DIALOG TRANSAKSI DINAMIS MEMBACA DATABASE SQLITE
+  // TRANSAKSI DINAMIS KE SQLITE
   void _showTransactionDialog(BuildContext context, AppProvider provider, bool isIncome) {
     if (provider.accounts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun belum tersedia. Silakan isi profil Onboarding.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun kosong. Selesaikan Onboarding.')));
       return;
     }
 
@@ -214,19 +213,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: const TextStyle(color: Colors.white),
               items: provider.accounts.map((a) => DropdownMenuItem(value: a.id, child: Text('${a.name} (${a.currency})'))).toList(),
               onChanged: (val) => selectedAccount = val!,
-              decoration: const InputDecoration(labelText: 'Pilih Akun', labelStyle: TextStyle(color: Colors.grey)),
             ),
-            TextField(
-              controller: titleController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Deskripsi', labelStyle: TextStyle(color: Colors.grey)),
-            ),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Jumlah Nominal', labelStyle: TextStyle(color: Colors.grey)),
-            ),
+            TextField(controller: titleController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Deskripsi', labelStyle: TextStyle(color: Colors.grey))),
+            TextField(controller: amountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Nominal', labelStyle: TextStyle(color: Colors.grey))),
           ],
         ),
         actions: [
@@ -249,10 +238,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // DIALOG TRANSFER DINAMIS ANTAR AKUN (Valas, Bank, E-Wallet)
+  // TRANSFER ANTAR AKUN (Valas, E-Wallet, Bank) KE SQLITE
   void _showTransferDialog(BuildContext context, AppProvider provider) {
     if (provider.accounts.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dibutuhkan minimal 2 akun untuk transfer.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dibutuhkan minimal 2 akun.')));
       return;
     }
 
@@ -314,9 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTransactionList(AppProvider provider) {
-    if (provider.transactions.isEmpty) {
-      return const Center(child: Text('Belum ada transaksi.', style: TextStyle(color: Colors.grey)));
-    }
+    if (provider.transactions.isEmpty) return const Center(child: Text('Belum ada transaksi.', style: TextStyle(color: Colors.grey)));
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
