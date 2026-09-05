@@ -16,9 +16,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // PEMICU POP-UP ONBOARDING (Wajib muncul jika database kosong)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<AppProvider>(context, listen: false);
+      provider.loadInitialData();
       if (!provider.isOnboarded) {
         showDialog(
           context: context,
@@ -33,8 +33,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 useFormula: useFormula,
                 goalType: goalType,
               );
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profil & Alokasi Dana 50/5/30/15 Berhasil Dibuat!')),
+                const SnackBar(content: Text('Inisialisasi FinTrack & Alokasi 50/5/30/15 Berhasil!'), backgroundColor: Colors.green),
               );
             },
           ),
@@ -45,7 +46,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // UI REAKTIF: Mendengarkan perubahan langsung dari SQLite
     final provider = Provider.of<AppProvider>(context);
 
     return Scaffold(
@@ -57,7 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Selamat Pagi', style: TextStyle(fontSize: 12, color: Colors.grey)),
-            Text(provider.userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(provider.userName.isEmpty ? 'Pengguna Baru' : provider.userName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
           ],
         ),
         actions: [
@@ -69,23 +69,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 targetDate: DateTime.now().add(const Duration(days: 7)),
                 targetAmount: provider.totalBalance,
               );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Jadwal tersinkronisasi dengan Google Calendar')),
-              );
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jadwal tersinkronisasi dengan Google Calendar')));
             },
           ),
           IconButton(
             icon: const Icon(Icons.save_alt, color: Colors.white),
             onPressed: () async {
               final path = await BackupRestoreService.exportBackup();
+              if (!mounted) return;
               if (path != null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Backup disimpan di: $path')),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup tersimpan di: $path')));
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Gagal backup. Periksa izin penyimpanan.')),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal backup. Periksa izin penyimpanan.')));
               }
             },
           ),
@@ -99,9 +95,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _buildBalanceCard(provider),
             const SizedBox(height: 20),
             _buildActionButtons(context, provider),
-            const SizedBox(height: 20),
-            const Text('Arus Kas', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 24),
+            const Text('Arus Kas & Mutasi Relasional', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
             _buildTransactionList(provider),
           ],
         ),
@@ -113,24 +109,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF2563EB),
+        gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Total Saldo', style: TextStyle(color: Colors.white70)),
+          const Text('Total Saldo Bersih', style: TextStyle(color: Colors.white70)),
           const SizedBox(height: 8),
-          Text(
-            '${provider.currency} ${provider.totalBalance.toStringAsFixed(0)}',
-            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
+          Text('${provider.currency} ${provider.totalBalance.toStringAsFixed(0)}', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildSubBalance('Tunai & Bank', provider.cashAndBankBalance, provider.currency),
-              _buildSubBalance('Investasi', provider.totalPortfolioValue, provider.currency),
+              _buildSubBalance('Portofolio Investasi', provider.totalPortfolioValue, provider.currency),
             ],
           )
         ],
@@ -140,15 +133,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildSubBalance(String label, double amount, String currency) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          const SizedBox(height: 2),
           Text('$currency ${amount.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ],
       ),
@@ -170,13 +161,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.28,
+        width: MediaQuery.of(context).size.width * 0.29,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withValues(alpha: 0.3))),
         child: Column(
           children: [
             Icon(icon, color: color, size: 28),
@@ -188,13 +175,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // TRANSAKSI DINAMIS KE SQLITE
   void _showTransactionDialog(BuildContext context, AppProvider provider, bool isIncome) {
     if (provider.accounts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun kosong. Selesaikan Onboarding.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun belum tersedia. Selesaikan onboarding.')));
       return;
     }
-
     String selectedAccount = provider.accounts.first.id;
     final amountController = TextEditingController();
     final titleController = TextEditingController();
@@ -208,13 +193,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              value: selectedAccount,
+              initialValue: selectedAccount,
               dropdownColor: const Color(0xFF1E293B),
               style: const TextStyle(color: Colors.white),
               items: provider.accounts.map((a) => DropdownMenuItem(value: a.id, child: Text('${a.name} (${a.currency})'))).toList(),
-              onChanged: (val) => selectedAccount = val!,
+              onChanged: (val) {
+                if (val != null) selectedAccount = val;
+              },
+              decoration: const InputDecoration(labelText: 'Akun Sumber', labelStyle: TextStyle(color: Colors.grey)),
             ),
+            const SizedBox(height: 12),
             TextField(controller: titleController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Deskripsi', labelStyle: TextStyle(color: Colors.grey))),
+            const SizedBox(height: 12),
             TextField(controller: amountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Nominal', labelStyle: TextStyle(color: Colors.grey))),
           ],
         ),
@@ -222,13 +212,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () {
-              provider.addTransaction(
-                accountId: selectedAccount,
-                title: titleController.text,
-                amount: double.tryParse(amountController.text) ?? 0.0,
-                isIncome: isIncome,
-                category: 'Umum',
-              );
+              final amt = double.tryParse(amountController.text) ?? 0.0;
+              if (amt > 0) {
+                provider.addTransaction(
+                  accountId: selectedAccount,
+                  title: titleController.text.isEmpty ? (isIncome ? 'Pemasukan' : 'Pengeluaran') : titleController.text,
+                  amount: amt,
+                  isIncome: isIncome,
+                  category: isIncome ? 'Gaji' : 'Kebutuhan',
+                );
+              }
               Navigator.pop(ctx);
             },
             child: const Text('Simpan'),
@@ -238,13 +231,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // TRANSFER ANTAR AKUN (Valas, E-Wallet, Bank) KE SQLITE
   void _showTransferDialog(BuildContext context, AppProvider provider) {
     if (provider.accounts.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dibutuhkan minimal 2 akun.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dibutuhkan minimal 2 akun untuk transfer.')));
       return;
     }
-
     String fromAccount = provider.accounts[0].id;
     String toAccount = provider.accounts[1].id;
     final amountController = TextEditingController();
@@ -255,32 +246,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: const Color(0xFF1E293B),
         title: const Text('Transfer Antar Akun', style: TextStyle(color: Colors.white)),
         content: StatefulBuilder(
-          builder: (context, setState) => Column(
+          builder: (context, setDialogState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: fromAccount,
+                initialValue: fromAccount,
                 dropdownColor: const Color(0xFF1E293B),
                 style: const TextStyle(color: Colors.white),
-                items: provider.accounts.map((a) => DropdownMenuItem(value: a.id, child: Text('${a.name} (Saldo: ${a.balance})'))).toList(),
-                onChanged: (val) => setState(() => fromAccount = val!),
+                items: provider.accounts.map((a) => DropdownMenuItem(value: a.id, child: Text('${a.name} (${a.balance.toStringAsFixed(0)})'))).toList(),
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => fromAccount = val);
+                },
                 decoration: const InputDecoration(labelText: 'Dari Akun', labelStyle: TextStyle(color: Colors.grey)),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: toAccount,
+                initialValue: toAccount,
                 dropdownColor: const Color(0xFF1E293B),
                 style: const TextStyle(color: Colors.white),
-                items: provider.accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
-                onChanged: (val) => setState(() => toAccount = val!),
+                items: provider.accounts.map((a) => DropdownMenuItem(value: a.id, child: Text('${a.name} (${a.balance.toStringAsFixed(0)})'))).toList(),
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => toAccount = val);
+                },
                 decoration: const InputDecoration(labelText: 'Ke Akun', labelStyle: TextStyle(color: Colors.grey)),
               ),
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(labelText: 'Jumlah', labelStyle: TextStyle(color: Colors.grey)),
-              ),
+              const SizedBox(height: 12),
+              TextField(controller: amountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Jumlah', labelStyle: TextStyle(color: Colors.grey))),
             ],
           ),
         ),
@@ -288,11 +279,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () {
-              provider.transferFunds(
-                fromAccountId: fromAccount,
-                toAccountId: toAccount,
-                amount: double.tryParse(amountController.text) ?? 0.0,
-              );
+              final amt = double.tryParse(amountController.text) ** 0.0; // Fixed fallback or parse
+              final parsedAmt = double.tryParse(amountController.text) ?? 0.0;
+              if (parsedAmt > 0) {
+                provider.transferFunds(fromAccountId: fromAccount, toAccountId: toAccount, amount: parsedAmt);
+              }
               Navigator.pop(ctx);
             },
             child: const Text('Transfer'),
@@ -303,20 +294,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTransactionList(AppProvider provider) {
-    if (provider.transactions.isEmpty) return const Center(child: Text('Belum ada transaksi.', style: TextStyle(color: Colors.grey)));
+    if (provider.transactions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        alignment: Alignment.center,
+        child: const Text('Belum ada transaksi terekam.\nSeluruh data murni dari input Anda.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+      );
+    }
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: provider.transactions.length,
       itemBuilder: (context, index) {
         final tx = provider.transactions[index];
-        return ListTile(
-          leading: Icon(tx.isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: tx.isIncome ? Colors.teal : Colors.redAccent),
-          title: Text(tx.title, style: const TextStyle(color: Colors.white)),
-          subtitle: Text(tx.category, style: const TextStyle(color: Colors.grey)),
-          trailing: Text(
-            '${tx.isIncome ? '+' : '-'}${provider.currency} ${tx.amount.toStringAsFixed(0)}',
-            style: TextStyle(color: tx.isIncome ? Colors.teal : Colors.redAccent, fontWeight: FontWeight.bold),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            leading: Icon(tx.isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: tx.isIncome ? Colors.teal : Colors.redAccent),
+            title: Text(tx.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+            subtitle: Text(tx.category, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            trailing: Text(
+              '${tx.isIncome ? '+' : '-'}${provider.currency} ${tx.amount.toStringAsFixed(0)}',
+              style: TextStyle(color: tx.isIncome ? Colors.teal : Colors.redAccent, fontWeight: FontWeight.bold),
+            ),
           ),
         );
       },
