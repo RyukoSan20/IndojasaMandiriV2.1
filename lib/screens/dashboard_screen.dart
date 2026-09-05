@@ -64,24 +64,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.calendar_month, color: Colors.white),
             onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
               await CalendarSyncService.syncBudgetPlanToCalendar(
                 title: 'Review FinTrack Goals',
                 targetDate: DateTime.now().add(const Duration(days: 7)),
                 targetAmount: provider.totalBalance,
               );
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jadwal tersinkronisasi dengan Google Calendar')));
+              messenger.showSnackBar(const SnackBar(content: Text('Jadwal tersinkronisasi dengan Google Calendar')));
             },
           ),
           IconButton(
             icon: const Icon(Icons.save_alt, color: Colors.white),
             onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
               final path = await BackupRestoreService.exportBackup();
               if (!mounted) return;
               if (path != null) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup tersimpan di: $path')));
+                messenger.showSnackBar(SnackBar(content: Text('Backup tersimpan di: $path')));
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal backup. Periksa izin penyimpanan.')));
+                messenger.showSnackBar(const SnackBar(content: Text('Gagal backup. Periksa izin penyimpanan.')));
               }
             },
           ),
@@ -279,7 +281,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
           ElevatedButton(
             onPressed: () {
-              final amt = double.tryParse(amountController.text) ** 0.0; // Fixed fallback or parse
               final parsedAmt = double.tryParse(amountController.text) ?? 0.0;
               if (parsedAmt > 0) {
                 provider.transferFunds(fromAccountId: fromAccount, toAccountId: toAccount, amount: parsedAmt);
